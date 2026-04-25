@@ -2,6 +2,7 @@ package com.openflags.testing;
 
 import com.openflags.core.event.ChangeType;
 import com.openflags.core.event.FlagChangeEvent;
+import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
@@ -124,10 +125,20 @@ class InMemoryFlagProviderTest {
     @Test
     void removeChangeListener_stopsReceivingEvents() {
         List<FlagChangeEvent> events = new ArrayList<>();
-        provider.addChangeListener(events::add);
-        provider.removeChangeListener(events::add);
-        provider.setBoolean("f", true);
+        FlagChangeListener listener = events::add;
+        provider.addChangeListener(listener);
+        provider.removeChangeListener(listener);
+        provider.setBoolean("flag", true);
         assertThat(events).isEmpty();
+    }
+
+    @Test
+    void removeChangeListener_withDifferentInstance_doesNothing() {
+        List<FlagChangeEvent> events = new ArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.removeChangeListener(e -> {});
+        provider.setBoolean("flag-neg", true);
+        assertThat(events).hasSize(1);
     }
 
     @Test
