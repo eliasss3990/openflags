@@ -1,0 +1,74 @@
+flags:
+  feature-x:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "ar-only"
+        kind: targeting
+        when:
+          - attribute: country
+            operator: EQ
+            value: "AR"
+        value: true
+
+  internal-tools:
+    type: boolean
+    value: false
+    rules:
+      - name: "internal-users"
+        kind: targeting
+        when:
+          - attribute: targetingKey
+            operator: IN
+            value: ["user-1", "user-7", "user-42"]
+        value: true
+
+  new-checkout:
+    type: boolean
+    value: false
+    rules:
+      - name: "always-rollout"
+        kind: split
+        percentage: 100
+        value: true
+
+  premium-banner:
+    type: string
+    value: "default-banner"
+    enabled: true
+    description: "Banner shown on the home page"
+    rules:
+      - name: "internal-employees"
+        kind: targeting
+        when:
+          - attribute: email
+            operator: ENDS_WITH
+            value: "@openflags.com"
+        value: "internal-banner"
+      - name: "premium-users"
+        kind: targeting
+        when:
+          - attribute: plan
+            operator: IN
+            value: ["pro", "enterprise"]
+          - attribute: country
+            operator: NOT_IN
+            value: ["KP", "IR"]
+        value: "premium-banner"
+      - name: "experiment-50"
+        kind: split
+        percentage: 0
+        value: "experiment-banner"
+
+  beta-feature:
+    type: boolean
+    value: false
+    rules:
+      - name: "beta-emails"
+        kind: targeting
+        when:
+          - attribute: email
+            operator: MATCHES
+            value: "^[a-z]+\\+beta@example\\.com$"
+        value: true
