@@ -102,6 +102,39 @@ class FileWatcherTest {
     }
 
     @Test
+    void start_calledTwice_doesNotSpawnExtraThreads(@TempDir Path tempDir) throws Exception {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "content");
+
+        FileWatcher watcher = new FileWatcher(file, () -> {});
+        watcher.start();
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> countWatcherThreads() >= 1);
+        int countAfterFirstStart = countWatcherThreads();
+
+        watcher.start();
+        Thread.sleep(100);
+
+        assertThat(countWatcherThreads()).isEqualTo(countAfterFirstStart);
+        watcher.stop();
+    }
+
+    @Test
+    void start_afterStop_throwsIllegalState(@TempDir Path tempDir) throws Exception {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "content");
+
+        FileWatcher watcher = new FileWatcher(file, () -> {});
+        watcher.start();
+        Thread.sleep(100);
+        watcher.stop();
+
+        assertThatThrownBy(watcher::start)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stop");
+    }
+
+    @Test
     void retryPending_doesNotBlockSecondEvent(@TempDir Path tempDir) throws Exception {
         Path file = tempDir.resolve("flags.yml");
         Files.writeString(file, "v0");
@@ -133,5 +166,15 @@ class FileWatcherTest {
         assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
 
         watcher.stop();
+    }
+
+    private static int countWatcherThreads() {
+        int count = 0;
+        for (Thread t : Thread.getAllStackTraces().keySet()) {
+            if (t.getName().equals("openflags-filewatcher")) {
+                count++;
+            }
+        }
+        return count;
     }
 }
