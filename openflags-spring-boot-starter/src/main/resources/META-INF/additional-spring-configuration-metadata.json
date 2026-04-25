@@ -1,0 +1,22 @@
+{
+  "properties": [
+    {
+      "name": "openflags.provider",
+      "type": "java.lang.String",
+      "description": "The flag provider type to use. Currently supported: 'file'.",
+      "defaultValue": "file"
+    },
+    {
+      "name": "openflags.file.path",
+      "type": "java.lang.String",
+      "description": "Path to the flag definition file. Supports classpath: and file: prefixes.",
+      "defaultValue": "classpath:flags.yml"
+    },
+    {
+      "name": "openflags.file.watch-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable hot reload when the flag file changes. Automatically disabled for files inside JARs.",
+      "defaultValue": true
+    }
+  ]
+}
