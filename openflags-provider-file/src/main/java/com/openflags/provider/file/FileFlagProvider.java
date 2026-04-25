@@ -52,7 +52,7 @@ public final class FileFlagProvider implements FlagProvider {
     private final AtomicReference<ProviderState> state = new AtomicReference<>(ProviderState.NOT_READY);
 
     private boolean initialized = false;
-    // volatile: leido por requireNotShutdown() fuera de synchronized
+    // volatile: read by requireNotShutdown() outside synchronized blocks
     private volatile boolean shutdown = false;
     private FileWatcher watcher;
 
