@@ -146,8 +146,23 @@ public final class InMemoryFlagProvider implements FlagProvider {
         if (existing == null) {
             throw new IllegalArgumentException("Cannot disable unknown flag: '" + key + "'");
         }
-        Flag disabled = new Flag(key, existing.type(), existing.value(), false, existing.metadata());
+        Flag disabled = new Flag(key, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
         return putFlag(disabled);
+    }
+
+    /**
+     * Registers a fully constructed {@link Flag}, including any rules.
+     * <p>
+     * Use this method when the typed convenience setters ({@code setBoolean}, etc.) are not
+     * sufficient, for example when the flag carries Phase 2 targeting or split rules.
+     * </p>
+     *
+     * @param flag the flag to register; must not be null
+     * @return this provider (for chaining)
+     */
+    public InMemoryFlagProvider setFlag(Flag flag) {
+        java.util.Objects.requireNonNull(flag, "flag must not be null");
+        return putFlag(flag);
     }
 
     /**

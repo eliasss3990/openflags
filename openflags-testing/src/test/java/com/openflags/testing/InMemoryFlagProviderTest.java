@@ -1,9 +1,18 @@
 package com.openflags.testing;
 
+import com.openflags.core.OpenFlagsClient;
+import com.openflags.core.evaluation.EvaluationContext;
+import com.openflags.core.evaluation.EvaluationReason;
+import com.openflags.core.evaluation.EvaluationResult;
+import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.Operator;
+import com.openflags.core.evaluation.rule.TargetingRule;
 import com.openflags.core.event.ChangeType;
 import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
+import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
+import com.openflags.core.model.FlagValue;
 import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,6 +74,23 @@ class InMemoryFlagProviderTest {
         provider.setBoolean("feature", true);
         provider.setDisabled("feature");
         assertThat(provider.getFlag("feature").get().enabled()).isFalse();
+    }
+
+    @Test
+    void setDisabled_preservesRules() {
+        FlagValue defaultValue = FlagValue.of(false, FlagType.BOOLEAN);
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-rules", FlagType.BOOLEAN, defaultValue, true, null, List.of(rule));
+        provider.setFlag(flag);
+
+        provider.setDisabled("feature-rules");
+
+        Flag disabled = provider.getFlag("feature-rules").orElseThrow();
+        assertThat(disabled.enabled()).isFalse();
+        assertThat(disabled.rules()).isNotEmpty();
+        assertThat(disabled.rules().get(0).name()).isEqualTo("ar-only");
     }
 
     @Test
@@ -207,5 +233,33 @@ class InMemoryFlagProviderTest {
         pool.shutdown();
 
         assertThat(provider.getAllFlags()).hasSize(threadCount * flagsPerThread);
+    }
+
+    // Phase 2: flags with rules
+
+    @Test
+    void flagWithRules_evaluatesTargetingRuleCorrectly() {
+        FlagValue defaultValue = FlagValue.of(false, FlagType.BOOLEAN);
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-x", FlagType.BOOLEAN, defaultValue, true, null, List.of(rule));
+
+        provider.setFlag(flag);
+
+        OpenFlagsClient client = OpenFlagsClient.builder().provider(provider).build();
+        try {
+            EvaluationContext matchCtx = EvaluationContext.builder().attribute("country", "AR").build();
+            EvaluationResult<Boolean> result = client.getBooleanResult("feature-x", false, matchCtx);
+            assertThat(result.value()).isTrue();
+            assertThat(result.reason()).isEqualTo(EvaluationReason.TARGETING_MATCH);
+
+            EvaluationContext noMatchCtx = EvaluationContext.builder().attribute("country", "BR").build();
+            EvaluationResult<Boolean> result2 = client.getBooleanResult("feature-x", false, noMatchCtx);
+            assertThat(result2.value()).isFalse();
+            assertThat(result2.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        } finally {
+            client.shutdown();
+        }
     }
 }

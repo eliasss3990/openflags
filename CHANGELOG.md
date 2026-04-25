@@ -7,6 +7,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.2.0] - 2026-04-25
+
+### Added
+
+- `openflags-core`: `RuleEngine` — evaluates an ordered list of `Rule` instances against an `EvaluationContext` using first-match-wins semantics
+- `openflags-core`: `TargetingRule` — attribute-based rule; returns a configured value when all `Condition` entries match the context (AND logic)
+- `openflags-core`: `SplitRule` — percentage-rollout rule; assigns users to buckets 0–99 via MurmurHash3 and returns a configured value when the bucket falls within the configured percentage
+- `openflags-core`: `Operator` — 12 comparison operators: `EQ`, `NOT_EQ`, `IN`, `NOT_IN`, `GT`, `GTE`, `LT`, `LTE`, `CONTAINS`, `NOT_CONTAINS`, `MATCHES`, `NOT_MATCHES`
+- `openflags-core`: `BucketAllocator` — consistent hashing allocator backed by `MurmurHash3` for stable percentage rollout
+- `openflags-core`: `MurmurHash3` — zero-dependency implementation of the MurmurHash3 x86 32-bit algorithm
+- `openflags-core`: `ConditionEvaluator` — applies a single `Condition` to context attributes; handles numeric coercion for `EQ`/`IN`/`NOT_IN`
+- `openflags-core`: `Condition` — value object holding `attribute`, `operator`, and `value` fields
+- `openflags-core`: new `EvaluationReason` values: `TARGETING_MATCH` (a `TargetingRule` matched), `SPLIT` (a `SplitRule` matched), `DEFAULT` (rules present but none matched)
+
+### Changed
+
+- `openflags-core`: `FlagEvaluator` delegates to `RuleEngine` after the standard enabled/type checks; falls back to the static flag value with reason `DEFAULT` when no rule matches
+- `openflags-core`: `Flag` record gains a `rules` field (`List<Rule>`, defaults to empty list) — no breaking change for existing usages
+- `openflags-provider-file`: `FlagFileParser` parses the optional `rules:` section from YAML/JSON and hydrates `TargetingRule` and `SplitRule` instances
+
+### Notes
+
+- Full backward compatibility with Phase 1 flags: any flag without a `rules:` section is evaluated as before with reason `RESOLVED`
+
+---
+
 ## [Unreleased] — 0.1.0
 
 ### Added

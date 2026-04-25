@@ -68,11 +68,11 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a boolean flag with evaluation context.
-     * <p><strong>Phase 1 note:</strong> {@code context} is accepted but not used. See {@link FlagEvaluator#evaluate}.</p>
+     * <p>The context may include a targeting key and attributes used by targeting and split rules.</p>
      *
      * @param key          the flag key
      * @param defaultValue value returned if the flag is missing, disabled, or wrong type
-     * @param context      evaluation context
+     * @param context      evaluation context for targeting and split rules
      * @return the flag value, or {@code defaultValue}
      * @throws IllegalStateException if the client has been shut down
      */
@@ -110,11 +110,11 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a string flag with evaluation context.
-     * <p><strong>Phase 1 note:</strong> {@code context} is accepted but not used. See {@link FlagEvaluator#evaluate}.</p>
+     * <p>The context may include a targeting key and attributes used by targeting and split rules.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value
-     * @param context      evaluation context
+     * @param context      evaluation context for targeting and split rules
      * @return the flag value, or {@code defaultValue}
      * @throws IllegalStateException if the client has been shut down
      */
@@ -152,11 +152,11 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a number flag with evaluation context.
-     * <p><strong>Phase 1 note:</strong> {@code context} is accepted but not used. See {@link FlagEvaluator#evaluate}.</p>
+     * <p>The context may include a targeting key and attributes used by targeting and split rules.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value
-     * @param context      evaluation context
+     * @param context      evaluation context for targeting and split rules
      * @return the flag value, or {@code defaultValue}
      * @throws IllegalStateException if the client has been shut down
      */
@@ -194,11 +194,11 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates an object (JSON) flag with evaluation context.
-     * <p><strong>Phase 1 note:</strong> {@code context} is accepted but not used. See {@link FlagEvaluator#evaluate}.</p>
+     * <p>The context may include a targeting key and attributes used by targeting and split rules.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value
-     * @param context      evaluation context
+     * @param context      evaluation context for targeting and split rules
      * @return the flag value, or {@code defaultValue}
      * @throws IllegalStateException if the client has been shut down
      */

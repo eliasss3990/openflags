@@ -1,6 +1,11 @@
 package com.openflags.core.model;
 
+import com.openflags.core.evaluation.rule.Rule;
+import com.openflags.core.evaluation.rule.SplitRule;
+import com.openflags.core.evaluation.rule.TargetingRule;
+
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -9,7 +14,8 @@ import java.util.regex.Pattern;
  * Immutable representation of a feature flag definition.
  * <p>
  * A flag has a unique key, a type, a current value, an enabled/disabled state,
- * and optional metadata. Implemented as a Java record (ADR-009).
+ * optional metadata, and an optional list of targeting/rollout rules.
+ * Implemented as a Java record (ADR-009).
  * </p>
  *
  * @param key      unique identifier for this flag; must match {@code ^[a-zA-Z][a-zA-Z0-9._-]*$}
@@ -17,13 +23,15 @@ import java.util.regex.Pattern;
  * @param value    the current value of the flag
  * @param enabled  whether this flag is active; disabled flags yield the caller's default value
  * @param metadata optional metadata (description, tags, owner, etc.); never null
+ * @param rules    optional targeting/rollout rules; never null after construction
  */
 public record Flag(
         String key,
         FlagType type,
         FlagValue value,
         boolean enabled,
-        Map<String, String> metadata
+        Map<String, String> metadata,
+        List<Rule> rules
 ) {
     private static final Pattern KEY_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9._-]*$");
 
@@ -31,8 +39,9 @@ public record Flag(
      * Compact constructor that validates all fields.
      *
      * @throws NullPointerException     if key, type, or value is null
-     * @throws IllegalArgumentException if key is blank or does not match the required pattern
-     * @throws IllegalArgumentException if value type does not match the declared type
+     * @throws IllegalArgumentException if key is blank or does not match the required pattern,
+     *                                  if value type does not match the declared type,
+     *                                  or if any rule's value type does not match the declared type
      */
     public Flag {
         Objects.requireNonNull(key, "key must not be null");
@@ -52,5 +61,35 @@ public record Flag(
                             + " for flag '" + key + "'");
         }
         metadata = metadata == null ? Collections.emptyMap() : Collections.unmodifiableMap(metadata);
+        rules = rules == null ? List.of() : List.copyOf(rules);
+
+        for (Rule rule : rules) {
+            FlagValue rv = ruleValue(rule);
+            if (rv != null && rv.getType() != type) {
+                throw new IllegalArgumentException(
+                        "rule '" + rule.name() + "' value type " + rv.getType()
+                                + " does not match flag '" + key + "' type " + type);
+            }
+        }
+    }
+
+    /**
+     * Backwards-compatible constructor that defaults {@code rules} to empty.
+     * <p>Used by Phase 1 tests and any caller that does not declare rules.</p>
+     *
+     * @param key      the flag key
+     * @param type     the flag type
+     * @param value    the default flag value
+     * @param enabled  whether the flag is active
+     * @param metadata optional metadata
+     */
+    public Flag(String key, FlagType type, FlagValue value, boolean enabled, Map<String, String> metadata) {
+        this(key, type, value, enabled, metadata, List.of());
+    }
+
+    private static FlagValue ruleValue(Rule rule) {
+        if (rule instanceof TargetingRule t) return t.value();
+        if (rule instanceof SplitRule s) return s.value();
+        return null;
     }
 }
