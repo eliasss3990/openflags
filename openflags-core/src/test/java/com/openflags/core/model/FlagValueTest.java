@@ -101,6 +101,7 @@ class FlagValueTest {
     }
 
     @Test
+    @SuppressWarnings("deprecation")
     void getRawValue_returnsUnderlyingValue() {
         FlagValue value = FlagValue.of(99.0, FlagType.NUMBER);
         assertThat(value.getRawValue()).isEqualTo(99.0);

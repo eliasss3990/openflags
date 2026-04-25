@@ -5,7 +5,6 @@ import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
 import com.openflags.core.provider.FlagProvider;
-import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -121,6 +120,7 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    @SuppressWarnings("rawtypes")
     void evaluate_resolvesObjectFlag() {
         Map<String, Object> config = Map.of("timeout", 30);
         Flag flag = new Flag("config", FlagType.OBJECT, FlagValue.of(config, FlagType.OBJECT), true, null);
@@ -133,6 +133,7 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    @SuppressWarnings("rawtypes")
     void evaluate_resolvesObjectFlagWithSubclassOfMap() {
         Map<String, Object> config = Map.of("timeout", 30);
         Flag flag = new Flag("config", FlagType.OBJECT, FlagValue.of(config, FlagType.OBJECT), true, null);

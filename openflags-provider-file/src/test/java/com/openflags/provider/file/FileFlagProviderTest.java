@@ -2,8 +2,6 @@ package com.openflags.provider.file;
 
 import com.openflags.core.event.ChangeType;
 import com.openflags.core.event.FlagChangeEvent;
-import com.openflags.core.event.FlagChangeListener;
-import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.Test;
@@ -12,9 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
