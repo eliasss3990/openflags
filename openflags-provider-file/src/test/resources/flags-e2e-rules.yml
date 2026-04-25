@@ -1,0 +1,77 @@
+flags:
+  # Phase 1-style flag (no rules)
+  dark-mode:
+    type: boolean
+    value: true
+    enabled: true
+
+  # Targeting by country
+  feature-x:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "ar-only"
+        kind: targeting
+        when:
+          - attribute: country
+            operator: EQ
+            value: "AR"
+        value: true
+
+  # Split rule with 100% always matches
+  new-checkout:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "full-rollout"
+        kind: split
+        percentage: 100
+        value: true
+
+  # Split rule with 0% never matches
+  new-checkout-off:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "no-rollout"
+        kind: split
+        percentage: 0
+        value: true
+
+  # Multi-rule first-match-wins
+  premium-banner:
+    type: string
+    value: "default-banner"
+    enabled: true
+    rules:
+      - name: "internal"
+        kind: targeting
+        when:
+          - attribute: email
+            operator: ENDS_WITH
+            value: "@openflags.com"
+        value: "internal-banner"
+      - name: "premium"
+        kind: targeting
+        when:
+          - attribute: plan
+            operator: IN
+            value: ["pro", "enterprise"]
+        value: "premium-banner"
+
+  # Disabled flag
+  old-feature:
+    type: boolean
+    value: true
+    enabled: false
+    rules:
+      - name: "should-never-run"
+        kind: targeting
+        when:
+          - attribute: x
+            operator: EQ
+            value: "y"
+        value: false
