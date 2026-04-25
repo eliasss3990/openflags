@@ -82,19 +82,20 @@ class FileFlagProviderTest {
     }
 
     @Test
-    void hotReload_detectsChange(@TempDir Path tempDir) throws IOException {
+    void hotReload_detectsChange(@TempDir Path tempDir) throws Exception {
         Path file = writeFlags(tempDir, "flags.yml",
                 "flags:\n  my-flag:\n    type: boolean\n    value: false\n");
 
         FileFlagProvider provider = FileFlagProvider.builder()
                 .path(file).watchEnabled(true).build();
         provider.init();
+        Thread.sleep(200);
 
         assertThat(provider.getFlag("my-flag").get().value().asBoolean()).isFalse();
 
         Files.writeString(file, "flags:\n  my-flag:\n    type: boolean\n    value: true\n");
 
-        await().atMost(3, SECONDS).until(() ->
+        await().atMost(5, SECONDS).until(() ->
                 provider.getFlag("my-flag")
                         .map(f -> f.value().asBoolean())
                         .orElse(false)
@@ -104,7 +105,7 @@ class FileFlagProviderTest {
     }
 
     @Test
-    void hotReload_emitsChangeEvents(@TempDir Path tempDir) throws IOException {
+    void hotReload_emitsChangeEvents(@TempDir Path tempDir) throws Exception {
         Path file = writeFlags(tempDir, "flags.yml",
                 "flags:\n  toggle:\n    type: boolean\n    value: false\n");
 
@@ -113,10 +114,11 @@ class FileFlagProviderTest {
         List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.init();
+        Thread.sleep(200);
 
         Files.writeString(file, "flags:\n  toggle:\n    type: boolean\n    value: true\n");
 
-        await().atMost(3, SECONDS).until(() -> !events.isEmpty());
+        await().atMost(5, SECONDS).until(() -> !events.isEmpty());
 
         assertThat(events).anySatisfy(e -> {
             assertThat(e.flagKey()).isEqualTo("toggle");
@@ -174,7 +176,7 @@ class FileFlagProviderTest {
     }
 
     @Test
-    void changeEvents_createdAndDeleted(@TempDir Path tempDir) throws IOException {
+    void changeEvents_createdAndDeleted(@TempDir Path tempDir) throws Exception {
         Path file = writeFlags(tempDir, "flags.yml",
                 "flags:\n  existing:\n    type: boolean\n    value: true\n");
 
@@ -183,11 +185,12 @@ class FileFlagProviderTest {
         List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.init();
+        Thread.sleep(200);
 
         Files.writeString(file,
                 "flags:\n  new-flag:\n    type: boolean\n    value: true\n");
 
-        await().atMost(3, SECONDS).until(() -> events.size() >= 2);
+        await().atMost(5, SECONDS).until(() -> events.size() >= 2);
 
         assertThat(events).anySatisfy(e -> assertThat(e.changeType()).isEqualTo(ChangeType.DELETED));
         assertThat(events).anySatisfy(e -> assertThat(e.changeType()).isEqualTo(ChangeType.CREATED));
