@@ -1,5 +1,6 @@
 package com.openflags.core.evaluation;
 
+import com.openflags.core.evaluation.rule.RuleEngine;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
@@ -9,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -24,12 +26,32 @@ import java.util.Optional;
  *   <li>If the flag is not found, return {@code defaultValue} with reason {@link EvaluationReason#FLAG_NOT_FOUND}.</li>
  *   <li>If the flag is disabled, return {@code defaultValue} with reason {@link EvaluationReason#FLAG_DISABLED}.</li>
  *   <li>If the flag type does not match {@code expectedType}, return {@code defaultValue} with reason {@link EvaluationReason#TYPE_MISMATCH}.</li>
- *   <li>Otherwise, return the flag's value with reason {@link EvaluationReason#RESOLVED}.</li>
+ *   <li>Otherwise, delegate to {@link RuleEngine} which returns one of:
+ *       {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
+ *       {@link EvaluationReason#SPLIT}, or {@link EvaluationReason#DEFAULT}.</li>
  * </ol>
  */
 public final class FlagEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(FlagEvaluator.class);
+
+    private final RuleEngine ruleEngine;
+
+    /**
+     * Default constructor; uses a fresh {@link RuleEngine}.
+     */
+    public FlagEvaluator() {
+        this(new RuleEngine());
+    }
+
+    /**
+     * Test-friendly constructor that injects a {@link RuleEngine}.
+     *
+     * @param ruleEngine the engine; must not be null
+     */
+    public FlagEvaluator(RuleEngine ruleEngine) {
+        this.ruleEngine = Objects.requireNonNull(ruleEngine, "ruleEngine must not be null");
+    }
 
     /**
      * Evaluates a flag and returns a typed result.
@@ -41,10 +63,6 @@ public final class FlagEvaluator {
      * @param context      evaluation context; must not be null
      * @param <T>          the value type
      * @return an evaluation result; never null
-     *
-     * <p><strong>Phase 1 note:</strong> the {@code context} parameter is accepted but not used
-     * for value resolution. It is reserved for targeting rules in Phase 2.
-     * Passing {@link EvaluationContext#empty()} is valid and recommended.</p>
      */
     public <T> EvaluationResult<T> evaluate(
             FlagProvider provider,
@@ -80,8 +98,9 @@ public final class FlagEvaluator {
             return new EvaluationResult<>(defaultValue, EvaluationReason.TYPE_MISMATCH, key);
         }
 
-        T resolvedValue = extractTypedValue(flag.value(), expectedType);
-        return new EvaluationResult<>(resolvedValue, EvaluationReason.RESOLVED, key);
+        RuleEngine.Resolution resolution = ruleEngine.resolve(flag, context);
+        T resolvedValue = extractTypedValue(resolution.value(), expectedType);
+        return new EvaluationResult<>(resolvedValue, resolution.reason(), key);
     }
 
     private static FlagType toFlagType(Class<?> javaType) {

@@ -1,5 +1,9 @@
 package com.openflags.core.evaluation;
 
+import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.Operator;
+import com.openflags.core.evaluation.rule.SplitRule;
+import com.openflags.core.evaluation.rule.TargetingRule;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
@@ -13,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -131,6 +136,70 @@ class FlagEvaluatorTest {
 
         assertThat(result.value()).containsEntry("timeout", 30);
         assertThat(result.reason()).isEqualTo(EvaluationReason.RESOLVED);
+    }
+
+    // Phase 2: rule engine integration
+
+    @Test
+    void evaluate_withTargetingRule_matchingContext_returnsTargetingMatch() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-x", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("feature-x")).thenReturn(Optional.of(flag));
+
+        EvaluationContext matchCtx = EvaluationContext.builder().attribute("country", "AR").build();
+        EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, matchCtx);
+
+        assertThat(result.value()).isTrue();
+        assertThat(result.reason()).isEqualTo(EvaluationReason.TARGETING_MATCH);
+    }
+
+    @Test
+    void evaluate_withTargetingRule_noMatch_returnsDefault() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-x", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("feature-x")).thenReturn(Optional.of(flag));
+
+        EvaluationContext noMatchCtx = EvaluationContext.builder().attribute("country", "BR").build();
+        EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, noMatchCtx);
+
+        assertThat(result.value()).isFalse();
+        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+    }
+
+    @Test
+    void evaluate_withSplitRule_percentage100_returnsSplit() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        SplitRule rule = new SplitRule("always-rollout", 100, ruleValue);
+        Flag flag = new Flag("new-checkout", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("new-checkout")).thenReturn(Optional.of(flag));
+
+        EvaluationContext ctxWithKey = EvaluationContext.of("user-123");
+        EvaluationResult<Boolean> result = evaluator.evaluate(provider, "new-checkout", Boolean.class, false, ctxWithKey);
+
+        assertThat(result.value()).isTrue();
+        assertThat(result.reason()).isEqualTo(EvaluationReason.SPLIT);
+    }
+
+    @Test
+    void evaluate_withRules_emptyContext_returnsDefault() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-x", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("feature-x")).thenReturn(Optional.of(flag));
+
+        EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, ctx);
+
+        assertThat(result.value()).isFalse();
+        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
     }
 
     @Test
