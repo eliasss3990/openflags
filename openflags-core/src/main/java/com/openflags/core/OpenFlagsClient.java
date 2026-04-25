@@ -234,10 +234,15 @@ public final class OpenFlagsClient {
 
     /**
      * Removes a previously registered flag change listener.
+     * <p>
+     * Safe to call after {@link #shutdown()}: behaves as a no-op in that case
+     * to allow cleanup paths to run unconditionally.
+     * </p>
      *
      * @param listener the listener to remove
      */
     public void removeChangeListener(FlagChangeListener listener) {
+        if (shutdown.get()) return;
         provider.removeChangeListener(listener);
     }
 
