@@ -1,0 +1,8 @@
+flags:
+  test-feature:
+    type: boolean
+    value: true
+    enabled: true
+  test-string:
+    type: string
+    value: "hello"
