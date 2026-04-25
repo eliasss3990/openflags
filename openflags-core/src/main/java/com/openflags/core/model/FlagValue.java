@@ -146,32 +146,18 @@ public final class FlagValue {
     }
 
     private static void validate(Object rawValue, FlagType type) {
-        switch (type) {
-            case BOOLEAN -> {
-                if (!(rawValue instanceof Boolean)) {
-                    throw new TypeMismatchException(null, FlagType.BOOLEAN,
-                            rawValue == null ? null : inferType(rawValue));
-                }
-            }
-            case STRING -> {
-                if (!(rawValue instanceof String)) {
-                    throw new TypeMismatchException(null, FlagType.STRING,
-                            rawValue == null ? null : inferType(rawValue));
-                }
-            }
-            case NUMBER -> {
-                if (!(rawValue instanceof Number)) {
-                    throw new TypeMismatchException(null, FlagType.NUMBER,
-                            rawValue == null ? null : inferType(rawValue));
-                }
-            }
-            case OBJECT -> {
-                if (!(rawValue instanceof Map<?, ?>)) {
-                    throw new TypeMismatchException(null, FlagType.OBJECT,
-                            rawValue == null ? null : inferType(rawValue));
-                }
-            }
+        if (!isCompatible(rawValue, type)) {
+            throw new TypeMismatchException(null, type, rawValue == null ? null : inferType(rawValue));
         }
+    }
+
+    private static boolean isCompatible(Object value, FlagType type) {
+        return switch (type) {
+            case BOOLEAN -> value instanceof Boolean;
+            case STRING  -> value instanceof String;
+            case NUMBER  -> value instanceof Number;
+            case OBJECT  -> value instanceof Map<?, ?>;
+        };
     }
 
     private static FlagType inferType(Object value) {
