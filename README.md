@@ -138,6 +138,78 @@ openflags:
 
 ---
 
+## Targeting rules
+
+Phase 2 adds conditional evaluation via rules declared directly in the flag file. Rules are evaluated in order; the first match wins.
+
+### TargetingRule — attribute-based targeting
+
+Return a specific value when user/context attributes match a set of conditions:
+
+```yaml
+flags:
+  new-checkout:
+    type: boolean
+    value: false
+    description: "New checkout flow"
+    rules:
+      - name: argentina-users
+        type: targeting
+        value: true
+        conditions:
+          - attribute: country
+            operator: EQ
+            value: "AR"
+```
+
+### SplitRule — percentage rollout
+
+Roll out a flag to a percentage of users using consistent hashing (same user always gets the same result):
+
+```yaml
+flags:
+  new-dashboard:
+    type: boolean
+    value: false
+    description: "New dashboard UI"
+    rules:
+      - name: 20pct-rollout
+        type: split
+        value: true
+        percentage: 20
+```
+
+### Building an EvaluationContext
+
+Pass a `targetingKey` (stable user identifier) and any attributes you want to match against:
+
+```java
+EvaluationContext ctx = EvaluationContext.builder()
+        .targetingKey("user-42")
+        .attribute("country", "AR")
+        .attribute("plan", "pro")
+        .build();
+
+EvaluationResult<Boolean> result = client.getBooleanResult("new-checkout", false, ctx);
+// result.value()  → true   (matched argentina-users rule)
+// result.reason() → TARGETING_MATCH
+```
+
+### EvaluationReason
+
+| Reason | When |
+|---|---|
+| `TARGETING_MATCH` | A `TargetingRule` matched the context attributes |
+| `SPLIT` | A `SplitRule` matched based on bucket allocation |
+| `DEFAULT` | Rules were present but none matched; static flag value was returned |
+| `RESOLVED` | No rules declared; flag value returned directly (Phase 1 behaviour) |
+
+### Backward compatibility
+
+Flags without a `rules:` section continue to work exactly as in Phase 1. The static `value` is returned with reason `RESOLVED`.
+
+---
+
 ## Flag file format
 
 ```yaml
