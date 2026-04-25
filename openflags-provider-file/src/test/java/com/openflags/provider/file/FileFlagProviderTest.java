@@ -233,6 +233,20 @@ class FileFlagProviderTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void getFlag_nullKey_throwsNullPointerException(@TempDir Path tempDir) throws IOException {
+        Path file = writeFlags(tempDir, "flags.yml",
+                "flags:\n  f:\n    type: boolean\n    value: true\n");
+        FileFlagProvider provider = FileFlagProvider.builder()
+                .path(file).watchEnabled(false).build();
+        provider.init();
+
+        assertThatThrownBy(() -> provider.getFlag(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("key");
+        provider.shutdown();
+    }
+
     private Path writeFlags(Path dir, String name, String content) throws IOException {
         Path file = dir.resolve(name);
         Files.writeString(file, content);
