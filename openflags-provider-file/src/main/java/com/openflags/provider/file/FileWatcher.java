@@ -140,7 +140,9 @@ public final class FileWatcher {
         } catch (Exception firstAttemptEx) {
             log.debug("Callback failed on first attempt (possibly mid-write), retrying in {}ms: {}",
                     DEBOUNCE_MS, firstAttemptEx.getMessage());
-            debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+            synchronized (this) {
+                pendingCallback = debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+            }
         }
     }
 
