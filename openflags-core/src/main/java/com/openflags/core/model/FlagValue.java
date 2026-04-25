@@ -104,7 +104,11 @@ public final class FlagValue {
      * Returns the raw underlying value.
      *
      * @return the raw value
+     * @deprecated since 0.1.0, will be removed in a future release.
+     *             Use the typed accessor methods ({@link #asBoolean()}, {@link #asString()},
+     *             {@link #asNumber()}, {@link #asObject()}) instead.
      */
+    @Deprecated(forRemoval = true)
     public Object getRawValue() {
         return rawValue;
     }

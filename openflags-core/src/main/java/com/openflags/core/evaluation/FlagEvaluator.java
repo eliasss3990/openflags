@@ -84,7 +84,7 @@ public final class FlagEvaluator {
         if (javaType == Boolean.class || javaType == boolean.class) return FlagType.BOOLEAN;
         if (javaType == String.class) return FlagType.STRING;
         if (javaType == Double.class || javaType == double.class) return FlagType.NUMBER;
-        if (javaType == Map.class) return FlagType.OBJECT;
+        if (Map.class.isAssignableFrom(javaType)) return FlagType.OBJECT;
         return null;
     }
 
@@ -99,9 +99,9 @@ public final class FlagEvaluator {
         if (expectedType == Double.class || expectedType == double.class) {
             return (T) Double.valueOf(flagValue.asNumber());
         }
-        if (expectedType == Map.class) {
+        if (Map.class.isAssignableFrom(expectedType)) {
             return (T) flagValue.asObject();
         }
-        return expectedType.cast(flagValue.getRawValue());
+        throw new IllegalStateException("Unsupported expectedType: " + expectedType);
     }
 }
