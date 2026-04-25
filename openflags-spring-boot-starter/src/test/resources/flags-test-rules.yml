@@ -1,0 +1,28 @@
+flags:
+  simple-flag:
+    type: boolean
+    value: true
+    enabled: true
+
+  feature-country:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "ar-only"
+        kind: targeting
+        when:
+          - attribute: country
+            operator: EQ
+            value: "AR"
+        value: true
+
+  rollout-flag:
+    type: boolean
+    value: false
+    enabled: true
+    rules:
+      - name: "full-rollout"
+        kind: split
+        percentage: 100
+        value: true
