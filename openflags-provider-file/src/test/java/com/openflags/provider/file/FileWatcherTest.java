@@ -100,4 +100,38 @@ class FileWatcherTest {
 
         watcher.stop();
     }
+
+    @Test
+    void retryPending_doesNotBlockSecondEvent(@TempDir Path tempDir) throws Exception {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "v0");
+
+        AtomicInteger attempts = new AtomicInteger(0);
+        CountDownLatch firstAttemptStarted = new CountDownLatch(1);
+        CountDownLatch secondCallReceived = new CountDownLatch(1);
+
+        Runnable callback = () -> {
+            int n = attempts.incrementAndGet();
+            if (n == 1) {
+                firstAttemptStarted.countDown();
+                throw new RuntimeException("Simulated mid-write failure");
+            }
+            secondCallReceived.countDown();
+        };
+
+        FileWatcher watcher = new FileWatcher(file, callback);
+        watcher.start();
+
+        Thread.sleep(200);
+        Files.writeString(file, "v1");
+
+        assertThat(firstAttemptStarted.await(3, TimeUnit.SECONDS)).isTrue();
+
+        Files.writeString(file, "v2");
+
+        assertThat(secondCallReceived.await(3, TimeUnit.SECONDS)).isTrue();
+        assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
+
+        watcher.stop();
+    }
 }
