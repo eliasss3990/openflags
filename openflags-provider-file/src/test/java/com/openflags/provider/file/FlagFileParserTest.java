@@ -53,10 +53,37 @@ class FlagFileParserTest {
     }
 
     @Test
-    void parse_emptyYaml_returnsEmptyMap() {
+    void parse_explicitEmptyFlagsObject_returnsEmptyMap() {
         Path file = resourcePath("flags-empty.yml");
         Map<String, Flag> flags = parser.parse(file);
         assertThat(flags).isEmpty();
+    }
+
+    @Test
+    void parse_completelyEmptyFile_throwsProviderException(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "");
+        assertThatThrownBy(() -> parser.parse(file))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("flags.yml");
+    }
+
+    @Test
+    void parse_yamlWithoutFlagsKey_throwsProviderException(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "other:\n  not-relevant: true\n");
+        assertThatThrownBy(() -> parser.parse(file))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("flags");
+    }
+
+    @Test
+    void parse_yamlWithFlagsKeyButNullValue_throwsProviderException(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "flags:\n");
+        assertThatThrownBy(() -> parser.parse(file))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("flags");
     }
 
     @Test
