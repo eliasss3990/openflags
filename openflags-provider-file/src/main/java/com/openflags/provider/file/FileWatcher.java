@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * are collapsed into a single callback invocation at the end of the window.
  * </p>
  *
- * <h3>Mid-write retry</h3>
+ * <h2>Mid-write retry</h2>
  * <p>
  * If the callback throws (e.g., because the file was captured mid-write and is not yet
  * parseable), one retry is attempted after another 200ms. If the retry also fails,

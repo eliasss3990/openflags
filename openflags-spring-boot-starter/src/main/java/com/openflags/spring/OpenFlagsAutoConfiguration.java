@@ -26,7 +26,7 @@ import java.nio.file.Path;
  * {@link OpenFlagsProperties}. Conditional on {@link OpenFlagsClient} being on the classpath.
  * </p>
  *
- * <h3>Classpath resources and file watching</h3>
+ * <h2>Classpath resources and file watching</h2>
  * <p>
  * When the configured path uses the {@code classpath:} prefix, the auto-configuration
  * resolves it to a filesystem {@link Path}. If the resource lives inside a JAR

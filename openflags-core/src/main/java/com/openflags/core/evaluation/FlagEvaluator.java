@@ -18,7 +18,7 @@ import java.util.Optional;
  * is independent and thread-safe.
  * </p>
  *
- * <h3>Resolution order</h3>
+ * <h2>Resolution order</h2>
  * <ol>
  *   <li>If the provider throws, return {@code defaultValue} with reason {@link EvaluationReason#PROVIDER_ERROR}.</li>
  *   <li>If the flag is not found, return {@code defaultValue} with reason {@link EvaluationReason#FLAG_NOT_FOUND}.</li>

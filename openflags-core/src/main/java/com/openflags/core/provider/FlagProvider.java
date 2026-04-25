@@ -14,7 +14,7 @@ import java.util.Optional;
  * this interface. Providers must be thread-safe.
  * </p>
  *
- * <h3>Lifecycle</h3>
+ * <h2>Lifecycle</h2>
  * <ol>
  *   <li>Create the provider (via builder or constructor).</li>
  *   <li>Call {@link #init()} to load initial flag data. This must be done before evaluation.</li>

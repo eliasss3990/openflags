@@ -23,14 +23,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * a {@link CopyOnWriteArrayList}.
  * </p>
  *
- * <h3>Lifecycle</h3>
+ * <h2>Lifecycle</h2>
  * <ul>
  *   <li>{@link #init()} is idempotent: calling it on an already-initialized provider is a no-op.</li>
  *   <li>{@link #shutdown()} is idempotent: calling it on an already-shut-down provider is a no-op.</li>
  *   <li>Calling evaluation methods after shutdown throws {@link IllegalStateException}.</li>
  * </ul>
  *
- * <h3>Reload behavior</h3>
+ * <h2>Reload behavior</h2>
  * <p>
  * When the file changes, the provider re-parses it and atomically replaces the flag map.
  * If parsing fails (e.g., mid-write), the previous flags are retained and the state is set
