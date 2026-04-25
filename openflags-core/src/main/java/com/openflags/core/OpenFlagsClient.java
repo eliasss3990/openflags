@@ -68,6 +68,7 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a boolean flag with evaluation context.
+     * <p><strong>Fase 1:</strong> {@code context} se acepta pero no se usa. Ver {@link FlagEvaluator#evaluate}.</p>
      *
      * @param key          the flag key
      * @param defaultValue value returned if the flag is missing, disabled, or wrong type
@@ -109,6 +110,7 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a string flag with evaluation context.
+     * <p><strong>Fase 1:</strong> {@code context} se acepta pero no se usa. Ver {@link FlagEvaluator#evaluate}.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value
@@ -150,6 +152,7 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates a number flag with evaluation context.
+     * <p><strong>Fase 1:</strong> {@code context} se acepta pero no se usa. Ver {@link FlagEvaluator#evaluate}.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value
@@ -191,6 +194,7 @@ public final class OpenFlagsClient {
 
     /**
      * Evaluates an object (JSON) flag with evaluation context.
+     * <p><strong>Fase 1:</strong> {@code context} se acepta pero no se usa. Ver {@link FlagEvaluator#evaluate}.</p>
      *
      * @param key          the flag key
      * @param defaultValue fallback value

@@ -41,6 +41,10 @@ public final class FlagEvaluator {
      * @param context      evaluation context; must not be null
      * @param <T>          the value type
      * @return an evaluation result; never null
+     *
+     * <p><strong>Fase 1:</strong> el parametro {@code context} se acepta pero no se usa
+     * para resolver el valor. Esta reservado para reglas de targeting en Fase 2.
+     * Pasar {@link EvaluationContext#empty()} es valido y recomendado.</p>
      */
     public <T> EvaluationResult<T> evaluate(
             FlagProvider provider,
