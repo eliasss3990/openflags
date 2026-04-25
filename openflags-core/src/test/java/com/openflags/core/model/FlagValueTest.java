@@ -101,13 +101,6 @@ class FlagValueTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
-    void getRawValue_returnsUnderlyingValue() {
-        FlagValue value = FlagValue.of(99.0, FlagType.NUMBER);
-        assertThat(value.getRawValue()).isEqualTo(99.0);
-    }
-
-    @Test
     void of_objectType_doesNotReflectMutationsOnOriginalMap() {
         Map<String, Object> mutable = new HashMap<>();
         mutable.put("x", 1);
