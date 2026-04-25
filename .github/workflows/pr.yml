@@ -1,12 +1,12 @@
-name: CI
+name: PR Validation
 
 on:
-  push:
+  pull_request:
     branches:
       - main
 
 jobs:
-  build:
+  build-and-test:
     name: Build & Test (Java ${{ matrix.java }})
     runs-on: ubuntu-latest
 
@@ -33,7 +33,7 @@ jobs:
         if: matrix.java == 17
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-report
+          name: jacoco-report-pr
           path: '**/target/site/jacoco/'
           retention-days: 7
 
@@ -54,3 +54,20 @@ jobs:
 
       - name: Generate Javadoc
         run: mvn -B javadoc:aggregate -Dquiet=true
+
+  all-checks:
+    name: All checks passed
+    runs-on: ubuntu-latest
+    needs: [build-and-test, verify-javadoc]
+    if: always()
+
+    steps:
+      - name: Verify all jobs passed
+        run: |
+          build_result="${{ needs.build-and-test.result }}"
+          javadoc_result="${{ needs.verify-javadoc.result }}"
+          if [[ "$build_result" != "success" || "$javadoc_result" != "success" ]]; then
+            echo "Required checks failed — build: $build_result, javadoc: $javadoc_result"
+            exit 1
+          fi
+          echo "All required checks passed."
