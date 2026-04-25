@@ -151,6 +151,21 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     /**
+     * Registers a fully constructed {@link Flag}, including any rules.
+     * <p>
+     * Use this method when the typed convenience setters ({@code setBoolean}, etc.) are not
+     * sufficient, for example when the flag carries Phase 2 targeting or split rules.
+     * </p>
+     *
+     * @param flag the flag to register; must not be null
+     * @return this provider (for chaining)
+     */
+    public InMemoryFlagProvider setFlag(Flag flag) {
+        java.util.Objects.requireNonNull(flag, "flag must not be null");
+        return putFlag(flag);
+    }
+
+    /**
      * Removes a flag.
      *
      * @param key the flag key to remove
