@@ -40,6 +40,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `FileFlagProvider.init()`: `FileWatcher.start()` now rejects a restart after `stop()`, preventing leaked threads if `init()` is called after `shutdown()`.
 - `OpenFlagsAutoConfiguration`: `OpenFlagsHealthIndicator` is now registered via a conditional inner `@Configuration` class, fixing a bug where the bean was never created when using component scan from an external application.
 - `InMemoryFlagProvider.init()`: calling `init()` after `shutdown()` now throws `IllegalStateException` instead of silently resetting the provider to `READY`.
+- `FlagValue.validate()`: type check for `OBJECT` flags now uses `instanceof Map<?,?>` instead of raw `instanceof Map`, eliminating an erroneous `@SuppressWarnings` and reducing cognitive complexity (extracted `isCompatible()` helper).
+- `OpenFlagsAutoConfiguration`: removed unused `Logger` field that was left after the classpath-inside-JAR handling was changed to throw `IOException` instead of logging.
 
 ---
 
