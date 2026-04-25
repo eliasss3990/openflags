@@ -77,15 +77,12 @@ public final class ConditionEvaluator {
         return Objects.equals(actual, expected);
     }
 
-    @SuppressWarnings("unchecked")
     private static boolean evalIn(Object actual, Object expected) {
-        if (!(expected instanceof List)) {
+        if (!(expected instanceof List<?> list)) {
             log.debug("IN operator expected a List, got {}", expected.getClass().getSimpleName());
             return false;
         }
-        List<Object> list = (List<Object>) expected;
-        String actualStr = String.valueOf(actual);
-        return list.stream().anyMatch(item -> String.valueOf(item).equals(actualStr));
+        return list.stream().anyMatch(item -> evalEq(actual, item));
     }
 
     private static boolean evalNumericOp(Object actual, Object expected,
