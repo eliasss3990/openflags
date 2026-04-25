@@ -9,6 +9,9 @@ import com.openflags.core.model.FlagValue;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderState;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,6 +39,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public final class InMemoryFlagProvider implements FlagProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(InMemoryFlagProvider.class);
+
     private final Map<String, Flag> flags = new ConcurrentHashMap<>();
     private final List<FlagChangeListener> listeners = new CopyOnWriteArrayList<>();
     private volatile ProviderState state = ProviderState.NOT_READY;
@@ -43,12 +48,16 @@ public final class InMemoryFlagProvider implements FlagProvider {
 
     @Override
     public void init() {
+        if (shutdown) {
+            throw new IllegalStateException("InMemoryFlagProvider has been shut down");
+        }
         if (state == ProviderState.READY) return;
         state = ProviderState.READY;
     }
 
     @Override
     public Optional<Flag> getFlag(String key) {
+        Objects.requireNonNull(key, "key must not be null");
         requireNotShutdown();
         return Optional.ofNullable(flags.get(key));
     }
@@ -182,7 +191,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
             try {
                 l.onFlagChange(event);
             } catch (Exception e) {
-                // swallow listener exceptions
+                log.warn("FlagChangeListener threw an exception: {}", e.getMessage());
             }
         });
     }
