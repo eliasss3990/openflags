@@ -145,7 +145,6 @@ public final class FlagValue {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void validate(Object rawValue, FlagType type) {
         switch (type) {
             case BOOLEAN -> {
@@ -167,7 +166,7 @@ public final class FlagValue {
                 }
             }
             case OBJECT -> {
-                if (!(rawValue instanceof Map)) {
+                if (!(rawValue instanceof Map<?, ?>)) {
                     throw new TypeMismatchException(null, FlagType.OBJECT,
                             rawValue == null ? null : inferType(rawValue));
                 }
@@ -179,7 +178,7 @@ public final class FlagValue {
         if (value instanceof Boolean) return FlagType.BOOLEAN;
         if (value instanceof String) return FlagType.STRING;
         if (value instanceof Number) return FlagType.NUMBER;
-        if (value instanceof Map) return FlagType.OBJECT;
+        if (value instanceof Map<?, ?>) return FlagType.OBJECT;
         return null;
     }
 }
