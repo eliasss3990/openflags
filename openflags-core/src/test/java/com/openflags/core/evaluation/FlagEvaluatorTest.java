@@ -12,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -128,5 +130,23 @@ class FlagEvaluatorTest {
 
         assertThat(result.value()).containsEntry("timeout", 30);
         assertThat(result.reason()).isEqualTo(EvaluationReason.RESOLVED);
+    }
+
+    @Test
+    void evaluate_resolvesObjectFlagWithSubclassOfMap() {
+        Map<String, Object> config = Map.of("timeout", 30);
+        Flag flag = new Flag("config", FlagType.OBJECT, FlagValue.of(config, FlagType.OBJECT), true, null);
+        when(provider.getFlag("config")).thenReturn(Optional.of(flag));
+
+        EvaluationResult<HashMap> resultHashMap = evaluator.evaluate(
+                provider, "config", HashMap.class, new HashMap<>(), ctx);
+        assertThat(resultHashMap.reason()).isEqualTo(EvaluationReason.RESOLVED);
+        assertThat(resultHashMap.value()).containsEntry("timeout", 30);
+
+        when(provider.getFlag("config")).thenReturn(Optional.of(flag));
+        EvaluationResult<LinkedHashMap> resultLinkedHashMap = evaluator.evaluate(
+                provider, "config", LinkedHashMap.class, new LinkedHashMap<>(), ctx);
+        assertThat(resultLinkedHashMap.reason()).isEqualTo(EvaluationReason.RESOLVED);
+        assertThat(resultLinkedHashMap.value()).containsEntry("timeout", 30);
     }
 }
