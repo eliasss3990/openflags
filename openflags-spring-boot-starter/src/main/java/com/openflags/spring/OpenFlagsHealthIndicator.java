@@ -4,8 +4,6 @@ import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.ProviderState;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.stereotype.Component;
 
 /**
  * Spring Boot Actuator health indicator for openflags.
@@ -14,9 +12,12 @@ import org.springframework.stereotype.Component;
  * {@link Health#down()} otherwise. Only active when {@code spring-boot-starter-actuator}
  * is on the classpath.
  * </p>
+ * <p>
+ * This class is registered as a bean via
+ * {@link OpenFlagsAutoConfiguration.ActuatorConfiguration}, which is conditional on
+ * Actuator being present in the classpath. No component scan is required.
+ * </p>
  */
-@Component
-@ConditionalOnClass(HealthIndicator.class)
 public class OpenFlagsHealthIndicator implements HealthIndicator {
 
     private final OpenFlagsClient client;
