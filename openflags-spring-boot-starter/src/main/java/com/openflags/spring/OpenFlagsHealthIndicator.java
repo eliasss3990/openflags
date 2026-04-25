@@ -34,9 +34,10 @@ public class OpenFlagsHealthIndicator implements HealthIndicator {
     @Override
     public Health health() {
         ProviderState state = client.getProviderState();
-        if (state == ProviderState.READY) {
-            return Health.up().withDetail("provider.state", state).build();
-        }
-        return Health.down().withDetail("provider.state", state).build();
+        return switch (state) {
+            case READY -> Health.up().withDetail("provider.state", state).build();
+            case STALE -> Health.outOfService().withDetail("provider.state", state).build();
+            default    -> Health.down().withDetail("provider.state", state).build();
+        };
     }
 }

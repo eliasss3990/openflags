@@ -23,7 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Thread-safe.
  * </p>
  *
- * <h3>Lifecycle</h3>
+ * <h2>Lifecycle</h2>
  * <ul>
  *   <li>{@link #init()} is idempotent.</li>
  *   <li>{@link #shutdown()} is idempotent.</li>

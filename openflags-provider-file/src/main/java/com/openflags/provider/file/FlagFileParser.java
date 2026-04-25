@@ -23,7 +23,7 @@ import java.util.Map;
  * Any other extension causes a {@link ProviderException} with a descriptive message.
  * </p>
  *
- * <h3>Expected file structure (YAML example)</h3>
+ * <h2>Expected file structure (YAML example)</h2>
  * <pre>
  * flags:
  *   dark-mode:

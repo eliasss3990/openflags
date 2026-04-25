@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link #builder()}.
  * </p>
  *
- * <h3>Lifecycle</h3>
+ * <h2>Lifecycle</h2>
  * <pre>
  * OpenFlagsClient client = OpenFlagsClient.builder()
  *     .provider(myProvider)
