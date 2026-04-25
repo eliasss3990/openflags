@@ -1,0 +1,21 @@
+flags:
+  dark-mode:
+    type: boolean
+    value: true
+    enabled: true
+    description: "Enables dark mode UI"
+  welcome-message:
+    type: string
+    value: "Hello, World!"
+  rollout-rate:
+    type: number
+    value: 0.25
+  feature-config:
+    type: object
+    value:
+      timeout: 30
+      retries: 3
+  disabled-flag:
+    type: boolean
+    value: false
+    enabled: false
