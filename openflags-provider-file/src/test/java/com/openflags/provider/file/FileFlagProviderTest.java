@@ -16,6 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.*;
@@ -188,6 +192,42 @@ class FileFlagProviderTest {
         assertThat(events).anySatisfy(e -> assertThat(e.changeType()).isEqualTo(ChangeType.DELETED));
         assertThat(events).anySatisfy(e -> assertThat(e.changeType()).isEqualTo(ChangeType.CREATED));
         provider.shutdown();
+    }
+
+    @Test
+    void shutdownDuringReload_leavesNoInconsistentState(@TempDir Path tempDir) throws Exception {
+        Path file = writeFlags(tempDir, "flags.yml",
+                "flags:\n  toggle:\n    type: boolean\n    value: false\n");
+
+        FileFlagProvider provider = FileFlagProvider.builder()
+                .path(file).watchEnabled(true).build();
+        provider.init();
+
+        AtomicReference<Throwable> listenerError = new AtomicReference<>();
+        provider.addChangeListener(e -> {
+            try {
+                assertThat(provider.getState()).isNotEqualTo(ProviderState.STALE);
+            } catch (Throwable t) {
+                listenerError.set(t);
+            }
+        });
+
+        Files.writeString(file, "flags:\n  toggle:\n    type: boolean\n    value: true\n");
+
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        CountDownLatch shutdownIssued = new CountDownLatch(1);
+        pool.submit(() -> {
+            provider.shutdown();
+            shutdownIssued.countDown();
+        });
+
+        assertThat(shutdownIssued.await(3, SECONDS)).isTrue();
+        pool.shutdown();
+
+        assertThat(provider.getState()).isEqualTo(ProviderState.STALE);
+        assertThat(listenerError.get()).isNull();
+        assertThatThrownBy(() -> provider.getFlag("toggle"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     private Path writeFlags(Path dir, String name, String content) throws IOException {
