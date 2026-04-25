@@ -142,6 +142,33 @@ class InMemoryFlagProviderTest {
     }
 
     @Test
+    void getFlag_nullKey_throwsNullPointerException() {
+        assertThatThrownBy(() -> provider.getFlag(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("key");
+    }
+
+    @Test
+    void init_afterShutdown_throwsIllegalState() {
+        provider.shutdown();
+        assertThatThrownBy(() -> provider.init())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("shut down");
+    }
+
+    @Test
+    void emit_listenerThrowingException_doesNotStopOtherListeners() {
+        List<FlagChangeEvent> received = new ArrayList<>();
+        provider.addChangeListener(e -> { throw new RuntimeException("listener exploded"); });
+        provider.addChangeListener(received::add);
+
+        provider.setBoolean("flag", true);
+
+        assertThat(received).hasSize(1);
+        assertThat(received.get(0).flagKey()).isEqualTo("flag");
+    }
+
+    @Test
     void shutdown_isIdempotent() {
         provider.shutdown();
         assertThatCode(provider::shutdown).doesNotThrowAnyException();
