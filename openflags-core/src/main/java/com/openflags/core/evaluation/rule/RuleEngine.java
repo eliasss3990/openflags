@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Resolves the value of a flag taking its rules into account.
@@ -54,11 +55,11 @@ public final class RuleEngine {
         }
 
         for (Rule rule : flag.rules()) {
-            Resolution resolution = evaluateRule(rule, flag, context);
-            if (resolution != null) {
+            Optional<Resolution> result = evaluateRule(rule, flag, context);
+            if (result.isPresent()) {
                 log.debug("Flag '{}' matched rule '{}' with reason {}", flag.key(), rule.name(),
-                        resolution.reason());
-                return resolution;
+                        result.get().reason());
+                return result.get();
             }
         }
 
@@ -66,26 +67,27 @@ public final class RuleEngine {
         return new Resolution(flag.value(), EvaluationReason.DEFAULT);
     }
 
-    private Resolution evaluateRule(Rule rule, Flag flag, EvaluationContext context) {
+    private Optional<Resolution> evaluateRule(Rule rule, Flag flag, EvaluationContext context) {
         if (rule instanceof TargetingRule tr) return evaluateTargetingRule(tr, context);
         if (rule instanceof SplitRule sr) return evaluateSplitRule(sr, flag.key(), context);
-        return null;
+        return Optional.empty();
     }
 
-    private Resolution evaluateTargetingRule(TargetingRule rule, EvaluationContext context) {
+    private Optional<Resolution> evaluateTargetingRule(TargetingRule rule, EvaluationContext context) {
         boolean allMatch = rule.conditions().stream()
                 .allMatch(c -> ConditionEvaluator.matches(c, context));
-        return allMatch ? new Resolution(rule.value(), EvaluationReason.TARGETING_MATCH) : null;
+        return allMatch
+                ? Optional.of(new Resolution(rule.value(), EvaluationReason.TARGETING_MATCH))
+                : Optional.empty();
     }
 
-    private Resolution evaluateSplitRule(SplitRule rule, String flagKey, EvaluationContext context) {
+    private Optional<Resolution> evaluateSplitRule(SplitRule rule, String flagKey, EvaluationContext context) {
         return context.getTargetingKey()
-                .map(tk -> {
+                .flatMap(tk -> {
                     int bucket = BucketAllocator.bucket(flagKey, tk);
                     return bucket < rule.percentage()
-                            ? new Resolution(rule.value(), EvaluationReason.SPLIT)
-                            : null;
-                })
-                .orElse(null);
+                            ? Optional.of(new Resolution(rule.value(), EvaluationReason.SPLIT))
+                            : Optional.empty();
+                });
     }
 }
