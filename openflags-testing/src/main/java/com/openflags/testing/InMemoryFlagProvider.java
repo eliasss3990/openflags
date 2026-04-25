@@ -47,7 +47,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
     private volatile boolean shutdown = false;
 
     @Override
-    public void init() {
+    public synchronized void init() {
         if (shutdown) {
             throw new IllegalStateException("InMemoryFlagProvider has been shut down");
         }
@@ -84,7 +84,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     @Override
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (shutdown) return;
         shutdown = true;
         state = ProviderState.STALE;
