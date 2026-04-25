@@ -44,7 +44,11 @@ public final class FlagValue {
     public static FlagValue of(Object rawValue, FlagType type) {
         Objects.requireNonNull(type, "type must not be null");
         validate(rawValue, type);
-        return new FlagValue(rawValue, type);
+        @SuppressWarnings("unchecked")
+        Object stored = (type == FlagType.OBJECT)
+                ? Map.copyOf((Map<String, Object>) rawValue)
+                : rawValue;
+        return new FlagValue(stored, type);
     }
 
     /**
