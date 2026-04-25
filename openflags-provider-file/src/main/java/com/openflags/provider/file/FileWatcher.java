@@ -40,9 +40,9 @@ public final class FileWatcher {
     private final Runnable callback;
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
-    private Thread watchThread;
-    private ScheduledExecutorService debounceScheduler;
-    private ScheduledFuture<?> pendingCallback;
+    private volatile Thread watchThread;
+    private volatile ScheduledExecutorService debounceScheduler;
+    private volatile ScheduledFuture<?> pendingCallback;
 
     /**
      * Creates a watcher for the specified file.
@@ -57,23 +57,32 @@ public final class FileWatcher {
 
     /**
      * Starts watching the file. Non-blocking: spawns a daemon thread internally.
+     * <p>Idempotent: calling {@code start()} on an already-started watcher is a no-op.</p>
+     *
+     * @throws IllegalStateException if this watcher has already been stopped
      */
-    public void start() {
+    public synchronized void start() {
+        if (stopped.get()) {
+            throw new IllegalStateException("FileWatcher cannot be restarted after stop()");
+        }
+        if (watchThread != null) {
+            return;
+        }
         debounceScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "openflags-debounce");
             t.setDaemon(true);
             return t;
         });
-
-        watchThread = new Thread(this::watchLoop, "openflags-filewatcher");
-        watchThread.setDaemon(true);
-        watchThread.start();
+        Thread t = new Thread(this::watchLoop, "openflags-filewatcher");
+        t.setDaemon(true);
+        t.start();
+        watchThread = t;
     }
 
     /**
      * Stops watching and releases all resources. Idempotent.
      */
-    public void stop() {
+    public synchronized void stop() {
         if (stopped.compareAndSet(false, true)) {
             if (watchThread != null) {
                 watchThread.interrupt();
