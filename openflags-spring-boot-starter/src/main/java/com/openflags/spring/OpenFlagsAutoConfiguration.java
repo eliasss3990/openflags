@@ -3,8 +3,6 @@ package com.openflags.spring;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -39,8 +37,6 @@ import java.nio.file.Path;
 @EnableConfigurationProperties(OpenFlagsProperties.class)
 @ConditionalOnClass(OpenFlagsClient.class)
 public class OpenFlagsAutoConfiguration {
-
-    private static final Logger log = LoggerFactory.getLogger(OpenFlagsAutoConfiguration.class);
 
     /**
      * Creates a {@link FlagProvider} bean backed by a local file.

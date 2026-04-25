@@ -5,7 +5,6 @@ import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
 import com.openflags.core.provider.FlagProvider;
-import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,8 +16,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FlagEvaluatorTest {
@@ -121,31 +120,40 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void evaluate_resolvesObjectFlag() {
         Map<String, Object> config = Map.of("timeout", 30);
         Flag flag = new Flag("config", FlagType.OBJECT, FlagValue.of(config, FlagType.OBJECT), true, null);
         when(provider.getFlag("config")).thenReturn(Optional.of(flag));
 
-        EvaluationResult<Map> result = evaluator.evaluate(provider, "config", Map.class, Map.of(), ctx);
+        Class<Map<String, Object>> mapType = (Class<Map<String, Object>>) (Class<?>) Map.class;
+        EvaluationResult<Map<String, Object>> result = evaluator.evaluate(provider, "config", mapType, Map.of(), ctx);
 
         assertThat(result.value()).containsEntry("timeout", 30);
         assertThat(result.reason()).isEqualTo(EvaluationReason.RESOLVED);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void evaluate_resolvesObjectFlagWithSubclassOfMap() {
         Map<String, Object> config = Map.of("timeout", 30);
         Flag flag = new Flag("config", FlagType.OBJECT, FlagValue.of(config, FlagType.OBJECT), true, null);
+
+        Class<HashMap<String, Object>> hashMapType = (Class<HashMap<String, Object>>) (Class<?>) HashMap.class;
         when(provider.getFlag("config")).thenReturn(Optional.of(flag));
 
-        EvaluationResult<HashMap> resultHashMap = evaluator.evaluate(
-                provider, "config", HashMap.class, new HashMap<>(), ctx);
+        EvaluationResult<HashMap<String, Object>> resultHashMap = evaluator.evaluate(
+                provider, "config", hashMapType, new HashMap<>(), ctx);
+
         assertThat(resultHashMap.reason()).isEqualTo(EvaluationReason.RESOLVED);
         assertThat(resultHashMap.value()).containsEntry("timeout", 30);
 
+        Class<LinkedHashMap<String, Object>> linkedHashMapType = (Class<LinkedHashMap<String, Object>>) (Class<?>) LinkedHashMap.class;
         when(provider.getFlag("config")).thenReturn(Optional.of(flag));
-        EvaluationResult<LinkedHashMap> resultLinkedHashMap = evaluator.evaluate(
-                provider, "config", LinkedHashMap.class, new LinkedHashMap<>(), ctx);
+
+        EvaluationResult<LinkedHashMap<String, Object>> resultLinkedHashMap = evaluator.evaluate(
+                provider, "config", linkedHashMapType, new LinkedHashMap<>(), ctx);
+
         assertThat(resultLinkedHashMap.reason()).isEqualTo(EvaluationReason.RESOLVED);
         assertThat(resultLinkedHashMap.value()).containsEntry("timeout", 30);
     }
