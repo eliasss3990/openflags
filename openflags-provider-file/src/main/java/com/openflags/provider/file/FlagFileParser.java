@@ -2,6 +2,7 @@ package com.openflags.provider.file;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.openflags.core.evaluation.rule.Condition;
 import com.openflags.core.evaluation.rule.Operator;
@@ -56,8 +57,9 @@ public final class FlagFileParser {
 
     private static final Logger log = LoggerFactory.getLogger(FlagFileParser.class);
 
-    private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
-    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    // immutable after static initialization — do not expose references
+    private static final ObjectMapper YAML_MAPPER = JsonMapper.builder(new YAMLFactory()).build();
+    private static final ObjectMapper JSON_MAPPER = JsonMapper.builder().build();
 
     /** Maximum regex pattern length accepted at parse time (security: limits ReDoS surface). */
     static final int MAX_REGEX_LENGTH = 1024;
