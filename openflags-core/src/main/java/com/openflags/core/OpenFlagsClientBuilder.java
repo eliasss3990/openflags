@@ -4,6 +4,8 @@ import com.openflags.core.evaluation.FlagEvaluator;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.provider.FlagProvider;
 
+import java.util.Objects;
+
 /**
  * Builder for {@link OpenFlagsClient}.
  * <p>
@@ -30,10 +32,7 @@ public final class OpenFlagsClientBuilder {
      * @throws NullPointerException if provider is null
      */
     public OpenFlagsClientBuilder provider(FlagProvider provider) {
-        if (provider == null) {
-            throw new NullPointerException("provider must not be null");
-        }
-        this.provider = provider;
+        this.provider = Objects.requireNonNull(provider, "provider must not be null");
         return this;
     }
 

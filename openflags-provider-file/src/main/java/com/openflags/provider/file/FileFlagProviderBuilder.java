@@ -2,6 +2,7 @@ package com.openflags.provider.file;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 /**
  * Builder for {@link FileFlagProvider}.
@@ -31,8 +32,7 @@ public final class FileFlagProviderBuilder {
      * @throws NullPointerException if path is null
      */
     public FileFlagProviderBuilder path(Path path) {
-        if (path == null) throw new NullPointerException("path must not be null");
-        this.path = path;
+        this.path = Objects.requireNonNull(path, "path must not be null");
         return this;
     }
 
@@ -44,7 +44,7 @@ public final class FileFlagProviderBuilder {
      * @throws NullPointerException if path is null
      */
     public FileFlagProviderBuilder path(String path) {
-        if (path == null) throw new NullPointerException("path must not be null");
+        Objects.requireNonNull(path, "path must not be null");
         this.path = Paths.get(path);
         return this;
     }
