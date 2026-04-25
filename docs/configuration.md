@@ -99,7 +99,7 @@ When `spring-boot-starter-actuator` is on the classpath, the `/actuator/health` 
     "openflags": {
       "status": "UP",
       "details": {
-        "providerState": "READY"
+        "provider.state": "READY"
       }
     }
   }

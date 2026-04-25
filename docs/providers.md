@@ -100,14 +100,25 @@ OpenFlagsClient client = OpenFlagsClient.builder()
         .build();
 ```
 
-In Spring Boot, declare it as a `@Bean` named `flagProvider` (or any name — `@ConditionalOnMissingBean` in the auto-configuration will back off):
+In Spring Boot, declare both a `FlagProvider` bean and an `OpenFlagsClient` bean. The auto-configuration backs off from creating `OpenFlagsClient` when a bean of that type is already present (`@ConditionalOnMissingBean`), but it will still attempt to create `fileFlagProvider` unless you also suppress it:
 
 ```java
-@Bean
-public FlagProvider flagProvider() {
-    return new MyCustomProvider();
+@Configuration
+public class MyFlagsConfig {
+
+    @Bean
+    public FlagProvider flagProvider() {
+        return new MyCustomProvider();
+    }
+
+    @Bean
+    public OpenFlagsClient openFlagsClient(FlagProvider flagProvider) {
+        return OpenFlagsClient.builder().provider(flagProvider).build();
+    }
 }
 ```
+
+Alternatively, set `openflags.provider=none` (Phase 2) to disable the file provider bean entirely.
 
 ---
 

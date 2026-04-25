@@ -43,4 +43,4 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-[Unreleased]: https://github.com/eliasss3990/openflags/compare/HEAD...HEAD
+[Unreleased]: https://github.com/eliasss3990/openflags/commits/main
