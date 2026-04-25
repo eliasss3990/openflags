@@ -128,14 +128,24 @@ public final class FileFlagProvider implements FlagProvider {
     }
 
     private void reload() {
+        if (shutdown) {
+            log.debug("Ignoring reload() after shutdown for '{}'", filePath);
+            return;
+        }
         try {
             Map<String, Flag> oldFlags = flags.get();
             Map<String, Flag> newFlags = parseFile();
+            if (shutdown) {
+                return;
+            }
             flags.set(newFlags);
             state.set(ProviderState.READY);
             log.debug("Reloaded flags from '{}': {} flags", filePath, newFlags.size());
             emitChangeEvents(oldFlags, newFlags);
         } catch (ProviderException e) {
+            if (shutdown) {
+                return;
+            }
             state.set(ProviderState.ERROR);
             log.warn("Failed to reload flags from '{}': {}", filePath, e.getMessage());
             throw e;
