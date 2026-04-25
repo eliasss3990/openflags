@@ -125,6 +125,18 @@ class OpenFlagsClientTest {
     }
 
     @Test
+    void removeChangeListener_afterShutdown_isNoOp() {
+        FlagChangeListener listener = event -> {};
+        client.addChangeListener(listener);
+
+        client.shutdown();
+
+        assertThatCode(() -> client.removeChangeListener(listener))
+                .doesNotThrowAnyException();
+        verify(provider, never()).removeChangeListener(listener);
+    }
+
+    @Test
     void getBooleanValue_withContext() {
         Flag flag = new Flag("feature", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), true, null);
         when(provider.getFlag("feature")).thenReturn(Optional.of(flag));
