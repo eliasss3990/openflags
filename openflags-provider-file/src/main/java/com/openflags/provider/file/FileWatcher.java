@@ -140,14 +140,15 @@ public final class FileWatcher {
         } catch (Exception firstAttemptEx) {
             log.debug("Callback failed on first attempt (possibly mid-write), retrying in {}ms: {}",
                     DEBOUNCE_MS, firstAttemptEx.getMessage());
-            try {
-                Thread.sleep(DEBOUNCE_MS);
-                callback.run();
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            } catch (Exception retryEx) {
-                log.warn("Callback failed on retry for file '{}': {}", filePath, retryEx.getMessage());
-            }
+            debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void invokeRetryAttempt() {
+        try {
+            callback.run();
+        } catch (Exception retryEx) {
+            log.warn("Callback failed on retry for file '{}': {}", filePath, retryEx.getMessage());
         }
     }
 }
