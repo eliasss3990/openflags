@@ -59,16 +59,20 @@ public final class FlagFileParser {
         }
 
         if (root == null || root.isNull() || root.isMissingNode()) {
-            return Collections.emptyMap();
+            throw new ProviderException("Flag file '" + path.getFileName() + "' is empty or invalid");
         }
 
         JsonNode flagsNode = root.path("flags");
         if (flagsNode.isMissingNode() || flagsNode.isNull()) {
-            if (root.isObject() && root.size() == 0) {
-                return Collections.emptyMap();
-            }
             throw new ProviderException("Flag file '" + path.getFileName()
                     + "' must have a top-level 'flags' key");
+        }
+        if (!flagsNode.isObject()) {
+            throw new ProviderException("Flag file '" + path.getFileName()
+                    + "' has 'flags' that is not an object");
+        }
+        if (flagsNode.size() == 0) {
+            return Collections.emptyMap();
         }
 
         Map<String, Flag> flags = new HashMap<>();
