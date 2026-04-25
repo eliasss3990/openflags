@@ -51,7 +51,8 @@ public final class FileFlagProvider implements FlagProvider {
     private final AtomicReference<Map<String, Flag>> flags = new AtomicReference<>(Collections.emptyMap());
     private final AtomicReference<ProviderState> state = new AtomicReference<>(ProviderState.NOT_READY);
 
-    private volatile boolean initialized = false;
+    private boolean initialized = false;
+    // volatile: leido por requireNotShutdown() fuera de synchronized
     private volatile boolean shutdown = false;
     private FileWatcher watcher;
 
