@@ -57,6 +57,22 @@ class OpenFlagsAutoConfigurationTest {
                 .run(ctx -> assertThat(ctx).hasFailed());
     }
 
+    @Test
+    void healthIndicator_presentWhenActuatorOnClasspath() {
+        contextRunner.run(ctx -> {
+            assertThat(ctx).hasSingleBean(OpenFlagsHealthIndicator.class);
+        });
+    }
+
+    @Test
+    void healthIndicator_createdWithCorrectClient() {
+        contextRunner.run(ctx -> {
+            OpenFlagsHealthIndicator indicator = ctx.getBean(OpenFlagsHealthIndicator.class);
+            assertThat(indicator).isNotNull();
+            assertThat(indicator.health()).isNotNull();
+        });
+    }
+
     @org.springframework.context.annotation.Configuration
     static class CustomClientConfig {
         @org.springframework.context.annotation.Bean("customClient")
