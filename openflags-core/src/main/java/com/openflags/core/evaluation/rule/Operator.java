@@ -31,6 +31,11 @@ public enum Operator {
     STARTS_WITH,
     /** Suffix match (String). */
     ENDS_WITH,
-    /** Regex match; {@code expectedValue} must be a precompiled {@link java.util.regex.Pattern}. */
+    /**
+     * Partial regex match (uses {@link java.util.regex.Matcher#find()}).
+     * The pattern matches if it appears anywhere in the string.
+     * To match the entire string, anchor the pattern: {@code ^pattern$}.
+     * {@code expectedValue} must be a precompiled {@link java.util.regex.Pattern}.
+     */
     MATCHES
 }

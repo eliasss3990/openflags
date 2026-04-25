@@ -73,7 +73,35 @@ class ConditionEvaluatorTest {
                 ctx("plan", "free"))).isFalse();
     }
 
+    @Test
+    void in_numericCoercion_intMatchesDouble() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("age", Operator.IN, List.of(18.0, 21.0)),
+                ctx("age", 18))).isTrue();
+    }
+
+    @Test
+    void in_numericCoercion_intNotInList() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("age", Operator.IN, List.of(19.0, 21.0)),
+                ctx("age", 18))).isFalse();
+    }
+
     // NOT_IN
+
+    @Test
+    void notIn_numericCoercion_intInList() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("age", Operator.NOT_IN, List.of(18.0, 21.0)),
+                ctx("age", 18))).isFalse();
+    }
+
+    @Test
+    void notIn_numericCoercion_intNotInList() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("age", Operator.NOT_IN, List.of(19.0, 21.0)),
+                ctx("age", 18))).isTrue();
+    }
 
     @Test
     void notIn_match() {
@@ -191,6 +219,20 @@ class ConditionEvaluatorTest {
         assertThat(ConditionEvaluator.matches(
                 new Condition("value", Operator.MATCHES, Pattern.compile(".*")),
                 ctx("value", 42))).isFalse();
+    }
+
+    @Test
+    void matches_partialMatch_patternFoundInSubstring() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("code", Operator.MATCHES, Pattern.compile("[0-9]+")),
+                ctx("code", "abc123"))).isTrue();
+    }
+
+    @Test
+    void matches_anchoredPattern_doesNotMatchPartial() {
+        assertThat(ConditionEvaluator.matches(
+                new Condition("code", Operator.MATCHES, Pattern.compile("^[0-9]+$")),
+                ctx("code", "abc123"))).isFalse();
     }
 
     @Test
