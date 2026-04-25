@@ -139,9 +139,11 @@ public final class FileFlagProvider implements FlagProvider {
         try {
             newFlags = parseFile();
         } catch (ProviderException e) {
-            if (!shutdown) {
-                state.set(ProviderState.ERROR);
-                log.warn("Failed to reload flags from '{}': {}", filePath, e.getMessage());
+            synchronized (this) {
+                if (!shutdown) {
+                    state.set(ProviderState.ERROR);
+                    log.warn("Failed to reload flags from '{}': {}", filePath, e.getMessage());
+                }
             }
             return;
         }
