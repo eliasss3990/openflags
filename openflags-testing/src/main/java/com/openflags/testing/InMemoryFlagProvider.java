@@ -146,7 +146,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
         if (existing == null) {
             throw new IllegalArgumentException("Cannot disable unknown flag: '" + key + "'");
         }
-        Flag disabled = new Flag(key, existing.type(), existing.value(), false, existing.metadata());
+        Flag disabled = new Flag(key, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
         return putFlag(disabled);
     }
 

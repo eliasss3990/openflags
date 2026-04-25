@@ -77,6 +77,23 @@ class InMemoryFlagProviderTest {
     }
 
     @Test
+    void setDisabled_preservesRules() {
+        FlagValue defaultValue = FlagValue.of(false, FlagType.BOOLEAN);
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("ar-only",
+                List.of(new Condition("country", Operator.EQ, "AR")), ruleValue);
+        Flag flag = new Flag("feature-rules", FlagType.BOOLEAN, defaultValue, true, null, List.of(rule));
+        provider.setFlag(flag);
+
+        provider.setDisabled("feature-rules");
+
+        Flag disabled = provider.getFlag("feature-rules").orElseThrow();
+        assertThat(disabled.enabled()).isFalse();
+        assertThat(disabled.rules()).isNotEmpty();
+        assertThat(disabled.rules().get(0).name()).isEqualTo("ar-only");
+    }
+
+    @Test
     void setDisabled_throwsWhenFlagNotFound() {
         assertThatThrownBy(() -> provider.setDisabled("unknown"))
                 .isInstanceOf(IllegalArgumentException.class);
