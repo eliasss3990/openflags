@@ -41,6 +41,7 @@ public interface FlagProvider {
      *
      * @param key the flag key; must not be null
      * @return the flag if found, empty otherwise
+     * @throws NullPointerException if key is null
      */
     Optional<Flag> getFlag(String key);
 
