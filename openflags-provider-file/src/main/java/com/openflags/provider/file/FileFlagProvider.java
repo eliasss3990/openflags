@@ -90,6 +90,7 @@ public final class FileFlagProvider implements FlagProvider {
 
     @Override
     public Optional<Flag> getFlag(String key) {
+        Objects.requireNonNull(key, "key must not be null");
         requireNotShutdown();
         return Optional.ofNullable(flags.get().get(key));
     }
