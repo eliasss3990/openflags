@@ -105,4 +105,31 @@ class FlagValueTest {
         FlagValue value = FlagValue.of(99.0, FlagType.NUMBER);
         assertThat(value.getRawValue()).isEqualTo(99.0);
     }
+
+    @Test
+    void of_objectType_doesNotReflectMutationsOnOriginalMap() {
+        Map<String, Object> mutable = new HashMap<>();
+        mutable.put("x", 1);
+        FlagValue value = FlagValue.of(mutable, FlagType.OBJECT);
+
+        mutable.put("y", 2);
+        mutable.remove("x");
+
+        assertThat(value.asObject()).containsEntry("x", 1);
+        assertThat(value.asObject()).doesNotContainKey("y");
+        assertThat(value.asObject()).hasSize(1);
+    }
+
+    @Test
+    void asObject_returnedMapIsImmutableEvenAfterOriginalMutation() {
+        Map<String, Object> mutable = new HashMap<>();
+        mutable.put("a", "v");
+        FlagValue value = FlagValue.of(mutable, FlagType.OBJECT);
+
+        mutable.put("b", "v2");
+
+        Map<String, Object> result = value.asObject();
+        assertThatThrownBy(() -> result.put("c", "v3"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
 }
