@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches-ignore:
+    branches:
       - main
+      - '**'
   pull_request:
     branches:
       - main
@@ -40,8 +41,8 @@ jobs:
           path: '**/target/site/jacoco/'
           retention-days: 7
 
-  checkstyle:
-    name: Code style
+  verify-javadoc:
+    name: Javadoc
     runs-on: ubuntu-latest
 
     steps:
@@ -55,5 +56,5 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Verify no compilation warnings treated as errors
-        run: mvn -B clean compile -Dmaven.compiler.failOnWarning=false
+      - name: Generate Javadoc
+        run: mvn -B javadoc:aggregate -Dquiet=true

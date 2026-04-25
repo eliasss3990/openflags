@@ -17,4 +17,5 @@
 
 - [ ] Code follows project conventions (English for all public code)
 - [ ] Javadoc updated for any changed public API
+- [ ] CHANGELOG updated for any user-visible change
 - [ ] No direct commits to `main`
