@@ -56,14 +56,13 @@ public class OpenFlagsAutoConfiguration {
     public FlagProvider fileFlagProvider(OpenFlagsProperties properties, ResourceLoader resourceLoader)
             throws IOException {
         String pathStr = properties.getFile().getPath();
-        boolean watchEnabled = properties.getFile().isWatchEnabled();
+        boolean watchRequested = properties.getFile().isWatchEnabled();
 
-        Path resolvedPath = resolveFilePath(pathStr, resourceLoader, watchEnabled);
-        boolean effectiveWatchEnabled = determineEffectiveWatchEnabled(pathStr, resourceLoader, watchEnabled);
+        ResolvedFile resolved = resolveFile(pathStr, resourceLoader, watchRequested);
 
         return FileFlagProvider.builder()
-                .path(resolvedPath)
-                .watchEnabled(effectiveWatchEnabled)
+                .path(resolved.path())
+                .watchEnabled(resolved.watchEnabled())
                 .build();
     }
 
@@ -80,43 +79,28 @@ public class OpenFlagsAutoConfiguration {
         return OpenFlagsClient.builder().provider(provider).build();
     }
 
-    private Path resolveFilePath(String pathStr, ResourceLoader resourceLoader, boolean watchEnabled)
+    private ResolvedFile resolveFile(String pathStr, ResourceLoader resourceLoader, boolean watchRequested)
             throws IOException {
         Resource resource = resourceLoader.getResource(pathStr);
         if (!resource.exists()) {
             throw new IOException("openflags flag file not found: " + pathStr);
         }
+        URI uri;
         try {
-            URI uri = resource.getURI();
-            if (uri.getScheme().equals("jar") || uri.getScheme().equals("zip")) {
-                // Cannot resolve to filesystem — return a temp copy or throw
-                throw new IOException(
-                        "Flag file '" + pathStr + "' is inside a JAR and cannot be resolved to a filesystem path. "
-                                + "Use a file: path or extract the resource to a configurable location.");
-            }
-            return Path.of(uri);
+            uri = resource.getURI();
         } catch (IOException e) {
             throw new IOException("Cannot resolve flag file path: " + pathStr, e);
         }
+        String scheme = uri.getScheme();
+        if ("jar".equals(scheme) || "zip".equals(scheme)) {
+            throw new IOException(
+                    "Flag file '" + pathStr + "' is inside a JAR and cannot be resolved to a filesystem path. "
+                            + "Use a file: path or extract the resource to a configurable location.");
+        }
+        return new ResolvedFile(Path.of(uri), watchRequested);
     }
 
-    private boolean determineEffectiveWatchEnabled(String pathStr, ResourceLoader resourceLoader,
-            boolean requestedWatch) {
-        if (!requestedWatch) return false;
-        Resource resource = resourceLoader.getResource(pathStr);
-        try {
-            URI uri = resource.getURI();
-            if (uri.getScheme().equals("jar") || uri.getScheme().equals("zip")) {
-                log.info("openflags: file watching disabled for '{}' because the file is inside a JAR. "
-                        + "WatchService cannot observe files inside JARs.", pathStr);
-                return false;
-            }
-        } catch (IOException e) {
-            log.info("openflags: file watching disabled for '{}': cannot determine resource location.", pathStr);
-            return false;
-        }
-        return true;
-    }
+    private record ResolvedFile(Path path, boolean watchEnabled) {}
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "org.springframework.boot.actuate.health.HealthIndicator")
