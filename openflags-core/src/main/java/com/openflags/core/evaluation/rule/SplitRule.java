@@ -7,7 +7,6 @@ import java.util.Objects;
 /**
  * A rule that performs a percentage rollout based on consistent hashing of the
  * pair {@code (flagKey, targetingKey)}.
- * <p>
  * The rule matches when:
  * <ol>
  *   <li>{@link com.openflags.core.evaluation.EvaluationContext#getTargetingKey()} is present, and</li>
@@ -15,7 +14,6 @@ import java.util.Objects;
  * </ol>
  * If no targeting key is present the rule never matches; evaluation continues with
  * the next rule.
- * </p>
  *
  * @param name       human-readable rule name; non-blank
  * @param percentage rollout percentage in the closed range {@code [0, 100]}
