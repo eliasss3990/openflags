@@ -3,7 +3,9 @@ package com.openflags.spring;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import static org.assertj.core.api.Assertions.*;
@@ -71,6 +73,17 @@ class OpenFlagsAutoConfigurationTest {
             assertThat(indicator).isNotNull();
             assertThat(indicator.health()).isNotNull();
         });
+    }
+
+    @Test
+    void healthIndicator_absentWhenActuatorMissing() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader(HealthIndicator.class))
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).hasSingleBean(OpenFlagsClient.class);
+                    assertThat(ctx).doesNotHaveBean(OpenFlagsHealthIndicator.class);
+                });
     }
 
     @org.springframework.context.annotation.Configuration
