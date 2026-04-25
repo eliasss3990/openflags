@@ -1,0 +1,40 @@
+# Compiled output
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven
+.mvn/
+!.mvn/wrapper/
+!.mvn/wrapper/maven-wrapper.properties
+mvnw
+mvnw.cmd
+.flattened-pom.xml
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+*.launch
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test output
+surefire-reports/
+failsafe-reports/
+
+# JaCoCo
+jacoco.exec
