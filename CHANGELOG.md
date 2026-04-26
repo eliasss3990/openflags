@@ -7,6 +7,42 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.3.0] - 2026-04-25
+
+### Added
+
+- `openflags-core`: `WeightedVariant` record — a single variant with a weight in `[0, 100]`
+- `openflags-core`: `MultiVariantRule` record — splits traffic across N weighted variants; weights must sum to 100; max 50 variants; `List.copyOf` enforces immutability
+- `openflags-core`: `VariantSelector` — deterministic bucket-to-variant mapping using cumulative weight ranges
+- `openflags-core`: `EvaluationReason.VARIANT` — emitted when a `MultiVariantRule` matches
+- `openflags-core`: `ProviderState.DEGRADED` — poll failed but cache TTL not yet exceeded
+- `openflags-core`: `ProviderState.SHUTDOWN` — provider has been shut down and released all resources
+- `openflags-provider-file`: `FlagFileParser.parseFlags(JsonNode, String)` — public API for parsing a pre-deserialized JSON tree with a source label; `parse(Path)` delegates to it
+- `openflags-provider-file`: support for `kind: multivariant` rules in YAML and JSON flag files
+- `openflags-provider-remote` (new module): `RemoteFlagProvider` — fetches flags from HTTP backend with configurable polling and stale-while-error cache
+- `openflags-provider-remote`: `RemoteFlagProviderBuilder` — fluent builder for `RemoteFlagProvider`
+- `openflags-provider-remote`: `RemoteProviderConfig` — immutable configuration record with validation
+- `openflags-provider-remote`: `RemoteHttpClient` — thin wrapper around `java.net.http.HttpClient` with `Redirect.NEVER` (SSRF mitigation)
+- `openflags-spring-boot-starter`: conditional bean `remoteFlagProvider` activated by `openflags.provider=remote`
+- `openflags-spring-boot-starter`: `OpenFlagsProperties.RemoteProperties` — Spring Boot configuration properties for the remote provider
+- `openflags-bom`: `openflags-provider-remote` added to the Bill of Materials
+
+### Changed
+
+- `openflags-core`: `Rule` sealed interface — `permits` extended to include `MultiVariantRule`
+- `openflags-core`: `RuleEngine` — switch extended for `MultiVariantRule`; without `targetingKey` the rule is skipped; with `targetingKey` a variant is selected and `VARIANT` is returned
+- `openflags-core`: `Flag` compact constructor — validates that each variant's type matches the flag type
+- `openflags-provider-file`: `FlagFileParser` — refactored to extract a public `parseFlags(JsonNode, String)` method; all internal parse methods updated to use `sourceLabel` string instead of `Path`
+- Build: `java.version` bumped to 21 to enable pattern matching in switch (sealed interface dispatch)
+
+### Notes
+
+- Minimum `pollInterval` for `RemoteFlagProvider` is 5 seconds to prevent accidental backend overload.
+- Reordering variants in a live `MultiVariantRule` shifts cumulative ranges and changes user assignments. Prefer setting weight to 0 to pause a variant without reordering.
+- Backend response format is identical to the file provider JSON format (`{ "flags": { ... } }`).
+
+---
+
 ## [0.2.0] - 2026-04-25
 
 ### Added

@@ -292,6 +292,106 @@ Requires Java 17+ and Maven 3.8+.
 
 ---
 
+## Variantes (MultiVariantRule)
+
+Run A/B/n experiments by splitting traffic across multiple weighted variants. Weights must sum to 100; weight=0 temporarily disables a variant without changing user assignments.
+
+```yaml
+flags:
+  checkout-experiment:
+    type: string
+    value: "control"
+    enabled: true
+    rules:
+      - name: "abc-test"
+        kind: multivariant
+        variants:
+          - value: "control"
+            weight: 50
+          - value: "treatment-a"
+            weight: 25
+          - value: "treatment-b"
+            weight: 25
+```
+
+**Evaluation behavior:**
+- With `targetingKey`: always selects a variant deterministically → `EvaluationReason.VARIANT`
+- Without `targetingKey`: rule is skipped → `EvaluationReason.DEFAULT`
+
+```java
+EvaluationResult<String> result = client.getStringResult(
+    "checkout-experiment", "control", EvaluationContext.of("user-123"));
+
+// result.reason() == EvaluationReason.VARIANT
+// result.value()  == "control" | "treatment-a" | "treatment-b"
+```
+
+> **Warning:** Reordering variants shifts bucket ranges and changes user assignments. Once an experiment is running, set an unwanted variant's weight to 0 rather than removing it.
+
+---
+
+## Remote provider
+
+Fetch flags from an HTTP backend with automatic polling and stale-while-error cache.
+
+### Standalone
+
+```xml
+<dependency>
+    <groupId>com.openflags</groupId>
+    <artifactId>openflags-provider-remote</artifactId>
+    <version>0.3.0-SNAPSHOT</version>
+</dependency>
+```
+
+```java
+RemoteFlagProvider provider = RemoteFlagProviderBuilder
+        .forUrl("https://flags.example.com")
+        .bearerToken("my-api-token")
+        .pollInterval(Duration.ofSeconds(30))
+        .cacheTtl(Duration.ofMinutes(5))
+        .build();
+
+provider.init(); // initial fetch; throws ProviderException on failure
+OpenFlagsClient client = OpenFlagsClient.builder().provider(provider).build();
+// ...
+provider.shutdown(); // releases polling thread
+```
+
+### Spring Boot
+
+```yaml
+openflags:
+  provider: remote
+  remote:
+    base-url: https://flags.example.com
+    auth-header-name: Authorization
+    auth-header-value: "Bearer my-token"
+    poll-interval: 30s
+    cache-ttl: 5m
+```
+
+**State machine:** `NOT_READY → READY → DEGRADED → ERROR → SHUTDOWN`
+
+- `DEGRADED`: a poll failed but cache TTL has not expired; stale data is served.
+- `ERROR`: cache TTL exceeded; last known data is still served.
+
+**Expected backend format** (same as file provider):
+
+```json
+{
+  "flags": {
+    "dark-mode": {
+      "type": "boolean",
+      "value": true,
+      "enabled": true
+    }
+  }
+}
+```
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please open an issue before submitting a pull request for significant changes.
