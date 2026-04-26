@@ -46,12 +46,26 @@ import java.util.concurrent.TimeUnit;
  * </p>
  *
  * <h2>Thread-safety</h2>
- * <p>This class is thread-safe. The underlying flags map is swapped atomically on each
- * successful poll; readers always see a consistent snapshot.</p>
+ * <p>This class is thread-safe. The underlying cache is swapped atomically on each
+ * successful poll via a single {@code volatile} {@link CacheSnapshot} reference;
+ * readers always see a consistent snapshot. {@link #init()} and {@link #shutdown()}
+ * are {@code synchronized} to prevent concurrent scheduler creation or double-shutdown.</p>
  */
 public final class RemoteFlagProvider implements FlagProvider {
 
     private static final Logger log = LoggerFactory.getLogger(RemoteFlagProvider.class);
+
+    /**
+     * Immutable snapshot of the cache state. Written atomically via a single volatile field.
+     */
+    private record CacheSnapshot(
+            Map<String, Flag> flags,
+            Instant fetchedAt,
+            ProviderState state
+    ) {}
+
+    private static final CacheSnapshot INITIAL_SNAPSHOT =
+            new CacheSnapshot(Map.of(), Instant.EPOCH, ProviderState.NOT_READY);
 
     private final RemoteProviderConfig config;
     private final RemoteHttpClient httpClient;
@@ -59,9 +73,7 @@ public final class RemoteFlagProvider implements FlagProvider {
     private final ObjectMapper objectMapper;
     private final CopyOnWriteArrayList<FlagChangeListener> listeners;
 
-    private volatile Map<String, Flag> flagsRef = Map.of();
-    private volatile Instant lastSuccessfulFetch = Instant.EPOCH;
-    private volatile ProviderState state = ProviderState.NOT_READY;
+    private volatile CacheSnapshot snapshot = INITIAL_SNAPSHOT;
 
     private ScheduledExecutorService scheduler;
 
@@ -78,27 +90,29 @@ public final class RemoteFlagProvider implements FlagProvider {
 
     /**
      * Performs the initial fetch synchronously and starts the polling thread.
+     * Idempotent: safe to call multiple times or from multiple threads; only the
+     * first call when {@code state == NOT_READY} takes effect.
      *
      * @throws ProviderException if the initial fetch fails (network, parse, or HTTP error)
      */
     @Override
-    public void init() {
-        if (state == ProviderState.READY) {
-            return; // idempotent
+    public synchronized void init() {
+        if (snapshot.state() != ProviderState.NOT_READY) {
+            return; // already initialized (or shut down)
         }
         try {
             pollOnce();
-            if (state != ProviderState.READY) {
+            if (snapshot.state() != ProviderState.READY) {
                 // pollOnce transitioned to DEGRADED or ERROR due to non-2xx; reset and throw
-                state = ProviderState.NOT_READY;
+                snapshot = INITIAL_SNAPSHOT;
                 throw new ProviderException("Initial fetch did not produce a READY state");
             }
             startScheduler();
         } catch (ProviderException e) {
-            state = ProviderState.NOT_READY;
+            snapshot = INITIAL_SNAPSHOT;
             throw e;
         } catch (Exception e) {
-            state = ProviderState.NOT_READY;
+            snapshot = INITIAL_SNAPSHOT;
             throw new ProviderException(
                     "Failed to initialize remote provider for " + config.baseUrl(), e);
         }
@@ -108,18 +122,18 @@ public final class RemoteFlagProvider implements FlagProvider {
     public Optional<Flag> getFlag(String key) {
         Objects.requireNonNull(key, "key must not be null");
         checkCanServe();
-        return Optional.ofNullable(flagsRef.get(key));
+        return Optional.ofNullable(snapshot.flags().get(key));
     }
 
     @Override
     public Map<String, Flag> getAllFlags() {
         checkCanServe();
-        return flagsRef;
+        return snapshot.flags();
     }
 
     @Override
     public ProviderState getState() {
-        return state;
+        return snapshot.state();
     }
 
     @Override
@@ -137,11 +151,11 @@ public final class RemoteFlagProvider implements FlagProvider {
      * Stops the polling thread and releases all resources. Idempotent.
      */
     @Override
-    public void shutdown() {
-        if (state == ProviderState.SHUTDOWN) {
+    public synchronized void shutdown() {
+        if (snapshot.state() == ProviderState.SHUTDOWN) {
             return;
         }
-        state = ProviderState.SHUTDOWN;
+        snapshot = new CacheSnapshot(snapshot.flags(), snapshot.fetchedAt(), ProviderState.SHUTDOWN);
         if (scheduler != null) {
             scheduler.shutdown();
             try {
@@ -159,7 +173,7 @@ public final class RemoteFlagProvider implements FlagProvider {
     }
 
     private void checkCanServe() {
-        ProviderState current = state;
+        ProviderState current = snapshot.state();
         if (current == ProviderState.NOT_READY) {
             throw new IllegalStateException("provider not initialized");
         }
@@ -197,18 +211,14 @@ public final class RemoteFlagProvider implements FlagProvider {
         if (status == 200) {
             JsonNode root = objectMapper.readTree(response.body());
             Map<String, Flag> newFlags = parser.parseFlags(root, "remote:" + config.baseUrl());
-            Map<String, Flag> oldFlags = flagsRef;
-            flagsRef = Map.copyOf(newFlags);
-            lastSuccessfulFetch = Instant.now();
-            state = ProviderState.READY;
-            emitDiff(oldFlags, flagsRef);
-            log.debug("Poll succeeded for {}: {} flags loaded", config.baseUrl(), flagsRef.size());
+            Map<String, Flag> oldFlags = snapshot.flags();
+            snapshot = new CacheSnapshot(Map.copyOf(newFlags), Instant.now(), ProviderState.READY);
+            emitDiff(oldFlags, snapshot.flags());
+            log.debug("Poll succeeded for {}: {} flags loaded", config.baseUrl(), snapshot.flags().size());
 
         } else if (status == 204) {
-            Map<String, Flag> oldFlags = flagsRef;
-            flagsRef = Map.of();
-            lastSuccessfulFetch = Instant.now();
-            state = ProviderState.READY;
+            Map<String, Flag> oldFlags = snapshot.flags();
+            snapshot = new CacheSnapshot(Map.of(), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, Map.of());
             log.debug("Poll returned 204 for {}: cache cleared", config.baseUrl());
 
@@ -227,17 +237,18 @@ public final class RemoteFlagProvider implements FlagProvider {
     }
 
     private void checkStaleness() {
-        if (state == ProviderState.SHUTDOWN) {
+        CacheSnapshot current = snapshot;
+        if (current.state() == ProviderState.SHUTDOWN) {
             return;
         }
-        Instant now = Instant.now();
-        long ageMillis = now.toEpochMilli() - lastSuccessfulFetch.toEpochMilli();
-        if (ageMillis > config.cacheTtl().toMillis()) {
-            state = ProviderState.ERROR;
+        long ageMillis = Instant.now().toEpochMilli() - current.fetchedAt().toEpochMilli();
+        ProviderState next = ageMillis > config.cacheTtl().toMillis()
+                ? ProviderState.ERROR
+                : ProviderState.DEGRADED;
+        if (next == ProviderState.ERROR) {
             log.warn("Cache TTL exceeded for {}; transitioning to ERROR", config.baseUrl());
-        } else {
-            state = ProviderState.DEGRADED;
         }
+        snapshot = new CacheSnapshot(current.flags(), current.fetchedAt(), next);
     }
 
     private void emitDiff(Map<String, Flag> oldFlags, Map<String, Flag> newFlags) {
