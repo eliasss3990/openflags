@@ -1,8 +1,10 @@
 package com.openflags.core.model;
 
+import com.openflags.core.evaluation.rule.MultiVariantRule;
 import com.openflags.core.evaluation.rule.Rule;
 import com.openflags.core.evaluation.rule.SplitRule;
 import com.openflags.core.evaluation.rule.TargetingRule;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 
 import java.util.Collections;
 import java.util.List;
@@ -70,6 +72,15 @@ public record Flag(
                         "rule '" + rule.name() + "' value type " + rv.getType()
                                 + " does not match flag '" + key + "' type " + type);
             }
+            if (rule instanceof MultiVariantRule m) {
+                for (WeightedVariant v : m.variants()) {
+                    if (v.value().getType() != type) {
+                        throw new IllegalArgumentException(
+                                "variant in rule '" + m.name() + "' has value type "
+                                        + v.value().getType() + " but flag '" + key + "' is " + type);
+                    }
+                }
+            }
         }
     }
 
@@ -88,8 +99,10 @@ public record Flag(
     }
 
     private static FlagValue ruleValue(Rule rule) {
-        if (rule instanceof TargetingRule t) return t.value();
-        if (rule instanceof SplitRule s) return s.value();
-        return null;
+        return switch (rule) {
+            case TargetingRule t    -> t.value();
+            case SplitRule s        -> s.value();
+            case MultiVariantRule m -> null; // validated per variant separately
+        };
     }
 }
