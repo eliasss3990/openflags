@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A {@link FlagProvider} that combines a {@link RemoteFlagProvider}
@@ -64,7 +65,7 @@ public final class HybridFlagProvider implements FlagProvider {
     private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
 
     /** Counts consecutive snapshot write failures for log throttling. */
-    private int consecutiveWriteFailures = 0;
+    private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
     private boolean initialized = false;
     private volatile boolean shutdown = false;
@@ -97,6 +98,19 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     /**
+     * Package-private constructor for testing; allows injecting mock providers.
+     */
+    HybridFlagProvider(HybridProviderConfig config,
+                       RemoteFlagProvider remote,
+                       FileFlagProvider file,
+                       SnapshotWriter snapshotWriter) {
+        this.config = Objects.requireNonNull(config, "config must not be null");
+        this.remote = Objects.requireNonNull(remote, "remote must not be null");
+        this.file = Objects.requireNonNull(file, "file must not be null");
+        this.snapshotWriter = Objects.requireNonNull(snapshotWriter, "snapshotWriter must not be null");
+    }
+
+    /**
      * Creates a new builder.
      *
      * @return a fresh builder
@@ -113,8 +127,8 @@ public final class HybridFlagProvider implements FlagProvider {
      */
     @Override
     public synchronized void init() {
-        if (initialized) return;
         requireNotShutdown();
+        if (initialized) return;
 
         boolean remoteOk = false;
         boolean fileOk = false;
@@ -147,10 +161,10 @@ public final class HybridFlagProvider implements FlagProvider {
             if (config.failIfNoFallback()) {
                 throw new ProviderException(
                         "HybridFlagProvider: both remote and file providers failed to initialize");
-            } else {
-                throw new ProviderException(
-                        "HybridFlagProvider: both remote and file providers failed to initialize");
             }
+            log.warn("HybridFlagProvider: both providers failed to initialize; "
+                    + "starting in degraded state (failIfNoFallback=false). "
+                    + "getFlag() will return Optional.empty() until a source recovers.");
         }
 
         initialized = true;
@@ -178,6 +192,7 @@ public final class HybridFlagProvider implements FlagProvider {
     @Override
     public ProviderState getState() {
         if (shutdown) return ProviderState.SHUTDOWN;
+        if (!initialized) return ProviderState.NOT_READY;
         ProviderState rs = remote.getState();
         ProviderState fs = file.getState();
 
@@ -194,10 +209,7 @@ public final class HybridFlagProvider implements FlagProvider {
         if (fs == ProviderState.READY || fs == ProviderState.DEGRADED) {
             return ProviderState.DEGRADED;
         }
-        if (rs == ProviderState.NOT_READY && fs == ProviderState.NOT_READY) {
-            return ProviderState.NOT_READY;
-        }
-        // remote=ERROR or NOT_READY, file=ERROR or NOT_READY
+        // remote=ERROR or NOT_READY, file=ERROR or NOT_READY (initialized → ERROR)
         return ProviderState.ERROR;
     }
 
@@ -272,14 +284,14 @@ public final class HybridFlagProvider implements FlagProvider {
     private void writeSafe(Map<String, Flag> flags) {
         try {
             snapshotWriter.write(flags, config.snapshotPath());
-            consecutiveWriteFailures = 0;
+            consecutiveWriteFailures.set(0);
             lastSnapshotWriteAt = Instant.now();
         } catch (IOException e) {
-            consecutiveWriteFailures++;
+            int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only
-            if (Integer.bitCount(consecutiveWriteFailures) == 1) {
+            if (Integer.bitCount(failures) == 1) {
                 log.warn("HybridFlagProvider: snapshot write failed (consecutive={}): {}",
-                        consecutiveWriteFailures, e.getMessage());
+                        failures, e.getMessage());
             }
         }
     }

@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -127,5 +128,68 @@ class HybridFlagProviderTest {
                 .snapshotPath(dir.resolve("snap.json"))
                 .build();
         assertThat(provider.getState()).isEqualTo(ProviderState.NOT_READY);
+    }
+
+    // ---- C1: failIfNoFallback ----
+
+    @Test
+    void init_bothProvidersFail_failIfNoFallbackTrue_throws(@TempDir Path dir) {
+        HybridFlagProvider provider = HybridFlagProvider.builder()
+                .remoteConfig(REMOTE_CFG)
+                .snapshotPath(dir.resolve("snap.json")) // file does not exist
+                .failIfNoFallback(true)
+                .build();
+        assertThatThrownBy(provider::init)
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("both remote and file providers failed");
+    }
+
+    @Test
+    void init_bothProvidersFail_failIfNoFallbackFalse_startsInErrorState(@TempDir Path dir) {
+        HybridFlagProvider provider = HybridFlagProvider.builder()
+                .remoteConfig(REMOTE_CFG)
+                .snapshotPath(dir.resolve("snap.json")) // file does not exist
+                .failIfNoFallback(false)
+                .build();
+        // must not throw
+        provider.init();
+        assertThat(provider.getState()).isEqualTo(ProviderState.ERROR);
+        assertThat(provider.getFlag("any-flag")).isEmpty();
+        provider.shutdown();
+    }
+
+    // ---- I1: init() guard order ----
+
+    @Test
+    void init_afterShutdown_throws(@TempDir Path dir) {
+        HybridFlagProvider provider = HybridFlagProvider.builder()
+                .remoteConfig(REMOTE_CFG)
+                .snapshotPath(dir.resolve("snap.json"))
+                .build();
+        provider.shutdown();
+        assertThatIllegalStateException()
+                .isThrownBy(provider::init)
+                .withMessageContaining("has been shut down");
+    }
+
+    @Test
+    void init_calledTwice_isNoop(@TempDir Path dir) {
+        RemoteFlagProvider mockRemote = mock(RemoteFlagProvider.class);
+        when(mockRemote.getState()).thenReturn(ProviderState.READY);
+        FileFlagProvider mockFile = mock(FileFlagProvider.class);
+        when(mockFile.getState()).thenReturn(ProviderState.READY);
+        SnapshotWriter mockWriter = mock(SnapshotWriter.class);
+
+        HybridProviderConfig cfg = new HybridProviderConfig(
+                REMOTE_CFG, dir.resolve("snap.json"), SnapshotFormat.JSON, false,
+                Duration.ofMillis(200), false);
+
+        HybridFlagProvider provider = new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter);
+        provider.init();
+        provider.init(); // second call should be no-op
+
+        // verify init() was called exactly once on each sub-provider
+        verify(mockRemote, org.mockito.Mockito.times(1)).init();
+        verify(mockFile, org.mockito.Mockito.times(1)).init();
     }
 }

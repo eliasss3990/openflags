@@ -21,10 +21,11 @@ import java.util.Objects;
  * @param snapshotDebounce window during which file change events are treated as echoes of the
  *                        provider's own snapshot writes and ignored; must be positive and strictly
  *                        less than {@code remoteConfig.pollInterval()}; default {@code 500ms}
- * @param failIfNoFallback if {@code true}, {@code init()} fails when the remote initialization
- *                        fails and the snapshot file does not exist or cannot be parsed; if
- *                        {@code false} (default), the same condition is allowed but the provider
- *                        starts in {@code ERROR} state if neither source produced data
+ * @param failIfNoFallback if {@code true}, {@code init()} throws {@link com.openflags.core.exception.ProviderException}
+ *                        when both the remote and the file initialization fail; if
+ *                        {@code false} (default), {@code init()} succeeds and the provider
+ *                        starts in {@code ERROR} state — {@link com.openflags.provider.hybrid.HybridFlagProvider#getFlag(String)}
+ *                        will return {@link java.util.Optional#empty()} until a source recovers.
  */
 public record HybridProviderConfig(
         RemoteProviderConfig remoteConfig,

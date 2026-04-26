@@ -174,6 +174,7 @@ class HybridFlagProviderIntegrationTest {
                 .snapshotFormat(SnapshotFormat.JSON)
                 .watchSnapshot(false)
                 .snapshotDebounce(Duration.ofMillis(200))
+                .failIfNoFallback(true)
                 .build();
 
         assertThatThrownBy(() -> provider.init())
