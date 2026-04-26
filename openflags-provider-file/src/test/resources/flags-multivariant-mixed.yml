@@ -1,0 +1,20 @@
+flags:
+  new-search-ranking:
+    type: string
+    value: "v1"
+    enabled: true
+    rules:
+      - name: "internal-override"
+        kind: targeting
+        when:
+          - attribute: email
+            operator: ENDS_WITH
+            value: "@openflags.com"
+        value: "v3"
+      - name: "ranking-experiment"
+        kind: multivariant
+        variants:
+          - value: "v1"
+            weight: 70
+          - value: "v2"
+            weight: 30

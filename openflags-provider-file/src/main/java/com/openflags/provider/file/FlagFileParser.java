@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.MultiVariantRule;
 import com.openflags.core.evaluation.rule.Operator;
 import com.openflags.core.evaluation.rule.Rule;
 import com.openflags.core.evaluation.rule.SplitRule;
 import com.openflags.core.evaluation.rule.TargetingRule;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
@@ -84,18 +86,32 @@ public final class FlagFileParser {
         } catch (IOException e) {
             throw new ProviderException("Failed to read flag file: " + path, e);
         }
+        return parseFlags(root, "file:" + path.getFileName());
+    }
 
+    /**
+     * Parses an already-deserialized JSON tree representing the openflags document
+     * into a map of flags. Used by both {@code FileFlagProvider} (after reading
+     * a file) and {@code RemoteFlagProvider} (after deserializing an HTTP response).
+     *
+     * @param root        the root JsonNode; expected shape: {@code { "flags": { ... } }}
+     * @param sourceLabel a label used in error messages (e.g. {@code "remote:https://..."} or
+     *                    {@code "file:/etc/flags.yml"}); non-null
+     * @return an immutable map from flag key to {@link Flag}
+     * @throws ProviderException if the document is malformed
+     */
+    public Map<String, Flag> parseFlags(JsonNode root, String sourceLabel) {
         if (root == null || root.isNull() || root.isMissingNode()) {
-            throw new ProviderException("Flag file '" + path.getFileName() + "' is empty or invalid");
+            throw new ProviderException("Flag source '" + sourceLabel + "' is empty or invalid");
         }
 
         JsonNode flagsNode = root.path("flags");
         if (flagsNode.isMissingNode() || flagsNode.isNull()) {
-            throw new ProviderException("Flag file '" + path.getFileName()
+            throw new ProviderException("Flag source '" + sourceLabel
                     + "' must have a top-level 'flags' key");
         }
         if (!flagsNode.isObject()) {
-            throw new ProviderException("Flag file '" + path.getFileName()
+            throw new ProviderException("Flag source '" + sourceLabel
                     + "' has 'flags' that is not an object");
         }
         if (flagsNode.size() == 0) {
@@ -108,7 +124,7 @@ public final class FlagFileParser {
             Map.Entry<String, JsonNode> entry = fields.next();
             String key = entry.getKey();
             JsonNode flagNode = entry.getValue();
-            flags.put(key, parseFlag(key, flagNode, path));
+            flags.put(key, parseFlag(key, flagNode, sourceLabel));
         }
         return Collections.unmodifiableMap(flags);
     }
@@ -126,18 +142,18 @@ public final class FlagFileParser {
                         + "'. Supported extensions: .yml, .yaml, .json");
     }
 
-    private Flag parseFlag(String key, JsonNode node, Path sourcePath) {
+    private Flag parseFlag(String key, JsonNode node, String sourceLabel) {
         if (!node.hasNonNull("type")) {
-            throw new ProviderException("Flag '" + key + "' in '" + sourcePath.getFileName()
+            throw new ProviderException("Flag '" + key + "' in '" + sourceLabel
                     + "' is missing required field 'type'");
         }
         if (!node.hasNonNull("value")) {
-            throw new ProviderException("Flag '" + key + "' in '" + sourcePath.getFileName()
+            throw new ProviderException("Flag '" + key + "' in '" + sourceLabel
                     + "' is missing required field 'value'");
         }
 
-        FlagType type = parseType(key, node.get("type").asText(), sourcePath);
-        FlagValue value = parseValue(key, node.get("value"), type, sourcePath);
+        FlagType type = parseType(key, node.get("type").asText(), sourceLabel);
+        FlagValue value = parseValue(key, node.get("value"), type, sourceLabel);
         boolean enabled = !node.hasNonNull("enabled") || node.get("enabled").asBoolean(true);
 
         Map<String, String> metadata = new HashMap<>();
@@ -149,78 +165,79 @@ public final class FlagFileParser {
         if (node.hasNonNull("rules")) {
             JsonNode rulesNode = node.get("rules");
             if (!rulesNode.isArray()) {
-                throw new ProviderException("Flag '" + key + "' in '" + sourcePath.getFileName()
+                throw new ProviderException("Flag '" + key + "' in '" + sourceLabel
                         + "' has 'rules' that is not a list");
             }
-            rules = parseRules(rulesNode, type, key, sourcePath);
+            rules = parseRules(rulesNode, type, key, sourceLabel);
         }
 
         return new Flag(key, type, value, enabled, metadata, rules);
     }
 
-    List<Rule> parseRules(JsonNode rulesNode, FlagType flagType, String flagKey, Path src) {
+    List<Rule> parseRules(JsonNode rulesNode, FlagType flagType, String flagKey, String sourceLabel) {
         List<Rule> rules = new ArrayList<>();
         for (JsonNode ruleNode : rulesNode) {
-            rules.add(parseRule(ruleNode, flagType, flagKey, src));
+            rules.add(parseRule(ruleNode, flagType, flagKey, sourceLabel));
         }
         if (rules.size() > WARN_RULES_PER_FLAG) {
             log.warn("Flag '{}' in '{}' has {} rules which exceeds the recommended limit of {}",
-                    flagKey, src.getFileName(), rules.size(), WARN_RULES_PER_FLAG);
+                    flagKey, sourceLabel, rules.size(), WARN_RULES_PER_FLAG);
         }
         return rules;
     }
 
-    Rule parseRule(JsonNode ruleNode, FlagType flagType, String flagKey, Path src) {
-        String name = requireStringField(ruleNode, "name", flagKey, src,
-                "Rule in flag '" + flagKey + "' in '" + src.getFileName()
+    Rule parseRule(JsonNode ruleNode, FlagType flagType, String flagKey, String sourceLabel) {
+        String name = requireStringField(ruleNode, "name", flagKey, sourceLabel,
+                "Rule in flag '" + flagKey + "' in '" + sourceLabel
                         + "' is missing required field 'name'");
         if (name.isBlank()) {
-            throw new ProviderException("Rule in flag '" + flagKey + "' in '" + src.getFileName()
+            throw new ProviderException("Rule in flag '" + flagKey + "' in '" + sourceLabel
                     + "' is missing required field 'name'");
         }
 
         if (!ruleNode.hasNonNull("kind")) {
             throw new ProviderException("Rule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' is missing required field 'kind'");
+                    + sourceLabel + "' is missing required field 'kind'");
         }
         String kind = ruleNode.get("kind").asText().toLowerCase();
 
         return switch (kind) {
-            case "targeting" -> parseTargetingRule(name, ruleNode, flagType, flagKey, src);
-            case "split" -> parseSplitRule(name, ruleNode, flagType, flagKey, src);
+            case "targeting"    -> parseTargetingRule(name, ruleNode, flagType, flagKey, sourceLabel);
+            case "split"        -> parseSplitRule(name, ruleNode, flagType, flagKey, sourceLabel);
+            case "multivariant" -> parseMultiVariantRule(name, ruleNode, flagType, flagKey, sourceLabel);
             default -> throw new ProviderException("Rule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' has unknown kind '" + kind
-                    + "'. Supported: targeting, split");
+                    + sourceLabel + "' has unknown kind '" + kind
+                    + "'. Supported: targeting, split, multivariant");
         };
     }
 
     private TargetingRule parseTargetingRule(String name, JsonNode ruleNode, FlagType flagType,
-            String flagKey, Path src) {
+            String flagKey, String sourceLabel) {
         if (!ruleNode.hasNonNull("when")) {
             throw new ProviderException("TargetingRule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' is missing required field 'when'");
+                    + sourceLabel + "' is missing required field 'when'");
         }
         JsonNode whenNode = ruleNode.get("when");
         if (!whenNode.isArray() || whenNode.size() == 0) {
             throw new ProviderException("TargetingRule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' must have at least one condition");
+                    + sourceLabel + "' must have at least one condition");
         }
         if (whenNode.size() > MAX_CONDITIONS_PER_RULE) {
             throw new ProviderException("TargetingRule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' has " + whenNode.size()
+                    + sourceLabel + "' has " + whenNode.size()
                     + " conditions which exceeds the maximum of " + MAX_CONDITIONS_PER_RULE);
         }
 
         if (!ruleNode.hasNonNull("value")) {
             throw new ProviderException("Rule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' is missing required field 'value'");
+                    + sourceLabel + "' is missing required field 'value'");
         }
-        FlagValue value = parseValue(flagKey, ruleNode.get("value"), flagType, src);
+        FlagValue value = parseValue(flagKey, ruleNode.get("value"), flagType, sourceLabel);
 
         List<Condition> conditions = new ArrayList<>();
         int i = 0;
         for (JsonNode condNode : whenNode) {
-            conditions.add(parseCondition(condNode, i, name, flagKey, src));
+            conditions.add(parseCondition(condNode, i, name, flagKey, sourceLabel));
             i++;
         }
 
@@ -228,29 +245,97 @@ public final class FlagFileParser {
     }
 
     private SplitRule parseSplitRule(String name, JsonNode ruleNode, FlagType flagType,
-            String flagKey, Path src) {
+            String flagKey, String sourceLabel) {
         if (!ruleNode.hasNonNull("percentage")) {
             throw new ProviderException("SplitRule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' is missing required field 'percentage'");
+                    + sourceLabel + "' is missing required field 'percentage'");
         }
         int percentage = ruleNode.get("percentage").asInt();
         if (percentage < 0 || percentage > 100) {
             throw new ProviderException("SplitRule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' has percentage " + percentage + " out of range [0, 100]");
+                    + sourceLabel + "' has percentage " + percentage + " out of range [0, 100]");
         }
 
         if (!ruleNode.hasNonNull("value")) {
             throw new ProviderException("Rule '" + name + "' in flag '" + flagKey + "' in '"
-                    + src.getFileName() + "' is missing required field 'value'");
+                    + sourceLabel + "' is missing required field 'value'");
         }
-        FlagValue value = parseValue(flagKey, ruleNode.get("value"), flagType, src);
+        FlagValue value = parseValue(flagKey, ruleNode.get("value"), flagType, sourceLabel);
 
         return new SplitRule(name, percentage, value);
     }
 
-    Condition parseCondition(JsonNode condNode, int index, String ruleName, String flagKey, Path src) {
+    private MultiVariantRule parseMultiVariantRule(String name, JsonNode ruleNode, FlagType flagType,
+            String flagKey, String sourceLabel) {
+        if (!ruleNode.hasNonNull("variants")) {
+            throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
+                    + "' is missing required field 'variants'");
+        }
+        JsonNode variantsNode = ruleNode.get("variants");
+        if (!variantsNode.isArray()) {
+            throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
+                    + "' field 'variants' must be a list");
+        }
+        if (variantsNode.size() == 0) {
+            throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
+                    + "' must have at least one variant");
+        }
+        if (variantsNode.size() > MultiVariantRule.MAX_VARIANTS) {
+            throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
+                    + "' has " + variantsNode.size() + " variants; maximum is " + MultiVariantRule.MAX_VARIANTS);
+        }
+
+        List<WeightedVariant> variants = new ArrayList<>();
+        int weightSum = 0;
+        for (int i = 0; i < variantsNode.size(); i++) {
+            JsonNode variantNode = variantsNode.get(i);
+            if (!variantNode.hasNonNull("value")) {
+                throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
+                        + flagKey + "' is missing required field 'value'");
+            }
+            if (!variantNode.hasNonNull("weight")) {
+                throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
+                        + flagKey + "' is missing required field 'weight'");
+            }
+            JsonNode weightNode = variantNode.get("weight");
+            if (!weightNode.isInt()) {
+                throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
+                        + flagKey + "' has non-integer weight '" + weightNode.asText() + "'");
+            }
+            int weight = weightNode.asInt();
+            if (weight < 0 || weight > 100) {
+                throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
+                        + flagKey + "' has weight " + weight + " out of range [0, 100]");
+            }
+
+            FlagValue variantValue = parseVariantValue(flagKey, variantNode.get("value"), flagType,
+                    sourceLabel, i, name);
+            variants.add(new WeightedVariant(variantValue, weight));
+            weightSum += weight;
+        }
+
+        if (weightSum != 100) {
+            throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
+                    + "' weights sum to " + weightSum + ", expected 100");
+        }
+
+        return new MultiVariantRule(name, variants);
+    }
+
+    private FlagValue parseVariantValue(String flagKey, JsonNode valueNode, FlagType flagType,
+            String sourceLabel, int variantIndex, String ruleName) {
+        FlagValue value = parseValue(flagKey, valueNode, flagType, sourceLabel);
+        if (value.getType() != flagType) {
+            throw new ProviderException("Variant " + variantIndex + " in rule '" + ruleName
+                    + "' of flag '" + flagKey + "' has value type " + value.getType()
+                    + " but flag type is " + flagType);
+        }
+        return value;
+    }
+
+    Condition parseCondition(JsonNode condNode, int index, String ruleName, String flagKey, String sourceLabel) {
         String prefix = "Condition " + index + " in rule '" + ruleName + "' of flag '" + flagKey + "' in '"
-                + src.getFileName() + "'";
+                + sourceLabel + "'";
 
         if (!condNode.hasNonNull("attribute")) {
             throw new ProviderException(prefix + " is missing required field 'attribute'");
@@ -263,25 +348,25 @@ public final class FlagFileParser {
         }
 
         String attribute = condNode.get("attribute").asText();
-        Operator operator = parseOperator(condNode.get("operator").asText(), index, ruleName, flagKey, src);
-        Object expectedValue = parseExpectedValue(condNode.get("value"), operator, index, ruleName, flagKey, src);
+        Operator operator = parseOperator(condNode.get("operator").asText(), index, ruleName, flagKey, sourceLabel);
+        Object expectedValue = parseExpectedValue(condNode.get("value"), operator, index, ruleName, flagKey, sourceLabel);
 
         return new Condition(attribute, operator, expectedValue);
     }
 
-    Operator parseOperator(String raw, int condIndex, String ruleName, String flagKey, Path src) {
+    Operator parseOperator(String raw, int condIndex, String ruleName, String flagKey, String sourceLabel) {
         try {
             return Operator.valueOf(raw.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new ProviderException("Condition " + condIndex + " in rule '" + ruleName + "' of flag '"
-                    + flagKey + "' in '" + src.getFileName() + "' has unknown operator '" + raw + "'");
+                    + flagKey + "' in '" + sourceLabel + "' has unknown operator '" + raw + "'");
         }
     }
 
     Object parseExpectedValue(JsonNode valueNode, Operator op, int condIndex, String ruleName,
-            String flagKey, Path src) {
+            String flagKey, String sourceLabel) {
         String prefix = "Condition " + condIndex + " in rule '" + ruleName + "' of flag '" + flagKey + "' in '"
-                + src.getFileName() + "'";
+                + sourceLabel + "'";
 
         return switch (op) {
             case IN, NOT_IN -> {
@@ -329,26 +414,26 @@ public final class FlagFileParser {
         };
     }
 
-    private FlagType parseType(String key, String typeStr, Path sourcePath) {
+    private FlagType parseType(String key, String typeStr, String sourceLabel) {
         return switch (typeStr.toLowerCase()) {
             case "boolean" -> FlagType.BOOLEAN;
             case "string" -> FlagType.STRING;
             case "number" -> FlagType.NUMBER;
             case "object" -> FlagType.OBJECT;
             default -> throw new ProviderException("Flag '" + key + "' in '"
-                    + sourcePath.getFileName() + "' has unknown type '" + typeStr
+                    + sourceLabel + "' has unknown type '" + typeStr
                     + "'. Supported: boolean, string, number, object");
         };
     }
 
     @SuppressWarnings("unchecked")
-    private FlagValue parseValue(String key, JsonNode valueNode, FlagType type, Path sourcePath) {
+    private FlagValue parseValue(String key, JsonNode valueNode, FlagType type, String sourceLabel) {
         try {
             return switch (type) {
                 case BOOLEAN -> {
                     if (!valueNode.isBoolean()) {
                         throw new ProviderException("Flag '" + key + "' in '"
-                                + sourcePath.getFileName() + "' has type 'boolean' but value is not a boolean");
+                                + sourceLabel + "' has type 'boolean' but value is not a boolean");
                     }
                     yield FlagValue.of(valueNode.asBoolean(), FlagType.BOOLEAN);
                 }
@@ -356,14 +441,14 @@ public final class FlagFileParser {
                 case NUMBER -> {
                     if (!valueNode.isNumber()) {
                         throw new ProviderException("Flag '" + key + "' in '"
-                                + sourcePath.getFileName() + "' has type 'number' but value is not a number");
+                                + sourceLabel + "' has type 'number' but value is not a number");
                     }
                     yield FlagValue.of(valueNode.asDouble(), FlagType.NUMBER);
                 }
                 case OBJECT -> {
                     if (!valueNode.isObject()) {
                         throw new ProviderException("Flag '" + key + "' in '"
-                                + sourcePath.getFileName() + "' has type 'object' but value is not an object");
+                                + sourceLabel + "' has type 'object' but value is not an object");
                     }
                     Map<String, Object> map = JSON_MAPPER.convertValue(valueNode, Map.class);
                     yield FlagValue.of(map, FlagType.OBJECT);
@@ -373,11 +458,11 @@ public final class FlagFileParser {
             throw e;
         } catch (Exception e) {
             throw new ProviderException("Failed to parse value for flag '" + key + "' in '"
-                    + sourcePath.getFileName() + "'", e);
+                    + sourceLabel + "'", e);
         }
     }
 
-    private String requireStringField(JsonNode node, String field, String flagKey, Path src,
+    private String requireStringField(JsonNode node, String field, String flagKey, String sourceLabel,
             String message) {
         if (!node.hasNonNull(field)) {
             throw new ProviderException(message);
