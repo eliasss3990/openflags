@@ -3,6 +3,8 @@ package com.openflags.spring;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
+import com.openflags.provider.remote.RemoteFlagProvider;
+import com.openflags.provider.remote.RemoteFlagProviderBuilder;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -37,6 +39,32 @@ import java.nio.file.Path;
 @EnableConfigurationProperties(OpenFlagsProperties.class)
 @ConditionalOnClass(OpenFlagsClient.class)
 public class OpenFlagsAutoConfiguration {
+
+    /**
+     * Creates a {@link RemoteFlagProvider} bean.
+     * Activated when {@code openflags.provider=remote}.
+     *
+     * @param properties the openflags properties
+     * @return a configured and initialized remote provider
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "remote")
+    @ConditionalOnMissingBean(FlagProvider.class)
+    @ConditionalOnClass(name = "com.openflags.provider.remote.RemoteFlagProvider")
+    public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties) {
+        OpenFlagsProperties.RemoteProperties r = properties.getRemote();
+        RemoteFlagProvider p = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
+                .flagsPath(r.getFlagsPath())
+                .apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue())
+                .connectTimeout(r.getConnectTimeout())
+                .requestTimeout(r.getRequestTimeout())
+                .pollInterval(r.getPollInterval())
+                .cacheTtl(r.getCacheTtl())
+                .userAgent(r.getUserAgent())
+                .build();
+        p.init();
+        return p;
+    }
 
     /**
      * Creates a {@link FlagProvider} bean backed by a local file.
