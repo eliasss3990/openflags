@@ -283,7 +283,12 @@ class HybridFlagProviderIntegrationTest {
                 .willReturn(aResponse().withStatus(200).withBody(FLAGS_JSON_V2)
                         .withHeader("Content-Type", "application/json")));
 
-        Thread.sleep(7_000); // wait longer than poll interval
+        // Wait long enough for at least one poll cycle, asserting events stays empty throughout.
+        Awaitility.await()
+                .during(Duration.ofSeconds(6))
+                .atMost(Duration.ofSeconds(8))
+                .until(events::isEmpty);
+
         assertThat(events).isEmpty();
     }
 }

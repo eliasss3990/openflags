@@ -113,11 +113,48 @@ class HybridProviderConfigTest {
     }
 
     @Test
-    void debounceEqualsToPollInterval_throws(@TempDir Path dir) {
+    void debounce_greaterThanHalfPoll_throws(@TempDir Path dir) {
+        // pollInterval=30s, debounce=20s → 20s > 15s (half) → throws
+        RemoteProviderConfig cfg30 = new RemoteProviderConfig(
+                URI.create("http://localhost:8080"), "/flags",
+                null, null,
+                Duration.ofSeconds(5), Duration.ofSeconds(10),
+                Duration.ofSeconds(30), Duration.ofMinutes(5),
+                "test-agent");
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> new HybridProviderConfig(
-                        REMOTE_CFG, dir.resolve("snap.json"), SnapshotFormat.JSON, true,
-                        REMOTE_CFG.pollInterval(), false))
+                        cfg30, dir.resolve("snap.json"), SnapshotFormat.JSON, true,
+                        Duration.ofSeconds(20), false))
                 .withMessageContaining("pollInterval");
+    }
+
+    @Test
+    void debounce_eqHalfPoll_isAccepted(@TempDir Path dir) {
+        // pollInterval=30s, debounce=15s → 15s == 15s (half) → accepted
+        RemoteProviderConfig cfg30 = new RemoteProviderConfig(
+                URI.create("http://localhost:8080"), "/flags",
+                null, null,
+                Duration.ofSeconds(5), Duration.ofSeconds(10),
+                Duration.ofSeconds(30), Duration.ofMinutes(5),
+                "test-agent");
+        HybridProviderConfig cfg = new HybridProviderConfig(
+                cfg30, dir.resolve("snap.json"), SnapshotFormat.JSON, true,
+                Duration.ofSeconds(15), false);
+        assertThat(cfg.snapshotDebounce()).isEqualTo(Duration.ofSeconds(15));
+    }
+
+    @Test
+    void debounce_lessThanHalfPoll_isAccepted(@TempDir Path dir) {
+        // pollInterval=30s, debounce=10s → accepted
+        RemoteProviderConfig cfg30 = new RemoteProviderConfig(
+                URI.create("http://localhost:8080"), "/flags",
+                null, null,
+                Duration.ofSeconds(5), Duration.ofSeconds(10),
+                Duration.ofSeconds(30), Duration.ofMinutes(5),
+                "test-agent");
+        HybridProviderConfig cfg = new HybridProviderConfig(
+                cfg30, dir.resolve("snap.json"), SnapshotFormat.JSON, true,
+                Duration.ofSeconds(10), false);
+        assertThat(cfg.snapshotDebounce()).isEqualTo(Duration.ofSeconds(10));
     }
 }

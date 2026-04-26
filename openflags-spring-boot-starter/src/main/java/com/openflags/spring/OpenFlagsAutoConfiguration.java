@@ -5,6 +5,7 @@ import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.hybrid.HybridFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
+import com.openflags.provider.remote.RemoteProviderConfig;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -98,17 +99,16 @@ public class OpenFlagsAutoConfiguration {
                     "openflags.hybrid.snapshot-path must be set when openflags.provider=hybrid");
         }
 
-        com.openflags.provider.remote.RemoteProviderConfig rc =
-                new com.openflags.provider.remote.RemoteProviderConfig(
-                        r.getBaseUrl(),
-                        r.getFlagsPath(),
-                        r.getAuthHeaderName(),
-                        r.getAuthHeaderValue(),
-                        r.getConnectTimeout(),
-                        r.getRequestTimeout(),
-                        r.getPollInterval(),
-                        r.getCacheTtl(),
-                        r.getUserAgent());
+        RemoteProviderConfig rc = new RemoteProviderConfig(
+                r.getBaseUrl(),
+                r.getFlagsPath(),
+                r.getAuthHeaderName(),
+                r.getAuthHeaderValue(),
+                r.getConnectTimeout(),
+                r.getRequestTimeout(),
+                r.getPollInterval(),
+                r.getCacheTtl(),
+                r.getUserAgent());
 
         HybridFlagProvider provider = HybridFlagProvider.builder()
                 .remoteConfig(rc)

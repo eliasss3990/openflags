@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class HybridFlagProvider implements FlagProvider {
 
     private static final Logger log = LoggerFactory.getLogger(HybridFlagProvider.class);
+    private static final Duration SNAPSHOT_WRITE_COALESCE_WINDOW = Duration.ofMillis(50);
 
     private final HybridProviderConfig config;
     private final RemoteFlagProvider remote;
@@ -249,7 +250,13 @@ public final class HybridFlagProvider implements FlagProvider {
     // ---- internal listeners ----
 
     private void onRemoteChange(FlagChangeEvent event) {
-        writeSafe(remote.getAllFlags());
+        Instant now = Instant.now();
+        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, now);
+        if (sinceLastWrite.compareTo(SNAPSHOT_WRITE_COALESCE_WINDOW) >= 0) {
+            writeSafe(remote.getAllFlags());
+        } else {
+            log.debug("HybridFlagProvider: skipping snapshot write within coalesce window");
+        }
         for (FlagChangeListener listener : publicListeners) {
             try {
                 listener.onFlagChange(event);
