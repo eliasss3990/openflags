@@ -7,6 +7,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Breaking Changes (pre-1.0)
+
+- **`EvaluationReason.DEFAULT` renamed to `EvaluationReason.NO_RULE_MATCHED`** — the previous name was ambiguous (it conflated "no rules declared" with "rules declared but none matched"). `RESOLVED` already covers the no-rules case. Callers comparing against `DEFAULT` must update to `NO_RULE_MATCHED`.
+
+---
+
 ## [0.4.0] - 2026-04-26
 
 ### Added

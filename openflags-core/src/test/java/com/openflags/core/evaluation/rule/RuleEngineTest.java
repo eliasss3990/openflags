@@ -67,7 +67,7 @@ class RuleEngineTest {
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
 
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -77,7 +77,7 @@ class RuleEngineTest {
 
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -99,7 +99,7 @@ class RuleEngineTest {
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -109,7 +109,7 @@ class RuleEngineTest {
         EvaluationContext ctx = EvaluationContext.of("user-1");
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     // ── MultiVariantRule tests ──────────────────────────────────────────────
@@ -135,7 +135,7 @@ class RuleEngineTest {
 
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
     }
 

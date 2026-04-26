@@ -57,7 +57,7 @@ class OpenFlagsPhase2SmokeTest {
                     .build();
             EvaluationResult<Boolean> result = client.getBooleanResult("feature-country", false, noMatchCtx);
             assertThat(result.value()).isFalse();
-            assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+            assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         });
     }
 
@@ -79,7 +79,7 @@ class OpenFlagsPhase2SmokeTest {
             EvaluationResult<Boolean> result = client.getBooleanResult(
                     "rollout-flag", false, EvaluationContext.empty());
             assertThat(result.value()).isFalse();
-            assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+            assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         });
     }
 }

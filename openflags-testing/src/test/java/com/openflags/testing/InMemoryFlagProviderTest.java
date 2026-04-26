@@ -257,7 +257,7 @@ class InMemoryFlagProviderTest {
             EvaluationContext noMatchCtx = EvaluationContext.builder().attribute("country", "BR").build();
             EvaluationResult<Boolean> result2 = client.getBooleanResult("feature-x", false, noMatchCtx);
             assertThat(result2.value()).isFalse();
-            assertThat(result2.reason()).isEqualTo(EvaluationReason.DEFAULT);
+            assertThat(result2.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         } finally {
             client.shutdown();
         }

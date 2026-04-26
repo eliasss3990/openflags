@@ -89,7 +89,7 @@ class RemoteMultivariantE2ETest {
         EvaluationContext ctx = EvaluationContext.empty();
         EvaluationResult<String> result = client.getStringResult("checkout-experiment", "default", ctx);
 
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         assertThat(result.value()).isEqualTo("control"); // flag's default value
     }
 

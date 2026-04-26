@@ -27,7 +27,8 @@ public final class RuleEngine {
      * @param value  the resolved {@link FlagValue}
      * @param reason the {@link EvaluationReason}: one of
      *               {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
-     *               {@link EvaluationReason#SPLIT}, or {@link EvaluationReason#DEFAULT}
+     *               {@link EvaluationReason#SPLIT}, {@link EvaluationReason#VARIANT},
+     *               or {@link EvaluationReason#NO_RULE_MATCHED}
      */
     public record Resolution(FlagValue value, EvaluationReason reason) {}
 
@@ -38,7 +39,7 @@ public final class RuleEngine {
      *       (preserves Phase 1 behavior).</li>
      *   <li>If a rule matches, returns its value with reason {@code TARGETING_MATCH} or
      *       {@code SPLIT}.</li>
-     *   <li>If no rule matches, returns the default value with reason {@code DEFAULT}.</li>
+     *   <li>If no rule matches, returns the default value with reason {@code NO_RULE_MATCHED}.</li>
      * </ul>
      *
      * @param flag    the flag to resolve; must not be null
@@ -64,7 +65,7 @@ public final class RuleEngine {
         }
 
         log.debug("Flag '{}' has rules but none matched; using default value", flag.key());
-        return new Resolution(flag.value(), EvaluationReason.DEFAULT);
+        return new Resolution(flag.value(), EvaluationReason.NO_RULE_MATCHED);
     }
 
     private Optional<Resolution> evaluateRule(Rule rule, Flag flag, EvaluationContext context) {

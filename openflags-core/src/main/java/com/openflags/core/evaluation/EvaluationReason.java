@@ -13,7 +13,7 @@ public enum EvaluationReason {
     /** Flag has rules; a {@link com.openflags.core.evaluation.rule.MultiVariantRule} matched and a variant was selected. */
     VARIANT,
     /** Flag has rules; none matched, the flag's default value was used. */
-    DEFAULT,
+    NO_RULE_MATCHED,
     /** Flag key was not found in the provider; the caller's default value was used. */
     FLAG_NOT_FOUND,
     /** Flag exists but is disabled; the caller's default value was used. */

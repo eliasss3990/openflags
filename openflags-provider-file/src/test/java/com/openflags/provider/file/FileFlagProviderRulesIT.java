@@ -59,7 +59,7 @@ class FileFlagProviderRulesIT {
         EvaluationContext ctx = EvaluationContext.builder().attribute("country", "BR").build();
         EvaluationResult<Boolean> result = client.getBooleanResult("feature-x", false, ctx);
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -67,7 +67,7 @@ class FileFlagProviderRulesIT {
         EvaluationResult<Boolean> result = client.getBooleanResult(
                 "feature-x", false, EvaluationContext.empty());
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     // SplitRule: 100% always matches when targetingKey is present
@@ -85,7 +85,7 @@ class FileFlagProviderRulesIT {
         EvaluationResult<Boolean> result = client.getBooleanResult(
                 "new-checkout", false, EvaluationContext.empty());
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -93,7 +93,7 @@ class FileFlagProviderRulesIT {
         EvaluationResult<Boolean> result = client.getBooleanResult(
                 "new-checkout-off", false, EvaluationContext.of("user-abc"));
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     // First-match-wins with multi-rule string flag
@@ -127,7 +127,7 @@ class FileFlagProviderRulesIT {
                 .build();
         EvaluationResult<String> result = client.getStringResult("premium-banner", "def", ctx);
         assertThat(result.value()).isEqualTo("default-banner");
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     // Disabled flag ignores rules
