@@ -43,12 +43,10 @@ import java.util.regex.Pattern;
  */
 final class SnapshotWriter {
 
-    private final SnapshotFormat format;
     private final ObjectMapper mapper;
 
     SnapshotWriter(SnapshotFormat format) {
-        this.format = Objects.requireNonNull(format, "format must not be null");
-        this.mapper = buildMapper(format);
+        this.mapper = buildMapper(Objects.requireNonNull(format, "format must not be null"));
     }
 
     /**
@@ -248,7 +246,6 @@ final class SnapshotWriter {
         }
     }
 
-    @SuppressWarnings("unchecked")
     static void writeFlagValue(JsonGenerator gen, FlagValue value, FlagType type) throws IOException {
         switch (type) {
             case BOOLEAN -> gen.writeBoolean(value.asBoolean());

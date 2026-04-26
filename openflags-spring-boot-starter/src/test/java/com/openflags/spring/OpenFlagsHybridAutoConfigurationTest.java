@@ -4,7 +4,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
-import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.hybrid.HybridFlagProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
