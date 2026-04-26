@@ -10,6 +10,8 @@ public enum EvaluationReason {
     TARGETING_MATCH,
     /** Flag has rules; a {@link com.openflags.core.evaluation.rule.SplitRule} matched the bucket. */
     SPLIT,
+    /** Flag has rules; a {@link com.openflags.core.evaluation.rule.MultiVariantRule} matched and a variant was selected. */
+    VARIANT,
     /** Flag has rules; none matched, the flag's default value was used. */
     DEFAULT,
     /** Flag key was not found in the provider; the caller's default value was used. */
