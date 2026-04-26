@@ -75,7 +75,8 @@ public final class HybridFlagProvider implements FlagProvider {
     /** Counts consecutive snapshot write failures for log throttling. */
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
-    private boolean initialized = false;
+    // volatile: read in requireInitialized() which is called from getFlag() outside synchronized
+    private volatile boolean initialized = false;
     private volatile boolean shutdown = false;
 
     /**

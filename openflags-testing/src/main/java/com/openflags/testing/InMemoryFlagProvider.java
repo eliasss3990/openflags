@@ -87,7 +87,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
     public synchronized void shutdown() {
         if (shutdown) return;
         shutdown = true;
-        state = ProviderState.STALE;
+        state = ProviderState.SHUTDOWN;
     }
 
     /**

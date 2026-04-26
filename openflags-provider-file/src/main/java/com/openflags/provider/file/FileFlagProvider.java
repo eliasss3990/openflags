@@ -51,10 +51,12 @@ public final class FileFlagProvider implements FlagProvider {
     private final AtomicReference<Map<String, Flag>> flags = new AtomicReference<>(Collections.emptyMap());
     private final AtomicReference<ProviderState> state = new AtomicReference<>(ProviderState.NOT_READY);
 
-    private boolean initialized = false;
+    // volatile: read by init() guard outside synchronized blocks when a subclass or test inspects it
+    private volatile boolean initialized = false;
     // volatile: read by requireNotShutdown() outside synchronized blocks
     private volatile boolean shutdown = false;
-    private FileWatcher watcher;
+    // volatile: written inside synchronized init(), read inside synchronized shutdown()
+    private volatile FileWatcher watcher;
 
     FileFlagProvider(Path filePath, boolean watchEnabled) {
         this.filePath = Objects.requireNonNull(filePath, "filePath must not be null");
