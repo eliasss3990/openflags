@@ -392,6 +392,56 @@ openflags:
 
 ---
 
+## Hybrid provider
+
+The hybrid provider combines a remote HTTP backend (primary) with a local snapshot file
+(fallback). It is designed for production scenarios where you need resilience against backend
+outages.
+
+### When to use it
+
+- You have a remote backend serving flags but need the application to start even when the backend
+  is temporarily unavailable.
+- You want automatic persistence of the latest remote state so a cold start with backend down
+  can still serve meaningful data.
+
+### Configuration (Spring Boot)
+
+```yaml
+openflags:
+  provider: hybrid
+  remote:
+    base-url: https://flags.example.com
+    poll-interval: 30s
+    cache-ttl: 5m
+  hybrid:
+    snapshot-path: /var/lib/myapp/flags-snapshot.json
+    snapshot-format: JSON          # or YAML
+    watch-snapshot: true           # reload manually edited snapshot when remote is ERROR
+    snapshot-debounce: 500ms       # ignore self-induced WatchService events
+    fail-if-no-fallback: false     # allow startup even if both sources fail
+```
+
+### Guarantees
+
+| Scenario | Behavior |
+|---|---|
+| Backend UP on cold start | READY; snapshot written after first poll |
+| Backend DOWN on cold start, snapshot exists | DEGRADED; serves snapshot data |
+| Backend DOWN on cold start, no snapshot | Throws `ProviderException` |
+| Backend poll fails within cacheTtl | DEGRADED; continues serving cached remote data |
+| Backend poll fails past cacheTtl | ERROR; routes to file provider |
+| Backend recovers | Returns to READY; snapshot updated |
+| Manual snapshot edit while remote is ERROR | Change event propagated to listeners |
+
+### Snapshot atomicity
+
+Every snapshot write uses a write-to-temp (UUID name) + `Files.move(ATOMIC_MOVE)` pattern so
+concurrent readers never observe a partially written file. On filesystems that do not support
+atomic move, the provider falls back to `REPLACE_EXISTING`.
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please open an issue before submitting a pull request for significant changes.

@@ -7,6 +7,25 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.0] - 2026-04-26
+
+### Added
+
+- `openflags-provider-hybrid` (new module): `HybridFlagProvider` — combines `RemoteFlagProvider` (primary) with `FileFlagProvider` (fallback); routes reads to remote when state is READY/DEGRADED, falls back to file when remote is ERROR/NOT_READY
+- `openflags-provider-hybrid`: `SnapshotWriter` — serializes `Map<String, Flag>` to JSON or YAML atomically using write-to-temp + `ATOMIC_MOVE`; fallback to `REPLACE_EXISTING` on unsupported filesystems
+- `openflags-provider-hybrid`: `HybridProviderConfig` — immutable configuration record with validation (debounce < pollInterval, parent dir must exist, etc.)
+- `openflags-provider-hybrid`: `HybridFlagProviderBuilder` — fluent builder mirroring the style of File/Remote builders
+- `openflags-provider-hybrid`: `SnapshotFormat` enum — `JSON` or `YAML`
+- `openflags-provider-hybrid`: combined state machine — `READY` when remote is READY; `DEGRADED` when remote is degraded or file is serving; `ERROR` when both fail
+- `openflags-provider-hybrid`: power-of-two log throttling for consecutive snapshot write failures
+- `openflags-provider-hybrid`: debounce filter (default 500ms) to suppress self-induced WatchService events from snapshot writes
+- `openflags-spring-boot-starter`: `OpenFlagsProperties.HybridProperties` — Spring Boot properties for `openflags.hybrid.*`
+- `openflags-spring-boot-starter`: conditional bean `hybridFlagProvider` activated by `openflags.provider=hybrid`
+- `openflags-spring-boot-starter`: `OpenFlagsHealthIndicator` now reports DEGRADED as `outOfService`
+- `openflags-bom`: `openflags-provider-hybrid` added to the Bill of Materials
+
+---
+
 ## [0.3.0] - 2026-04-25
 
 ### Added

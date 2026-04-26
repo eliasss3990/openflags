@@ -13,7 +13,7 @@
 
     <groupId>com.openflags</groupId>
     <artifactId>openflags</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>openflags</name>
@@ -32,6 +32,7 @@
         <module>openflags-core</module>
         <module>openflags-provider-file</module>
         <module>openflags-provider-remote</module>
+        <module>openflags-provider-hybrid</module>
         <module>openflags-spring-boot-starter</module>
         <module>openflags-testing</module>
     </modules>

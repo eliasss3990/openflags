@@ -4,7 +4,6 @@ import com.openflags.core.evaluation.EvaluationContext;
 import com.openflags.core.evaluation.EvaluationReason;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagValue;
-import com.openflags.core.evaluation.rule.WeightedVariant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

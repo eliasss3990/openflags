@@ -6,7 +6,7 @@
 
     <groupId>com.openflags</groupId>
     <artifactId>openflags-bom</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>openflags-bom</name>
@@ -44,6 +44,11 @@
             <dependency>
                 <groupId>com.openflags</groupId>
                 <artifactId>openflags-provider-remote</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.openflags</groupId>
+                <artifactId>openflags-provider-hybrid</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

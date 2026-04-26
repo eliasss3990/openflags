@@ -1,5 +1,6 @@
 package com.openflags.spring;
 
+import com.openflags.provider.hybrid.SnapshotFormat;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.net.URI;
@@ -31,6 +32,9 @@ public class OpenFlagsProperties {
 
     /** Remote provider configuration. Only consulted when {@code provider=remote}. */
     private RemoteProperties remote = new RemoteProperties();
+
+    /** Hybrid provider configuration. Only consulted when {@code provider=hybrid}. */
+    private HybridProperties hybrid = new HybridProperties();
 
     /**
      * Returns the active provider type.
@@ -84,6 +88,24 @@ public class OpenFlagsProperties {
      */
     public void setRemote(RemoteProperties remote) {
         this.remote = remote;
+    }
+
+    /**
+     * Returns the hybrid provider configuration.
+     *
+     * @return the hybrid properties
+     */
+    public HybridProperties getHybrid() {
+        return hybrid;
+    }
+
+    /**
+     * Sets the hybrid provider configuration.
+     *
+     * @param hybrid the hybrid properties
+     */
+    public void setHybrid(HybridProperties hybrid) {
+        this.hybrid = hybrid;
     }
 
     /**
@@ -334,6 +356,131 @@ public class OpenFlagsProperties {
          */
         public void setUserAgent(String userAgent) {
             this.userAgent = userAgent;
+        }
+    }
+
+    /**
+     * Configuration for the hybrid provider; only consulted when {@code provider=hybrid}.
+     */
+    public static class HybridProperties {
+
+        /**
+         * Filesystem path of the local snapshot file.
+         * Required when {@code provider=hybrid}.
+         */
+        private String snapshotPath;
+
+        /**
+         * Snapshot format: {@code JSON} (default) or {@code YAML}.
+         */
+        private SnapshotFormat snapshotFormat = SnapshotFormat.JSON;
+
+        /**
+         * Enable filesystem watching of the snapshot for manual edits.
+         * Default: {@code true}.
+         */
+        private boolean watchSnapshot = true;
+
+        /**
+         * Debounce window for ignoring self-induced file events.
+         * Default: 500ms.
+         */
+        private Duration snapshotDebounce = Duration.ofMillis(500);
+
+        /**
+         * If {@code true}, fail initialization when neither remote nor snapshot can produce data.
+         * Default: {@code false}.
+         */
+        private boolean failIfNoFallback = false;
+
+        /**
+         * Returns the snapshot file path.
+         *
+         * @return the snapshot path string, or null
+         */
+        public String getSnapshotPath() {
+            return snapshotPath;
+        }
+
+        /**
+         * Sets the snapshot file path.
+         *
+         * @param snapshotPath the snapshot path
+         */
+        public void setSnapshotPath(String snapshotPath) {
+            this.snapshotPath = snapshotPath;
+        }
+
+        /**
+         * Returns the snapshot format.
+         *
+         * @return the snapshot format
+         */
+        public SnapshotFormat getSnapshotFormat() {
+            return snapshotFormat;
+        }
+
+        /**
+         * Sets the snapshot format.
+         *
+         * @param snapshotFormat the snapshot format
+         */
+        public void setSnapshotFormat(SnapshotFormat snapshotFormat) {
+            this.snapshotFormat = snapshotFormat;
+        }
+
+        /**
+         * Returns whether snapshot watching is enabled.
+         *
+         * @return {@code true} if watch is enabled
+         */
+        public boolean isWatchSnapshot() {
+            return watchSnapshot;
+        }
+
+        /**
+         * Sets whether to watch the snapshot file.
+         *
+         * @param watchSnapshot {@code true} to enable watching
+         */
+        public void setWatchSnapshot(boolean watchSnapshot) {
+            this.watchSnapshot = watchSnapshot;
+        }
+
+        /**
+         * Returns the snapshot debounce window.
+         *
+         * @return the debounce duration
+         */
+        public Duration getSnapshotDebounce() {
+            return snapshotDebounce;
+        }
+
+        /**
+         * Sets the snapshot debounce window.
+         *
+         * @param snapshotDebounce the debounce duration
+         */
+        public void setSnapshotDebounce(Duration snapshotDebounce) {
+            this.snapshotDebounce = snapshotDebounce;
+        }
+
+        /**
+         * Returns whether to fail when no fallback is available.
+         *
+         * @return {@code true} to fail strictly
+         */
+        public boolean isFailIfNoFallback() {
+            return failIfNoFallback;
+        }
+
+        /**
+         * Sets whether to fail when no fallback is available.
+         *
+         * @param failIfNoFallback {@code true} to fail strictly
+         */
+        public void setFailIfNoFallback(boolean failIfNoFallback) {
+            this.failIfNoFallback = failIfNoFallback;
         }
     }
 }
