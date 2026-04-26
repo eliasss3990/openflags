@@ -3,6 +3,7 @@ package com.openflags.spring;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
+import com.openflags.provider.hybrid.HybridFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -69,6 +70,56 @@ public class OpenFlagsAutoConfiguration {
         RemoteFlagProvider p = builder.build();
         p.init();
         return p;
+    }
+
+    /**
+     * Creates a {@link HybridFlagProvider} bean.
+     * Activated when {@code openflags.provider=hybrid}.
+     * Reuses {@code openflags.remote.*} for the remote config and
+     * {@code openflags.hybrid.*} for the snapshot settings.
+     *
+     * @param props the openflags properties
+     * @return a configured and initialized hybrid provider
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
+    @ConditionalOnMissingBean(FlagProvider.class)
+    @ConditionalOnClass(name = "com.openflags.provider.hybrid.HybridFlagProvider")
+    public HybridFlagProvider hybridFlagProvider(OpenFlagsProperties props) {
+        OpenFlagsProperties.RemoteProperties r = props.getRemote();
+        OpenFlagsProperties.HybridProperties h = props.getHybrid();
+
+        if (r.getBaseUrl() == null) {
+            throw new IllegalStateException(
+                    "openflags.remote.base-url must be set when openflags.provider=hybrid");
+        }
+        if (h.getSnapshotPath() == null || h.getSnapshotPath().isBlank()) {
+            throw new IllegalStateException(
+                    "openflags.hybrid.snapshot-path must be set when openflags.provider=hybrid");
+        }
+
+        com.openflags.provider.remote.RemoteProviderConfig rc =
+                new com.openflags.provider.remote.RemoteProviderConfig(
+                        r.getBaseUrl(),
+                        r.getFlagsPath(),
+                        r.getAuthHeaderName(),
+                        r.getAuthHeaderValue(),
+                        r.getConnectTimeout(),
+                        r.getRequestTimeout(),
+                        r.getPollInterval(),
+                        r.getCacheTtl(),
+                        r.getUserAgent());
+
+        HybridFlagProvider provider = HybridFlagProvider.builder()
+                .remoteConfig(rc)
+                .snapshotPath(h.getSnapshotPath())
+                .snapshotFormat(h.getSnapshotFormat())
+                .watchSnapshot(h.isWatchSnapshot())
+                .snapshotDebounce(h.getSnapshotDebounce())
+                .failIfNoFallback(h.isFailIfNoFallback())
+                .build();
+        provider.init();
+        return provider;
     }
 
     /**

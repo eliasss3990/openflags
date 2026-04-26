@@ -32,9 +32,9 @@
         <module>openflags-core</module>
         <module>openflags-provider-file</module>
         <module>openflags-provider-remote</module>
+        <module>openflags-provider-hybrid</module>
         <module>openflags-spring-boot-starter</module>
         <module>openflags-testing</module>
-        <module>openflags-provider-hybrid</module>
     </modules>
 
     <properties>
