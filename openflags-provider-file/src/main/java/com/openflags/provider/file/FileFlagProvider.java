@@ -149,15 +149,19 @@ public final class FileFlagProvider implements FlagProvider {
             }
             return;
         }
+        boolean shouldEmit;
         synchronized (this) {
             if (shutdown) {
                 return;
             }
             flags.set(newFlags);
             state.set(ProviderState.READY);
+            shouldEmit = true;
         }
         log.debug("Reloaded flags from '{}': {} flags", filePath, newFlags.size());
-        emitChangeEvents(oldFlags, newFlags);
+        if (shouldEmit) {
+            emitChangeEvents(oldFlags, newFlags);
+        }
     }
 
     private Map<String, Flag> parseFile() {

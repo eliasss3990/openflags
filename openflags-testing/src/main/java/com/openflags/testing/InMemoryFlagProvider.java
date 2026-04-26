@@ -29,6 +29,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *   <li>{@link #shutdown()} is idempotent.</li>
  * </ul>
  *
+ * <h2>Concurrency model</h2>
+ * <ul>
+ *   <li>{@code state} — {@code volatile}: written under {@code synchronized} lifecycle methods,
+ *       read without lock from {@link #getState()}.</li>
+ *   <li>{@code shutdown} — {@code volatile}: written under {@code synchronized} lifecycle methods,
+ *       read without lock from {@link #requireNotShutdown()} inside read paths.</li>
+ *   <li>{@code flags} — {@link java.util.concurrent.ConcurrentHashMap}: individual put/get/remove
+ *       are atomic; compound operations (e.g. {@link #setDisabled}) use {@code computeIfPresent}
+ *       for atomicity.</li>
+ *   <li>{@code listeners} — {@link java.util.concurrent.CopyOnWriteArrayList}: iteration is
+ *       safe without locks; {@link #emit} runs <em>outside</em> any lock, so a listener may
+ *       observe events slightly after the flag map has already been updated.</li>
+ * </ul>
+ *
  * <pre>
  * OpenFlagsClient client = OpenFlagsClient.builder()
  *     .provider(new InMemoryFlagProvider()
@@ -142,12 +156,18 @@ public final class InMemoryFlagProvider implements FlagProvider {
      * @throws IllegalArgumentException if the flag does not exist
      */
     public InMemoryFlagProvider setDisabled(String key) {
-        Flag existing = flags.get(key);
-        if (existing == null) {
+        Flag[] updated = {null};
+        flags.computeIfPresent(key, (k, existing) -> {
+            Flag disabled = new Flag(k, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
+            updated[0] = disabled;
+            return disabled;
+        });
+        if (updated[0] == null) {
             throw new IllegalArgumentException("Cannot disable unknown flag: '" + key + "'");
         }
-        Flag disabled = new Flag(key, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
-        return putFlag(disabled);
+        emit(new FlagChangeEvent(key, updated[0].type(),
+                Optional.of(updated[0].value()), Optional.of(updated[0].value()), ChangeType.UPDATED));
+        return this;
     }
 
     /**
