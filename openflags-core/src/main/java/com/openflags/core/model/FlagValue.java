@@ -46,7 +46,7 @@ public final class FlagValue {
         validate(rawValue, type);
         @SuppressWarnings("unchecked")
         Object stored = (type == FlagType.OBJECT)
-                ? Map.copyOf((Map<String, Object>) rawValue)
+                ? copyObjectMap((Map<String, Object>) rawValue)
                 : rawValue;
         return new FlagValue(stored, type);
     }
@@ -137,6 +137,19 @@ public final class FlagValue {
     @Override
     public String toString() {
         return "FlagValue[type=" + type + ", value=" + rawValue + "]";
+    }
+
+    private static Map<String, Object> copyObjectMap(Map<String, Object> map) {
+        // Use explicit iteration instead of containsValue(null): some Map implementations
+        // (e.g. Map.of()) throw NPE on containsValue(null) rather than returning false.
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getValue() == null) {
+                throw new IllegalArgumentException(
+                        "OBJECT flag values must not contain null entries; "
+                        + "found null value for key '" + entry.getKey() + "'");
+            }
+        }
+        return Map.copyOf(map);
     }
 
     private void requireType(FlagType expected) {

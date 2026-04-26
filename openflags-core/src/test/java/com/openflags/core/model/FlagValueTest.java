@@ -101,6 +101,15 @@ class FlagValueTest {
     }
 
     @Test
+    void objectFlagWithNullValueRejected() {
+        Map<String, Object> mapWithNull = new HashMap<>();
+        mapWithNull.put("key", null);
+        assertThatThrownBy(() -> FlagValue.of(mapWithNull, FlagType.OBJECT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("null");
+    }
+
+    @Test
     void of_objectType_doesNotReflectMutationsOnOriginalMap() {
         Map<String, Object> mutable = new HashMap<>();
         mutable.put("x", 1);

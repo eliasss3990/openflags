@@ -23,7 +23,9 @@ final class RemoteHttpClient {
 
     RemoteHttpClient(RemoteProviderConfig config) {
         this.config = config;
-        this.targetUri = config.baseUrl().resolve(config.flagsPath());
+        // URI.resolve() drops the base path when flagsPath starts with '/'.
+        // Concatenate explicitly to preserve base path segments (e.g. /api/v1).
+        this.targetUri = buildTargetUri(config.baseUrl().toString(), config.flagsPath());
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(config.connectTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -52,6 +54,12 @@ final class RemoteHttpClient {
 
         HttpRequest request = builder.build();
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    }
+
+    private static URI buildTargetUri(String baseUrl, String flagsPath) {
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String path = flagsPath.startsWith("/") ? flagsPath : "/" + flagsPath;
+        return URI.create(base + path);
     }
 
     void close() {

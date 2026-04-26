@@ -152,4 +152,26 @@ class RemoteHttpClientTest {
         wireMock.verify(getRequestedFor(urlEqualTo("/flags"))
                 .withoutHeader("Authorization"));
     }
+
+    @Test
+    void baseUrlWithPathPreserved() throws Exception {
+        // baseUrl=http://host/api, flagsPath=/flags → must hit /api/flags, not /flags
+        wireMock.stubFor(get(urlEqualTo("/api/flags"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"flags\":{}}")));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port() + "/api"),
+                "/flags",
+                null, null,
+                TIMEOUT, TIMEOUT,
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0"
+        );
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+        HttpResponse<String> response = client.fetch();
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        wireMock.verify(getRequestedFor(urlEqualTo("/api/flags")));
+    }
 }

@@ -298,7 +298,8 @@ public final class FlagFileParser {
                         + flagKey + "' is missing required field 'weight'");
             }
             JsonNode weightNode = variantNode.get("weight");
-            if (!weightNode.isInt()) {
+            if (!weightNode.isNumber() || !weightNode.canConvertToInt()
+                    || (weightNode.isDouble() && weightNode.doubleValue() != Math.floor(weightNode.doubleValue()))) {
                 throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
                         + flagKey + "' has non-integer weight '" + weightNode.asText() + "'");
             }

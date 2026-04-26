@@ -137,10 +137,17 @@ public final class FileWatcher {
     }
 
     private synchronized void scheduleDebounced() {
+        if (stopped.get()) {
+            return;
+        }
         if (pendingCallback != null && !pendingCallback.isDone()) {
             pendingCallback.cancel(false);
         }
-        pendingCallback = debounceScheduler.schedule(this::invokeWithRetry, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+        try {
+            pendingCallback = debounceScheduler.schedule(this::invokeWithRetry, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            log.debug("FileWatcher: scheduler already shut down, ignoring debounce request for '{}'", filePath);
+        }
     }
 
     private void invokeWithRetry() {

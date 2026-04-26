@@ -78,4 +78,26 @@ class FlagFileParserMultivariantTest {
                 .hasMessageContaining("150")
                 .hasMessageContaining("[0, 100]");
     }
+
+    @Test
+    void weightAcceptsIntegralDouble() throws Exception {
+        Map<String, Flag> flags = parser.parse(resourcePath("flags-multivariant-float-weight.yml"));
+        assertThat(flags).containsKey("float-weight-flag");
+        MultiVariantRule rule = (MultiVariantRule) flags.get("float-weight-flag").rules().get(0);
+        assertThat(rule.variants().get(0).weight()).isEqualTo(50);
+        assertThat(rule.variants().get(1).weight()).isEqualTo(50);
+    }
+
+    @Test
+    void weightRejectsFractional(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        String yaml = "flags:\n  f:\n    type: string\n    value: a\n    rules:\n"
+                + "      - name: r\n        kind: multivariant\n        variants:\n"
+                + "          - value: a\n            weight: 49.5\n"
+                + "          - value: b\n            weight: 50.5\n";
+        java.nio.file.Path file = tempDir.resolve("frac.yml");
+        java.nio.file.Files.writeString(file, yaml);
+        assertThatThrownBy(() -> parser.parse(file))
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("non-integer weight");
+    }
 }
