@@ -4,6 +4,7 @@ import com.openflags.core.evaluation.EvaluationContext;
 import com.openflags.core.evaluation.EvaluationReason;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagValue;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,9 +69,20 @@ public final class RuleEngine {
     }
 
     private Optional<Resolution> evaluateRule(Rule rule, Flag flag, EvaluationContext context) {
-        if (rule instanceof TargetingRule tr) return evaluateTargetingRule(tr, context);
-        if (rule instanceof SplitRule sr) return evaluateSplitRule(sr, flag.key(), context);
-        return Optional.empty();
+        return switch (rule) {
+            case TargetingRule tr     -> evaluateTargetingRule(tr, context);
+            case SplitRule sr         -> evaluateSplitRule(sr, flag.key(), context);
+            case MultiVariantRule mvr -> evaluateMultiVariantRule(mvr, flag.key(), context);
+        };
+    }
+
+    private Optional<Resolution> evaluateMultiVariantRule(MultiVariantRule rule, String flagKey,
+            EvaluationContext context) {
+        return context.getTargetingKey().map(tk -> {
+            int bucket = BucketAllocator.bucket(flagKey, tk);
+            WeightedVariant chosen = VariantSelector.select(rule.variants(), bucket);
+            return new Resolution(chosen.value(), EvaluationReason.VARIANT);
+        });
     }
 
     private Optional<Resolution> evaluateTargetingRule(TargetingRule rule, EvaluationContext context) {

@@ -4,14 +4,12 @@ package com.openflags.core.evaluation.rule;
  * A single targeting or rollout rule attached to a {@link com.openflags.core.model.Flag}.
  * <p>
  * Sealed: only the implementations declared in {@code permits} are allowed.
- * Phase 2 ships {@link TargetingRule} and {@link SplitRule}; future phases may
- * extend this hierarchy (multi-variant splits, prerequisite rules, etc.) by
- * adding entries to the permits clause.
+ * Phase 3 ships {@link TargetingRule}, {@link SplitRule} and {@link MultiVariantRule}.
  * </p>
  *
  * <p>Implementations must be immutable and thread-safe.</p>
  */
-public sealed interface Rule permits TargetingRule, SplitRule {
+public sealed interface Rule permits TargetingRule, SplitRule, MultiVariantRule {
 
     /**
      * Returns a human-readable name for this rule, used in logs and debugging.

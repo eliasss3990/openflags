@@ -1,9 +1,11 @@
 package com.openflags.core.model;
 
 import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.MultiVariantRule;
 import com.openflags.core.evaluation.rule.Operator;
 import com.openflags.core.evaluation.rule.SplitRule;
 import com.openflags.core.evaluation.rule.TargetingRule;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -137,6 +139,26 @@ class FlagTest {
     @Test
     void constructor_withSplitRule_works() {
         SplitRule rule = new SplitRule("rollout", 50, BOOL_VALUE);
+        assertThatCode(() -> new Flag("f", FlagType.BOOLEAN, BOOL_VALUE, true, null, List.of(rule)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void constructor_withMultiVariantRule_variantTypeMismatch_throws() {
+        FlagValue stringVariant = FlagValue.of("oops", FlagType.STRING);
+        MultiVariantRule rule = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(stringVariant, 100)));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new Flag("f", FlagType.BOOLEAN, BOOL_VALUE, true, null, List.of(rule)))
+                .withMessageContaining("STRING")
+                .withMessageContaining("BOOLEAN");
+    }
+
+    @Test
+    void constructor_withMultiVariantRule_correctType_works() {
+        MultiVariantRule rule = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(BOOL_VALUE, 50),
+                new WeightedVariant(FlagValue.of(false, FlagType.BOOLEAN), 50)));
         assertThatCode(() -> new Flag("f", FlagType.BOOLEAN, BOOL_VALUE, true, null, List.of(rule)))
                 .doesNotThrowAnyException();
     }

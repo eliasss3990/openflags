@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.openflags</groupId>
         <artifactId>openflags</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.3.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>openflags-spring-boot-starter</artifactId>
@@ -24,6 +24,12 @@
             <groupId>com.openflags</groupId>
             <artifactId>openflags-provider-file</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.openflags</groupId>
+            <artifactId>openflags-provider-remote</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

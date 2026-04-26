@@ -1,0 +1,15 @@
+flags:
+  checkout-experiment:
+    type: string
+    value: "control"
+    enabled: true
+    rules:
+      - name: "abc-test"
+        kind: multivariant
+        variants:
+          - value: "control"
+            weight: 50
+          - value: "treatment-a"
+            weight: 25
+          - value: "treatment-b"
+            weight: 25

@@ -8,7 +8,9 @@ import com.openflags.core.model.FlagValue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,6 +112,85 @@ class RuleEngineTest {
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
 
         assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+    }
+
+    // ── MultiVariantRule tests ──────────────────────────────────────────────
+
+    @Test
+    void multiVariantRule_withTargetingKey_returnsVariant() {
+        MultiVariantRule rule = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(DEFAULT_VALUE, 50),
+                new WeightedVariant(RULE_VALUE, 50)));
+
+        EvaluationContext ctx = EvaluationContext.of("user-abc");
+        RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.VARIANT);
+        // value must be one of the variants
+        assertThat(r.value()).isIn(DEFAULT_VALUE, RULE_VALUE);
+    }
+
+    @Test
+    void multiVariantRule_withoutTargetingKey_skipsRule() {
+        MultiVariantRule rule = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(RULE_VALUE, 100)));
+
+        RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
+    }
+
+    @Test
+    void targetingBeforeMultiVariant_firstMatchWinsForTargeting() {
+        Condition c = new Condition("role", Operator.EQ, "admin");
+        TargetingRule targeting = new TargetingRule("admin-override", List.of(c), RULE_VALUE);
+        MultiVariantRule mvr = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(DEFAULT_VALUE, 100)));
+
+        Flag flag = new Flag("test-flag", FlagType.BOOLEAN, DEFAULT_VALUE, true, null,
+                List.of(targeting, mvr));
+
+        EvaluationContext ctx = EvaluationContext.builder()
+                .targetingKey("user-1")
+                .attribute("role", "admin")
+                .build();
+        RuleEngine.Resolution r = engine.resolve(flag, ctx);
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.TARGETING_MATCH);
+        assertThat(r.value()).isEqualTo(RULE_VALUE);
+    }
+
+    @Test
+    void multiVariantRule_distributionWithinOnePct() {
+        // Use STRING flag with 3 distinct values for A/B/C distribution
+        FlagValue defStr = FlagValue.of("default", FlagType.STRING);
+        FlagValue varA   = FlagValue.of("A", FlagType.STRING);
+        FlagValue varB   = FlagValue.of("B", FlagType.STRING);
+        FlagValue varC   = FlagValue.of("C", FlagType.STRING);
+        MultiVariantRule rule = new MultiVariantRule("experiment", List.of(
+                new WeightedVariant(varA, 30),
+                new WeightedVariant(varB, 50),
+                new WeightedVariant(varC, 20)));
+
+        Flag flag = new Flag("str-flag", FlagType.STRING, defStr, true, null, List.of(rule));
+
+        int countA = 0, countB = 0, countC = 0;
+        int total = 100_000;
+        for (int i = 0; i < total; i++) {
+            EvaluationContext ctx = EvaluationContext.of("user-" + i);
+            RuleEngine.Resolution r = engine.resolve(flag, ctx);
+            if (r.value().equals(varA)) countA++;
+            else if (r.value().equals(varB)) countB++;
+            else countC++;
+        }
+        double pctA = (double) countA / total * 100;
+        double pctB = (double) countB / total * 100;
+        double pctC = (double) countC / total * 100;
+
+        assertThat(pctA).isBetween(29.0, 31.0);
+        assertThat(pctB).isBetween(49.0, 51.0);
+        assertThat(pctC).isBetween(19.0, 21.0);
     }
 
     @Test
