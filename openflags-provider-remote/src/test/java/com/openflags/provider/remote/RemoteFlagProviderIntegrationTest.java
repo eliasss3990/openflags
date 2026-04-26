@@ -206,7 +206,7 @@ class RemoteFlagProviderIntegrationTest {
     }
 
     @Test
-    void shutdown_releasesSchedulerThreads() throws InterruptedException {
+    void shutdown_releasesSchedulerThreads() {
         wireMock.stubFor(get(urlEqualTo("/flags"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
@@ -223,13 +223,9 @@ class RemoteFlagProviderIntegrationTest {
 
         p.shutdown();
 
-        // give threads time to stop
-        Thread.sleep(500);
-
-        long pollersAfter = Thread.getAllStackTraces().keySet().stream()
-                .filter(t -> t.getName().contains("openflags-remote-poller") && t.isAlive())
-                .count();
-        assertThat(pollersAfter).isZero();
+        Awaitility.await().atMost(3, TimeUnit.SECONDS)
+                .until(() -> Thread.getAllStackTraces().keySet().stream()
+                        .noneMatch(t -> t.getName().contains("openflags-remote-poller") && t.isAlive()));
     }
 
     @Test
