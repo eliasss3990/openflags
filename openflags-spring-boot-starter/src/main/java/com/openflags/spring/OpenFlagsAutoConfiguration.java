@@ -53,15 +53,20 @@ public class OpenFlagsAutoConfiguration {
     @ConditionalOnClass(name = "com.openflags.provider.remote.RemoteFlagProvider")
     public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties) {
         OpenFlagsProperties.RemoteProperties r = properties.getRemote();
-        RemoteFlagProvider p = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
+        if (r.getBaseUrl() == null) {
+            throw new IllegalStateException(
+                    "openflags.remote.base-url is required when openflags.provider=remote");
+        }
+        RemoteFlagProviderBuilder builder = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
                 .flagsPath(r.getFlagsPath())
-                .apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue())
-                .connectTimeout(r.getConnectTimeout())
                 .requestTimeout(r.getRequestTimeout())
                 .pollInterval(r.getPollInterval())
                 .cacheTtl(r.getCacheTtl())
-                .userAgent(r.getUserAgent())
-                .build();
+                .userAgent(r.getUserAgent());
+        if (r.getAuthHeaderName() != null) {
+            builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
+        }
+        RemoteFlagProvider p = builder.build();
         p.init();
         return p;
     }
