@@ -154,14 +154,14 @@ final class SnapshotWriter {
                 throws IOException {
             gen.writeStartObject();
             switch (rule) {
-                case TargetingRule t -> serializeTargeting(t, gen, provider);
-                case SplitRule s -> serializeSplit(s, gen, provider);
-                case MultiVariantRule m -> serializeMultiVariant(m, gen, provider);
+                case TargetingRule t -> serializeTargeting(t, gen);
+                case SplitRule s -> serializeSplit(s, gen);
+                case MultiVariantRule m -> serializeMultiVariant(m, gen);
             }
             gen.writeEndObject();
         }
 
-        private void serializeTargeting(TargetingRule t, JsonGenerator gen, SerializerProvider provider)
+        private void serializeTargeting(TargetingRule t, JsonGenerator gen)
                 throws IOException {
             gen.writeStringField("name", t.name());
             gen.writeStringField("kind", "targeting");
@@ -174,7 +174,7 @@ final class SnapshotWriter {
             writeFlagValue(gen, t.value(), t.value().getType());
         }
 
-        private void serializeSplit(SplitRule s, JsonGenerator gen, SerializerProvider provider)
+        private void serializeSplit(SplitRule s, JsonGenerator gen)
                 throws IOException {
             gen.writeStringField("name", s.name());
             gen.writeStringField("kind", "split");
@@ -183,7 +183,7 @@ final class SnapshotWriter {
             writeFlagValue(gen, s.value(), s.value().getType());
         }
 
-        private void serializeMultiVariant(MultiVariantRule m, JsonGenerator gen, SerializerProvider provider)
+        private void serializeMultiVariant(MultiVariantRule m, JsonGenerator gen)
                 throws IOException {
             gen.writeStringField("name", m.name());
             gen.writeStringField("kind", "multivariant");

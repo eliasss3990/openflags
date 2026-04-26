@@ -47,6 +47,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>On each remote change event, the entire {@code Map<String, Flag>} is serialized to
  * the configured snapshot path using a write-to-temp + atomic rename strategy.</p>
  *
+ * <h2>Behavior when both providers are unavailable</h2>
+ * <p>If both the remote and the file provider are in {@code NOT_READY} or {@code ERROR},
+ * {@link #getFlag(String)} delegates to the file provider, which will return
+ * {@link Optional#empty()}. The hybrid provider does not throw on read; consumers must
+ * handle the empty result. {@link #getState()} reports {@code ERROR} in this case (or
+ * {@code NOT_READY} if neither provider has been initialized yet).</p>
+ *
  * <h2>Thread-safety</h2>
  * <p>Thread-safe. {@code init()} and {@code shutdown()} are {@code synchronized}; reads
  * are lock-free.</p>
