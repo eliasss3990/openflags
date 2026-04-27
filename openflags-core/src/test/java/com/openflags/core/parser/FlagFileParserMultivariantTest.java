@@ -1,9 +1,10 @@
-package com.openflags.provider.file;
+package com.openflags.core.parser;
 
 import com.openflags.core.evaluation.rule.MultiVariantRule;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
+import com.openflags.core.parser.FlagFileParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

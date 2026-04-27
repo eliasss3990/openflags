@@ -10,7 +10,7 @@ import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderState;
-import com.openflags.provider.file.FlagFileParser;
+import com.openflags.core.parser.FlagFileParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

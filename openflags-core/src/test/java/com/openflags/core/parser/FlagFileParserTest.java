@@ -1,4 +1,4 @@
-package com.openflags.provider.file;
+package com.openflags.core.parser;
 
 import com.openflags.core.evaluation.rule.Condition;
 import com.openflags.core.evaluation.rule.Operator;
@@ -7,6 +7,7 @@ import com.openflags.core.evaluation.rule.TargetingRule;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
+import com.openflags.core.parser.FlagFileParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

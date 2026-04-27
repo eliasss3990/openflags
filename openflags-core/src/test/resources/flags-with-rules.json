@@ -1,0 +1,35 @@
+{
+  "flags": {
+    "premium-banner": {
+      "type": "string",
+      "value": "default-banner",
+      "enabled": true,
+      "description": "Banner shown on the home page",
+      "rules": [
+        {
+          "name": "internal-employees",
+          "kind": "targeting",
+          "when": [
+            { "attribute": "email", "operator": "ENDS_WITH", "value": "@openflags.com" }
+          ],
+          "value": "internal-banner"
+        },
+        {
+          "name": "premium-users",
+          "kind": "targeting",
+          "when": [
+            { "attribute": "plan", "operator": "IN", "value": ["pro", "enterprise"] },
+            { "attribute": "country", "operator": "NOT_IN", "value": ["KP", "IR"] }
+          ],
+          "value": "premium-banner"
+        },
+        {
+          "name": "experiment-50",
+          "kind": "split",
+          "percentage": 50,
+          "value": "experiment-banner"
+        }
+      ]
+    }
+  }
+}

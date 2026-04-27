@@ -1,0 +1,17 @@
+{
+  "flags": {
+    "dark-mode": {
+      "type": "boolean",
+      "value": true,
+      "enabled": true
+    },
+    "theme": {
+      "type": "string",
+      "value": "dark"
+    },
+    "rate": {
+      "type": "number",
+      "value": 0.5
+    }
+  }
+}

@@ -1,0 +1,11 @@
+flags:
+  bad-flag:
+    type: string
+    value: "control"
+    enabled: true
+    rules:
+      - name: "bad-weight-range"
+        kind: multivariant
+        variants:
+          - value: "a"
+            weight: 150

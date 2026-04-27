@@ -1,4 +1,4 @@
-package com.openflags.provider.file;
+package com.openflags.core.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
+import com.openflags.core.parser.FlagFileParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

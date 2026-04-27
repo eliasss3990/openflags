@@ -1,0 +1,7 @@
+flags:
+  feature-a:
+    type: boolean
+    value: true
+  feature-b:
+    type: string
+    value: "hello"

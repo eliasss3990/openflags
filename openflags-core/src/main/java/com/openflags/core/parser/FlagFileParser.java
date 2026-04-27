@@ -1,4 +1,4 @@
-package com.openflags.provider.file;
+package com.openflags.core.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,11 +64,11 @@ public final class FlagFileParser {
     private static final ObjectMapper JSON_MAPPER = JsonMapper.builder().build();
 
     /** Maximum regex pattern length accepted at parse time (security: limits ReDoS surface). */
-    static final int MAX_REGEX_LENGTH = 1024;
+    public static final int MAX_REGEX_LENGTH = 1024;
     /** Warn if a flag has more than this many rules (soft limit). */
-    static final int WARN_RULES_PER_FLAG = 50;
+    public static final int WARN_RULES_PER_FLAG = 50;
     /** Hard limit: a targeting rule may not have more than this many conditions. */
-    static final int MAX_CONDITIONS_PER_RULE = 20;
+    public static final int MAX_CONDITIONS_PER_RULE = 20;
 
     /**
      * Parses the flag file at the given path.
@@ -192,7 +192,7 @@ public final class FlagFileParser {
                         + "' is missing required field 'name'");
         if (name.isBlank()) {
             throw new ProviderException("Rule in flag '" + flagKey + "' in '" + sourceLabel
-                    + "' is missing required field 'name'");
+                    + "' has a blank 'name'");
         }
 
         if (!ruleNode.hasNonNull("kind")) {
@@ -269,20 +269,21 @@ public final class FlagFileParser {
             String flagKey, String sourceLabel) {
         if (!ruleNode.hasNonNull("variants")) {
             throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
-                    + "' is missing required field 'variants'");
+                    + "' in '" + sourceLabel + "' is missing required field 'variants'");
         }
         JsonNode variantsNode = ruleNode.get("variants");
         if (!variantsNode.isArray()) {
             throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
-                    + "' field 'variants' must be a list");
+                    + "' in '" + sourceLabel + "' field 'variants' must be a list");
         }
         if (variantsNode.size() == 0) {
             throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
-                    + "' must have at least one variant");
+                    + "' in '" + sourceLabel + "' must have at least one variant");
         }
         if (variantsNode.size() > MultiVariantRule.MAX_VARIANTS) {
             throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
-                    + "' has " + variantsNode.size() + " variants; maximum is " + MultiVariantRule.MAX_VARIANTS);
+                    + "' in '" + sourceLabel + "' has " + variantsNode.size()
+                    + " variants; maximum is " + MultiVariantRule.MAX_VARIANTS);
         }
 
         List<WeightedVariant> variants = new ArrayList<>();
@@ -291,22 +292,22 @@ public final class FlagFileParser {
             JsonNode variantNode = variantsNode.get(i);
             if (!variantNode.hasNonNull("value")) {
                 throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
-                        + flagKey + "' is missing required field 'value'");
+                        + flagKey + "' in '" + sourceLabel + "' is missing required field 'value'");
             }
             if (!variantNode.hasNonNull("weight")) {
                 throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
-                        + flagKey + "' is missing required field 'weight'");
+                        + flagKey + "' in '" + sourceLabel + "' is missing required field 'weight'");
             }
             JsonNode weightNode = variantNode.get("weight");
             if (!weightNode.isNumber() || !weightNode.canConvertToInt()
                     || (weightNode.isDouble() && weightNode.doubleValue() != Math.floor(weightNode.doubleValue()))) {
                 throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
-                        + flagKey + "' has non-integer weight '" + weightNode.asText() + "'");
+                        + flagKey + "' in '" + sourceLabel + "' has non-integer weight '" + weightNode.asText() + "'");
             }
             int weight = weightNode.asInt();
             if (weight < 0 || weight > 100) {
                 throw new ProviderException("Variant " + i + " in rule '" + name + "' of flag '"
-                        + flagKey + "' has weight " + weight + " out of range [0, 100]");
+                        + flagKey + "' in '" + sourceLabel + "' has weight " + weight + " out of range [0, 100]");
             }
 
             FlagValue variantValue = parseVariantValue(flagKey, variantNode.get("value"), flagType,
@@ -317,7 +318,7 @@ public final class FlagFileParser {
 
         if (weightSum != 100) {
             throw new ProviderException("MultiVariantRule '" + name + "' in flag '" + flagKey
-                    + "' weights sum to " + weightSum + ", expected 100");
+                    + "' in '" + sourceLabel + "' weights sum to " + weightSum + ", expected 100");
         }
 
         return new MultiVariantRule(name, variants);
@@ -427,7 +428,7 @@ public final class FlagFileParser {
         };
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked") // Map.class returns Map<String,Object> by Jackson contract
     private FlagValue parseValue(String key, JsonNode valueNode, FlagType type, String sourceLabel) {
         try {
             return switch (type) {

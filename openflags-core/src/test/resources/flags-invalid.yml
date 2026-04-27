@@ -1,0 +1,4 @@
+flags:
+  bad-flag:
+    type: unknown-type
+    value: true
