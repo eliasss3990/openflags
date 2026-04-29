@@ -10,6 +10,7 @@ import com.openflags.core.model.FlagValue;
 import com.openflags.core.provider.ProviderState;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
+import com.openflags.provider.remote.RemotePollListener;
 import com.openflags.provider.remote.RemoteProviderConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -352,18 +353,17 @@ class HybridFlagProviderTest {
                 ArgumentCaptor<FlagChangeListener> remoteListenerCaptor = ArgumentCaptor
                                 .forClass(FlagChangeListener.class);
 
+                ArgumentCaptor<RemotePollListener> pollListenerCaptor = ArgumentCaptor
+                                .forClass(RemotePollListener.class);
+
                 HybridFlagProvider provider = buildWithMocks(mockRemote, mockFile, mockWriter, dir);
                 provider.init();
                 verify(mockRemote).addChangeListener(remoteListenerCaptor.capture());
                 verify(mockFile).addChangeListener(fileListenerCaptor.capture());
+                verify(mockRemote).setPollListener(pollListenerCaptor.capture());
 
-                // Simulate a recent snapshot write (within debounce window of 200ms)
-                FlagChangeEvent remoteEvent = new FlagChangeEvent("flag-x", FlagType.BOOLEAN,
-                                Optional.of(FlagValue.of(false, FlagType.BOOLEAN)),
-                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.UPDATED);
-                when(mockRemote.getAllFlags()).thenReturn(Collections.emptyMap());
-                remoteListenerCaptor.getValue().onFlagChange(remoteEvent); // triggers writeSafe → updates
-                                                                           // lastSnapshotWriteAt
+                // Simulate a successful poll cycle → writeSafe → updates lastSnapshotWriteAt
+                pollListenerCaptor.getValue().onPollComplete(Collections.emptyMap());
 
                 FlagChangeListener publicListener = mock(FlagChangeListener.class);
                 provider.addChangeListener(publicListener);
@@ -375,6 +375,41 @@ class HybridFlagProviderTest {
                 fileListenerCaptor.getValue().onFlagChange(fileEvent);
 
                 verify(publicListener, never()).onFlagChange(fileEvent);
+                provider.shutdown();
+        }
+
+        @Test
+        void pollWithMultipleChangesWritesSnapshotOnce(@TempDir Path dir) throws Exception {
+                RemoteFlagProvider mockRemote = mock(RemoteFlagProvider.class);
+                FileFlagProvider mockFile = mock(FileFlagProvider.class);
+                SnapshotWriter mockWriter = mock(SnapshotWriter.class);
+
+                when(mockRemote.getState()).thenReturn(ProviderState.READY);
+                when(mockFile.getState()).thenReturn(ProviderState.READY);
+
+                ArgumentCaptor<RemotePollListener> pollListenerCaptor = ArgumentCaptor
+                                .forClass(RemotePollListener.class);
+                ArgumentCaptor<FlagChangeListener> remoteListenerCaptor = ArgumentCaptor
+                                .forClass(FlagChangeListener.class);
+
+                HybridFlagProvider provider = buildWithMocks(mockRemote, mockFile, mockWriter, dir);
+                provider.init();
+                verify(mockRemote).setPollListener(pollListenerCaptor.capture());
+                verify(mockRemote).addChangeListener(remoteListenerCaptor.capture());
+
+                // Simulate 5 individual flag-change events in one poll cycle
+                for (int i = 0; i < 5; i++) {
+                        FlagChangeEvent event = new FlagChangeEvent("flag-" + i, FlagType.BOOLEAN,
+                                        Optional.empty(),
+                                        Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.CREATED);
+                        remoteListenerCaptor.getValue().onFlagChange(event);
+                }
+
+                // Then the poll cycle completes — snapshot must be written exactly once
+                pollListenerCaptor.getValue().onPollComplete(Collections.emptyMap());
+
+                verify(mockWriter, org.mockito.Mockito.times(1))
+                                .write(any(), any());
                 provider.shutdown();
         }
 }

@@ -73,6 +73,7 @@ public final class RemoteFlagProvider implements FlagProvider {
     private final CopyOnWriteArrayList<FlagChangeListener> listeners;
 
     private volatile CacheSnapshot snapshot = INITIAL_SNAPSHOT;
+    private volatile RemotePollListener pollListener;
 
     private ScheduledExecutorService scheduler;
 
@@ -85,6 +86,17 @@ public final class RemoteFlagProvider implements FlagProvider {
         this.parser = new FlagFileParser();
         this.objectMapper = JsonMapper.builder().build();
         this.listeners = new CopyOnWriteArrayList<>();
+    }
+
+    /**
+     * Registers a {@link RemotePollListener} that will be called once per successful
+     * poll cycle, after all individual {@link com.openflags.core.event.FlagChangeEvent}s
+     * have been emitted. Replaces any previously registered listener.
+     *
+     * @param listener the listener to register; may be null to clear
+     */
+    public void setPollListener(RemotePollListener listener) {
+        this.pollListener = listener;
     }
 
     /**
@@ -213,12 +225,17 @@ public final class RemoteFlagProvider implements FlagProvider {
             Map<String, Flag> oldFlags = snapshot.flags();
             snapshot = new CacheSnapshot(Map.copyOf(newFlags), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, snapshot.flags());
+            notifyPollComplete(snapshot.flags());
             log.debug("Poll succeeded for {}: {} flags loaded", config.baseUrl(), snapshot.flags().size());
 
         } else if (status == 204) {
             Map<String, Flag> oldFlags = snapshot.flags();
+            if (!oldFlags.isEmpty()) {
+                log.warn("Remote returned 204 — clearing {} flags for {}", oldFlags.size(), config.baseUrl());
+            }
             snapshot = new CacheSnapshot(Map.of(), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, Map.of());
+            notifyPollComplete(Map.of());
             log.debug("Poll returned 204 for {}: cache cleared", config.baseUrl());
 
         } else if (status == 304) {
@@ -271,6 +288,17 @@ public final class RemoteFlagProvider implements FlagProvider {
                 Flag oldFlag = entry.getValue();
                 notifyListeners(new FlagChangeEvent(key, oldFlag.type(),
                         Optional.of(oldFlag.value()), Optional.empty(), ChangeType.DELETED));
+            }
+        }
+    }
+
+    private void notifyPollComplete(Map<String, Flag> flagSnapshot) {
+        RemotePollListener pl = pollListener;
+        if (pl != null) {
+            try {
+                pl.onPollComplete(flagSnapshot);
+            } catch (Exception e) {
+                log.warn("RemotePollListener threw an exception", e);
             }
         }
     }

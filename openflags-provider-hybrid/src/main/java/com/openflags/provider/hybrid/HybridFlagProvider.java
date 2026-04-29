@@ -9,12 +9,11 @@ import com.openflags.core.provider.ProviderState;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
+import com.openflags.provider.remote.RemotePollListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,7 +60,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class HybridFlagProvider implements FlagProvider {
 
     private static final Logger log = LoggerFactory.getLogger(HybridFlagProvider.class);
-    private static final Duration SNAPSHOT_WRITE_COALESCE_WINDOW = Duration.ofMillis(50);
 
     private final HybridProviderConfig config;
     private final RemoteFlagProvider remote;
@@ -69,11 +67,11 @@ public final class HybridFlagProvider implements FlagProvider {
     private final SnapshotWriter snapshotWriter;
     private final List<FlagChangeListener> publicListeners = new CopyOnWriteArrayList<>();
 
-    /** Tracks the last time the snapshot was successfully written (for debounce). */
-    private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
-
     /** Counts consecutive snapshot write failures for log throttling. */
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
+
+    /** Tracks last successful snapshot write time; used by onFileChange debounce. */
+    private volatile java.time.Instant lastSnapshotWriteAt = java.time.Instant.EPOCH;
 
     // volatile: read in requireInitialized() which is called from getFlag() outside synchronized
     private volatile boolean initialized = false;
@@ -99,6 +97,7 @@ public final class HybridFlagProvider implements FlagProvider {
                     config.remoteConfig().authHeaderValue());
         }
         this.remote = remoteBuilder.build();
+        this.remote.setPollListener(this::onPollComplete);
         this.file = FileFlagProvider.builder()
                 .path(config.snapshotPath())
                 .watchEnabled(config.watchSnapshot())
@@ -115,6 +114,7 @@ public final class HybridFlagProvider implements FlagProvider {
                        SnapshotWriter snapshotWriter) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.remote = Objects.requireNonNull(remote, "remote must not be null");
+        this.remote.setPollListener(this::onPollComplete);
         this.file = Objects.requireNonNull(file, "file must not be null");
         this.snapshotWriter = Objects.requireNonNull(snapshotWriter, "snapshotWriter must not be null");
     }
@@ -257,14 +257,11 @@ public final class HybridFlagProvider implements FlagProvider {
 
     // ---- internal listeners ----
 
+    private void onPollComplete(Map<String, Flag> flagSnapshot) {
+        writeSafe(flagSnapshot);
+    }
+
     private void onRemoteChange(FlagChangeEvent event) {
-        Instant now = Instant.now();
-        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, now);
-        if (sinceLastWrite.compareTo(SNAPSHOT_WRITE_COALESCE_WINDOW) >= 0) {
-            writeSafe(remote.getAllFlags());
-        } else {
-            log.debug("HybridFlagProvider: skipping snapshot write within coalesce window");
-        }
         for (FlagChangeListener listener : publicListeners) {
             try {
                 listener.onFlagChange(event);
@@ -275,8 +272,7 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     private void onFileChange(FlagChangeEvent event) {
-        Instant now = Instant.now();
-        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, now);
+        java.time.Duration sinceLastWrite = java.time.Duration.between(lastSnapshotWriteAt, java.time.Instant.now());
         if (sinceLastWrite.compareTo(config.snapshotDebounce()) < 0) {
             log.debug("HybridFlagProvider: ignoring file event within debounce window ({} ms)",
                     config.snapshotDebounce().toMillis());
@@ -300,7 +296,7 @@ public final class HybridFlagProvider implements FlagProvider {
         try {
             snapshotWriter.write(flags, config.snapshotPath());
             consecutiveWriteFailures.set(0);
-            lastSnapshotWriteAt = Instant.now();
+            lastSnapshotWriteAt = java.time.Instant.now();
         } catch (IOException e) {
             int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only
