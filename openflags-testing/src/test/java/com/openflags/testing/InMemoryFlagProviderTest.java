@@ -210,6 +210,14 @@ class InMemoryFlagProviderTest {
     }
 
     @Test
+    void removeAfterShutdown_throwsIllegalState() {
+        provider.setBoolean("flag", true);
+        provider.shutdown();
+        assertThatThrownBy(() -> provider.remove("flag"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void concurrentWrites_areThreadSafe() throws InterruptedException {
         int threadCount = 10;
         int flagsPerThread = 100;

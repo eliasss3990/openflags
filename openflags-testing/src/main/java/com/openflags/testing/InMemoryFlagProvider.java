@@ -192,6 +192,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
      * @return this provider (for chaining)
      */
     public InMemoryFlagProvider remove(String key) {
+        requireNotShutdown();
         Flag removed = flags.remove(key);
         if (removed != null) {
             emit(new FlagChangeEvent(key, removed.type(),
@@ -206,6 +207,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
      * @return this provider (for chaining)
      */
     public InMemoryFlagProvider clear() {
+        requireNotShutdown();
         new HashSet<>(flags.keySet()).forEach(this::remove);
         return this;
     }
