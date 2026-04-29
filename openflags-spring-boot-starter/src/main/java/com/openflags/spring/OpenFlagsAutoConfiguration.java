@@ -49,7 +49,7 @@ public class OpenFlagsAutoConfiguration {
      * @param properties the openflags properties
      * @return a configured and initialized remote provider
      */
-    @Bean
+    @Bean(initMethod = "init", destroyMethod = "shutdown")
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "remote")
     @ConditionalOnMissingBean(FlagProvider.class)
     @ConditionalOnClass(name = "com.openflags.provider.remote.RemoteFlagProvider")
@@ -68,9 +68,7 @@ public class OpenFlagsAutoConfiguration {
         if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
             builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
         }
-        RemoteFlagProvider p = builder.build();
-        p.init();
-        return p;
+        return builder.build();
     }
 
     /**
@@ -82,7 +80,7 @@ public class OpenFlagsAutoConfiguration {
      * @param props the openflags properties
      * @return a configured and initialized hybrid provider
      */
-    @Bean
+    @Bean(initMethod = "init", destroyMethod = "shutdown")
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
     @ConditionalOnMissingBean(FlagProvider.class)
     @ConditionalOnClass(name = "com.openflags.provider.hybrid.HybridFlagProvider")
@@ -110,7 +108,7 @@ public class OpenFlagsAutoConfiguration {
                 r.getCacheTtl(),
                 r.getUserAgent());
 
-        HybridFlagProvider provider = HybridFlagProvider.builder()
+        return HybridFlagProvider.builder()
                 .remoteConfig(rc)
                 .snapshotPath(h.getSnapshotPath())
                 .snapshotFormat(h.getSnapshotFormat())
@@ -118,8 +116,6 @@ public class OpenFlagsAutoConfiguration {
                 .snapshotDebounce(h.getSnapshotDebounce())
                 .failIfNoFallback(h.isFailIfNoFallback())
                 .build();
-        provider.init();
-        return provider;
     }
 
     /**
@@ -128,10 +124,10 @@ public class OpenFlagsAutoConfiguration {
      *
      * @param properties   the openflags properties
      * @param resourceLoader Spring resource loader for resolving classpath paths
-     * @return a configured (not yet initialized) file provider
+     * @return a configured file provider; init/shutdown are managed by the Spring container
      * @throws IOException if the resource cannot be resolved
      */
-    @Bean
+    @Bean(initMethod = "init", destroyMethod = "shutdown")
     @ConditionalOnProperty(name = "openflags.provider", havingValue = "file", matchIfMissing = true)
     public FlagProvider fileFlagProvider(OpenFlagsProperties properties, ResourceLoader resourceLoader)
             throws IOException {
