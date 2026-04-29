@@ -65,7 +65,7 @@ public class OpenFlagsAutoConfiguration {
                 .pollInterval(r.getPollInterval())
                 .cacheTtl(r.getCacheTtl())
                 .userAgent(r.getUserAgent());
-        if (r.getAuthHeaderName() != null) {
+        if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
             builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
         }
         RemoteFlagProvider p = builder.build();

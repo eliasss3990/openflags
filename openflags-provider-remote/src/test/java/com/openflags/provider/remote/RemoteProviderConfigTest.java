@@ -127,4 +127,34 @@ class RemoteProviderConfigTest {
                 .isThrownBy(() -> new RemoteProviderConfig(HTTPS_URL, null,
                         null, "Bearer token", POS, POS, POLL, TTL, null));
     }
+
+    @Test
+    void authHeaderBlankValue_throws() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RemoteProviderConfig(HTTPS_URL, null,
+                        "Authorization", "   ", POS, POS, POLL, TTL, null));
+    }
+
+    @Test
+    void authHeaderBlankName_throws() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> new RemoteProviderConfig(HTTPS_URL, null,
+                        "  ", "Bearer token", POS, POS, POLL, TTL, null));
+    }
+
+    @Test
+    void authHeaderBothEmpty_normalizedToNull() {
+        RemoteProviderConfig c = new RemoteProviderConfig(HTTPS_URL, null,
+                "", "", POS, POS, POLL, TTL, null);
+        assertThat(c.authHeaderName()).isNull();
+        assertThat(c.authHeaderValue()).isNull();
+    }
+
+    @Test
+    void authHeaderBothWhitespace_normalizedToNull() {
+        RemoteProviderConfig c = new RemoteProviderConfig(HTTPS_URL, null,
+                "   ", "\t", POS, POS, POLL, TTL, null);
+        assertThat(c.authHeaderName()).isNull();
+        assertThat(c.authHeaderValue()).isNull();
+    }
 }

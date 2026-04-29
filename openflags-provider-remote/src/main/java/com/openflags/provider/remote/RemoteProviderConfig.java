@@ -53,9 +53,16 @@ public record RemoteProviderConfig(
         if (flagsPath == null || flagsPath.isBlank()) {
             flagsPath = "/flags";
         }
-        if ((authHeaderName == null) != (authHeaderValue == null)) {
+        boolean nameMissing = authHeaderName == null || authHeaderName.isBlank();
+        boolean valueMissing = authHeaderValue == null || authHeaderValue.isBlank();
+        if (nameMissing != valueMissing) {
             throw new IllegalArgumentException(
-                    "authHeaderName and authHeaderValue must both be set or both be null");
+                    "authHeaderName and authHeaderValue must both be set (non-blank) or both be null/blank");
+        }
+        if (nameMissing) {
+            // normalize blank → null so downstream code only needs a null check
+            authHeaderName = null;
+            authHeaderValue = null;
         }
         Objects.requireNonNull(connectTimeout, "connectTimeout must not be null");
         Objects.requireNonNull(requestTimeout, "requestTimeout must not be null");
