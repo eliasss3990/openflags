@@ -242,9 +242,13 @@ public final class RemoteFlagProvider implements FlagProvider {
             log.warn("Poll returned 304 for {} (unexpected; no If-None-Match sent)", config.baseUrl());
             // keep cache as-is
 
-        } else if (status == 401) {
-            log.error("Poll returned 401 Unauthorized for {} — check auth configuration", config.baseUrl());
-            checkStaleness();
+        } else if (status == 401 || status == 403) {
+            // throw and let the caller decide:
+            //   - init() rethrows so the user sees a clear auth-failed error
+            //   - pollSafe() catches Throwable, logs once and runs checkStaleness()
+            throw new ProviderException(
+                    "Authentication failed: HTTP " + status + " for " + config.baseUrl()
+                            + " — check auth configuration");
 
         } else {
             log.warn("Poll returned HTTP {} for {}", status, config.baseUrl());
