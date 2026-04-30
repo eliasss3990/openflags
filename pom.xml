@@ -24,8 +24,30 @@
         <license>
             <name>Apache License, Version 2.0</name>
             <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
+
+    <scm>
+        <connection>scm:git:https://github.com/openflags/openflags.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/openflags/openflags.git</developerConnection>
+        <url>https://github.com/openflags/openflags</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <developers>
+        <developer>
+            <id>eliasgonzalez</id>
+            <name>Elias Gonzalez</name>
+            <email>eliasgonzalez3990@gmail.com</email>
+            <url>https://github.com/eliasss3990</url>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/openflags/openflags/issues</url>
+    </issueManagement>
 
     <modules>
         <module>openflags-bom</module>
@@ -44,6 +66,8 @@
         <jacoco.version>0.8.12</jacoco.version>
         <flatten.version>1.6.0</flatten.version>
         <wiremock.version>3.10.0</wiremock.version>
+        <!-- Release profile: pass -DskipPublish=true to sign artifacts locally without publishing. -->
+        <skipPublish>false</skipPublish>
     </properties>
 
     <build>
@@ -81,6 +105,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.11.2</version>
                     <configuration>
                         <failOnWarnings>true</failOnWarnings>
                         <doclint>all,-missing</doclint>
@@ -90,6 +115,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.1</version>
                     <executions>
                         <execution>
                             <id>attach-sources</id>
@@ -207,4 +233,78 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Release profile for Maven Central publishing.
+            NOT activated by default. Activate explicitly:
+                mvn -P release clean verify
+            Requires GPG key configured locally (gpg.keyname / gpg.passphrase or gpg-agent).
+            Publishing is performed by central-publishing-maven-plugin; pass -DskipPublish=true
+            to verify signing locally without uploading.
+        -->
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <skipPublishing>${skipPublish}</skipPublishing>
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
