@@ -18,6 +18,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -134,6 +140,59 @@ class OpenFlagsClientTest {
         assertThatCode(() -> client.removeChangeListener(listener))
                 .doesNotThrowAnyException();
         verify(provider, never()).removeChangeListener(listener);
+    }
+
+    @Test
+    void shutdownDuringEvaluation_throwsOrSucceedsCleanly() throws Exception {
+        Flag flag = new Flag("k", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), true, null);
+        when(provider.getFlag("k")).thenReturn(Optional.of(flag));
+
+        int evaluators = 8;
+        CyclicBarrier start = new CyclicBarrier(evaluators + 1);
+        CountDownLatch done = new CountDownLatch(evaluators);
+        AtomicInteger okOrIllegalState = new AtomicInteger();
+        ExecutorService pool = Executors.newFixedThreadPool(evaluators + 1);
+
+        try {
+            for (int i = 0; i < evaluators; i++) {
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                    } catch (Exception e) {
+                        done.countDown();
+                        throw new AssertionError("barrier failure", e);
+                    }
+                    try {
+                        for (int j = 0; j < 200; j++) {
+                            try {
+                                client.getBooleanValue("k", false);
+                                okOrIllegalState.incrementAndGet();
+                            } catch (IllegalStateException expected) {
+                                okOrIllegalState.incrementAndGet();
+                            }
+                        }
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+
+            pool.submit(() -> {
+                try {
+                    start.await();
+                    Thread.sleep(2);
+                    client.shutdown();
+                } catch (Exception e) {
+                    throw new AssertionError("shutdown thread failure", e);
+                }
+            });
+
+            assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
+            // every iteration produced either a clean value or IllegalStateException; nothing else
+            assertThat(okOrIllegalState.get()).isEqualTo(evaluators * 200);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

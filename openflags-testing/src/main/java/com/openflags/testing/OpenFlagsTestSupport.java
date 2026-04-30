@@ -2,6 +2,7 @@ package com.openflags.testing;
 
 import com.openflags.core.OpenFlagsClient;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -22,9 +23,17 @@ public final class OpenFlagsTestSupport {
 
     /**
      * Creates a test client configured by the given setup consumer.
+     * <p>
+     * The provider passed to {@code setup} is freshly initialized; callers may invoke
+     * any combination of {@code setBoolean}/{@code setString}/{@code setNumber}/
+     * {@code setObject}/{@code setFlag} to register flags before the client is built.
+     * The returned client owns the provider — call {@link OpenFlagsClient#shutdown()}
+     * to release resources at the end of the test.
+     * </p>
      *
-     * @param setup consumer that receives an {@link InMemoryFlagProvider} to configure
-     * @return a ready-to-use client
+     * @param setup consumer that receives an {@link InMemoryFlagProvider} to configure;
+     *              must not be null
+     * @return a ready-to-use client backed by the configured provider
      */
     public static OpenFlagsClient createTestClient(Consumer<InMemoryFlagProvider> setup) {
         InMemoryFlagProvider provider = new InMemoryFlagProvider();
@@ -63,5 +72,16 @@ public final class OpenFlagsTestSupport {
      */
     public static OpenFlagsClient withFlag(String key, double value) {
         return createTestClient(p -> p.setNumber(key, value));
+    }
+
+    /**
+     * Creates a test client with a single object flag.
+     *
+     * @param key   the flag key
+     * @param value the flag value as a map
+     * @return a ready-to-use client
+     */
+    public static OpenFlagsClient withObjectFlag(String key, Map<String, Object> value) {
+        return createTestClient(p -> p.setObject(key, value));
     }
 }
