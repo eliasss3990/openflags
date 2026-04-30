@@ -172,6 +172,46 @@ class RemoteFlagProviderIntegrationTest {
     }
 
     @Test
+    void degradedToError_whenCacheTtlExpires() {
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .inScenario("ttl")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(FLAGS_A_JSON))
+                .willSetStateTo("DOWN"));
+
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .inScenario("ttl")
+                .whenScenarioStateIs("DOWN")
+                .willReturn(aResponse().withStatus(500)));
+
+        // TTL chosen well above pollInterval to give a wide DEGRADED window
+        // before age exceeds TTL and the state transitions to ERROR (avoids
+        // flakiness on slow CI where the first await might miss DEGRADED).
+        Duration shortTtl = Duration.ofSeconds(20);
+        RemoteFlagProvider p = RemoteFlagProviderBuilder
+                .forUrl(URI.create("http://localhost:" + wireMock.port()))
+                .pollInterval(POLL)
+                .cacheTtl(shortTtl)
+                .build();
+        try {
+            p.init();
+            assertThat(p.getState()).isEqualTo(ProviderState.READY);
+
+            // first poll failure (age <= ttl) → DEGRADED
+            Awaitility.await().atMost(AWAIT_SECONDS, TimeUnit.SECONDS)
+                    .until(() -> p.getState() == ProviderState.DEGRADED);
+
+            // continued failures past ttl → ERROR
+            Awaitility.await().atMost(AWAIT_SECONDS * 2, TimeUnit.SECONDS)
+                    .until(() -> p.getState() == ProviderState.ERROR);
+        } finally {
+            p.shutdown();
+        }
+    }
+
+    @Test
     void flagChangeEvents_addedRemovedChanged() {
         List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
 

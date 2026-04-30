@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -16,6 +17,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RemoteHttpClientTest {
 
@@ -151,6 +153,28 @@ class RemoteHttpClientTest {
 
         wireMock.verify(getRequestedFor(urlEqualTo("/flags"))
                 .withoutHeader("Authorization"));
+    }
+
+    @Test
+    void fetch_serverSlowerThanRequestTimeout_throwsHttpTimeoutException() {
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"flags\":{}}")
+                        .withFixedDelay(2_000)));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port()),
+                "/flags",
+                null, null,
+                Duration.ofMillis(500),  // connectTimeout
+                Duration.ofMillis(300),  // requestTimeout — must trip before withFixedDelay
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0"
+        );
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+
+        assertThatThrownBy(client::fetch)
+                .isInstanceOf(HttpTimeoutException.class);
     }
 
     @Test
