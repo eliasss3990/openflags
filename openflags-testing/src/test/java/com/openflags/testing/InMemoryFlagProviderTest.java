@@ -17,9 +17,9 @@ import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -121,7 +121,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void changeListeners_receivedOnSet() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.setBoolean("f", true);
         assertThat(events).hasSize(1);
@@ -131,7 +131,7 @@ class InMemoryFlagProviderTest {
     @Test
     void changeListeners_receivedOnUpdate() {
         provider.setBoolean("f", false);
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.setBoolean("f", true);
         assertThat(events).hasSize(1);
@@ -141,7 +141,7 @@ class InMemoryFlagProviderTest {
     @Test
     void changeListeners_receivedOnRemove() {
         provider.setBoolean("f", true);
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.remove("f");
         assertThat(events).hasSize(1);
@@ -150,7 +150,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void removeChangeListener_stopsReceivingEvents() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         FlagChangeListener listener = events::add;
         provider.addChangeListener(listener);
         provider.removeChangeListener(listener);
@@ -160,7 +160,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void removeChangeListener_withDifferentInstance_doesNothing() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.removeChangeListener(e -> {});
         provider.setBoolean("flag-neg", true);
@@ -184,7 +184,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void emit_listenerThrowingException_doesNotStopOtherListeners() {
-        List<FlagChangeEvent> received = new ArrayList<>();
+        List<FlagChangeEvent> received = new CopyOnWriteArrayList<>();
         provider.addChangeListener(e -> { throw new RuntimeException("listener exploded"); });
         provider.addChangeListener(received::add);
 

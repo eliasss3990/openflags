@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -173,7 +173,7 @@ class RemoteFlagProviderIntegrationTest {
 
     @Test
     void flagChangeEvents_addedRemovedChanged() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
 
         wireMock.stubFor(get(urlEqualTo("/flags"))
                 .inScenario("update")

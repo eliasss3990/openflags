@@ -17,8 +17,8 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -226,7 +226,7 @@ class HybridFlagProviderIntegrationTest {
         Path snapshot = tempDir.resolve("snap.json");
         provider = buildProvider(snapshot);
 
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
 
         provider.init();
@@ -271,7 +271,7 @@ class HybridFlagProviderIntegrationTest {
         provider = buildProvider(snapshot);
         provider.init();
 
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         FlagChangeListener listener = events::add;
         provider.addChangeListener(listener);
         provider.removeChangeListener(listener);

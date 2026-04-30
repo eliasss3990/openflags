@@ -67,6 +67,9 @@
                         <!-- Disabled because modules are unnamed (no module-info.java);
                              module path causes classpath issues with Spring Boot test infra. -->
                         <useModulePath>false</useModulePath>
+                        <!-- Exclude statistical/long-running tests from the default unit run.
+                             Override with `mvn test -DexcludedGroups=` to include them. -->
+                        <excludedGroups>statistical</excludedGroups>
                     </configuration>
                 </plugin>
 

@@ -6,6 +6,7 @@ import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -160,6 +161,7 @@ class RuleEngineTest {
     }
 
     @Test
+    @Tag("statistical")
     void multiVariantRule_distributionWithinOnePct() {
         // Use STRING flag with 3 distinct values for A/B/C distribution
         FlagValue defStr = FlagValue.of("default", FlagType.STRING);
