@@ -101,8 +101,8 @@ public final class RemoteFlagProvider implements FlagProvider {
 
     /**
      * Performs the initial fetch synchronously and starts the polling thread.
-     * Idempotent: safe to call multiple times or from multiple threads; only the
-     * first call when {@code state == NOT_READY} takes effect.
+     * Idempotent: subsequent calls return without effect once the snapshot
+     * state is anything other than {@link ProviderState#NOT_READY}.
      *
      * @throws ProviderException if the initial fetch fails (network, parse, or HTTP error)
      */

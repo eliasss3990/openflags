@@ -182,7 +182,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
      * @return this provider (for chaining)
      */
     public InMemoryFlagProvider setFlag(Flag flag) {
-        java.util.Objects.requireNonNull(flag, "flag must not be null");
+        Objects.requireNonNull(flag, "flag must not be null");
         return putFlag(flag);
     }
 
@@ -203,7 +203,8 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     /**
-     * Removes all flags.
+     * Removes all flags. Emits one {@link ChangeType#DELETED} event per
+     * removed flag (no aggregated event), in undefined order.
      *
      * @return this provider (for chaining)
      */
@@ -230,7 +231,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
             try {
                 l.onFlagChange(event);
             } catch (Exception e) {
-                log.warn("FlagChangeListener threw an exception: {}", e.getMessage());
+                log.warn("FlagChangeListener threw an exception", e);
             }
         });
     }

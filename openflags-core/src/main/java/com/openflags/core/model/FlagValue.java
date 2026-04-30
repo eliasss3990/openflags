@@ -2,7 +2,6 @@ package com.openflags.core.model;
 
 import com.openflags.core.exception.TypeMismatchException;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
@@ -97,7 +96,7 @@ public final class FlagValue {
     @SuppressWarnings("unchecked")
     public Map<String, Object> asObject() {
         requireType(FlagType.OBJECT);
-        return Collections.unmodifiableMap((Map<String, Object>) rawValue);
+        return (Map<String, Object>) rawValue;
     }
 
     /**

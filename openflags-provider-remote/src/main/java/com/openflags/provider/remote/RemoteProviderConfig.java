@@ -3,6 +3,7 @@ package com.openflags.provider.remote;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Immutable configuration for a {@link RemoteFlagProvider}.
@@ -46,7 +47,7 @@ public record RemoteProviderConfig(
     public RemoteProviderConfig {
         Objects.requireNonNull(baseUrl, "baseUrl must not be null");
         String scheme = baseUrl.getScheme();
-        if (scheme == null || !(scheme.equals("http") || scheme.equals("https"))) {
+        if (scheme == null || !Set.of("http", "https").contains(scheme)) {
             throw new IllegalArgumentException(
                     "baseUrl must use http or https, got " + scheme);
         }

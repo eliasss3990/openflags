@@ -24,7 +24,12 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "openflags")
 public class OpenFlagsProperties {
 
-    /** The provider type to activate. Default: {@code "file"}. */
+    /**
+     * The provider type to activate. Default: {@code "file"}.
+     * <p>
+     * Case-sensitive: must be one of {@code "file"}, {@code "remote"} or
+     * {@code "hybrid"} (lowercase). Other values cause auto-configuration to fail.
+     */
     private String provider = "file";
 
     /** File provider configuration. */

@@ -151,7 +151,7 @@ public final class FileFlagProvider implements FlagProvider {
             synchronized (this) {
                 if (!shutdown) {
                     state.set(ProviderState.ERROR);
-                    log.warn("Failed to reload flags from '{}': {}", filePath, e.getMessage());
+                    log.warn("Failed to reload flags from '{}'", filePath, e);
                 }
             }
             return;
@@ -208,7 +208,7 @@ public final class FileFlagProvider implements FlagProvider {
                     try {
                         l.onFlagChange(finalEvent);
                     } catch (Exception e) {
-                        log.warn("FlagChangeListener threw an exception: {}", e.getMessage());
+                        log.warn("FlagChangeListener threw an exception", e);
                     }
                 });
             }
