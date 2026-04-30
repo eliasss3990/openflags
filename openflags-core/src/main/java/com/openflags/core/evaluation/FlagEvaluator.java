@@ -28,7 +28,7 @@ import java.util.Optional;
  *   <li>If the flag type does not match {@code expectedType}, return {@code defaultValue} with reason {@link EvaluationReason#TYPE_MISMATCH}.</li>
  *   <li>Otherwise, delegate to {@link RuleEngine} which returns one of:
  *       {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
- *       {@link EvaluationReason#SPLIT}, or {@link EvaluationReason#DEFAULT}.</li>
+ *       {@link EvaluationReason#SPLIT}, or {@link EvaluationReason#NO_RULE_MATCHED}.</li>
  * </ol>
  */
 public final class FlagEvaluator {
