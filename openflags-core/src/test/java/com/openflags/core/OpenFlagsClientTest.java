@@ -23,6 +23,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.*;
@@ -151,6 +152,7 @@ class OpenFlagsClientTest {
         CyclicBarrier start = new CyclicBarrier(evaluators + 1);
         CountDownLatch done = new CountDownLatch(evaluators);
         AtomicInteger okOrIllegalState = new AtomicInteger();
+        AtomicBoolean shutdownCalled = new AtomicBoolean(false);
         ExecutorService pool = Executors.newFixedThreadPool(evaluators + 1);
 
         try {
@@ -182,6 +184,7 @@ class OpenFlagsClientTest {
                     start.await();
                     Thread.sleep(2);
                     client.shutdown();
+                    shutdownCalled.set(true);
                 } catch (Exception e) {
                     throw new AssertionError("shutdown thread failure", e);
                 }
@@ -190,6 +193,8 @@ class OpenFlagsClientTest {
             assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
             // every iteration produced either a clean value or IllegalStateException; nothing else
             assertThat(okOrIllegalState.get()).isEqualTo(evaluators * 200);
+            // ensure the concurrency path was actually exercised (not all evaluators finished pre-shutdown)
+            assertThat(shutdownCalled.get()).isTrue();
         } finally {
             pool.shutdownNow();
         }
