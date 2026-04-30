@@ -43,6 +43,8 @@ import java.util.regex.Pattern;
  */
 final class SnapshotWriter {
 
+    // ObjectMapper is thread-safe after configuration and reused across writes;
+    // built once per SnapshotWriter (one per HybridFlagProvider).
     private final ObjectMapper mapper;
 
     SnapshotWriter(SnapshotFormat format) {

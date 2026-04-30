@@ -56,8 +56,20 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code NOT_READY} if neither provider has been initialized yet).</p>
  *
  * <h2>Thread-safety</h2>
- * <p>Thread-safe. {@code init()} and {@code shutdown()} are {@code synchronized}; reads
- * are lock-free.</p>
+ * <p>Thread-safe. Concurrency model:</p>
+ * <ul>
+ *   <li>{@code init()} and {@code shutdown()} are {@code synchronized} on the provider
+ *       instance to prevent concurrent lifecycle transitions.</li>
+ *   <li>{@code initialized} and {@code shutdown} are {@code volatile} so that
+ *       {@code requireInitialized()} / {@code requireNotShutdown()} (called from
+ *       {@code getFlag()} outside any lock) observe a consistent state.</li>
+ *   <li>{@code lastSnapshotWriteAt} is {@code volatile}; written by the remote poll
+ *       thread before the atomic rename so that the FileWatcher event triggered by our
+ *       own write falls inside the debounce window.</li>
+ *   <li>Read paths ({@code getFlag}, {@code getAllFlags}, {@code getState}) are lock-free
+ *       and delegate to the underlying providers, whose own snapshots are atomic.</li>
+ *   <li>Listener lists use {@link CopyOnWriteArrayList}; iteration runs outside any lock.</li>
+ * </ul>
  */
 public final class HybridFlagProvider implements FlagProvider {
 

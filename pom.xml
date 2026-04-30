@@ -43,6 +43,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <jacoco.version>0.8.12</jacoco.version>
         <flatten.version>1.6.0</flatten.version>
+        <wiremock.version>3.10.0</wiremock.version>
     </properties>
 
     <build>
