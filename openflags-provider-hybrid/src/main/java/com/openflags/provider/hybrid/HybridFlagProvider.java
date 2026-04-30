@@ -9,6 +9,7 @@ import com.openflags.core.provider.ProviderState;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
+import com.openflags.provider.remote.RemotePollListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,13 +56,24 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code NOT_READY} if neither provider has been initialized yet).</p>
  *
  * <h2>Thread-safety</h2>
- * <p>Thread-safe. {@code init()} and {@code shutdown()} are {@code synchronized}; reads
- * are lock-free.</p>
+ * <p>Thread-safe. Concurrency model:</p>
+ * <ul>
+ *   <li>{@code init()} and {@code shutdown()} are {@code synchronized} on the provider
+ *       instance to prevent concurrent lifecycle transitions.</li>
+ *   <li>{@code initialized} and {@code shutdown} are {@code volatile} so that
+ *       {@code requireInitialized()} / {@code requireNotShutdown()} (called from
+ *       {@code getFlag()} outside any lock) observe a consistent state.</li>
+ *   <li>{@code lastSnapshotWriteAt} is {@code volatile}; written by the remote poll
+ *       thread before the atomic rename so that the FileWatcher event triggered by our
+ *       own write falls inside the debounce window.</li>
+ *   <li>Read paths ({@code getFlag}, {@code getAllFlags}, {@code getState}) are lock-free
+ *       and delegate to the underlying providers, whose own snapshots are atomic.</li>
+ *   <li>Listener lists use {@link CopyOnWriteArrayList}; iteration runs outside any lock.</li>
+ * </ul>
  */
 public final class HybridFlagProvider implements FlagProvider {
 
     private static final Logger log = LoggerFactory.getLogger(HybridFlagProvider.class);
-    private static final Duration SNAPSHOT_WRITE_COALESCE_WINDOW = Duration.ofMillis(50);
 
     private final HybridProviderConfig config;
     private final RemoteFlagProvider remote;
@@ -69,13 +81,14 @@ public final class HybridFlagProvider implements FlagProvider {
     private final SnapshotWriter snapshotWriter;
     private final List<FlagChangeListener> publicListeners = new CopyOnWriteArrayList<>();
 
-    /** Tracks the last time the snapshot was successfully written (for debounce). */
-    private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
-
     /** Counts consecutive snapshot write failures for log throttling. */
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
-    private boolean initialized = false;
+    /** Tracks last successful snapshot write time; used by onFileChange debounce. */
+    private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
+
+    // volatile: read in requireInitialized() which is called from getFlag() outside synchronized
+    private volatile boolean initialized = false;
     private volatile boolean shutdown = false;
 
     /**
@@ -98,6 +111,7 @@ public final class HybridFlagProvider implements FlagProvider {
                     config.remoteConfig().authHeaderValue());
         }
         this.remote = remoteBuilder.build();
+        this.remote.setPollListener(this::onPollComplete);
         this.file = FileFlagProvider.builder()
                 .path(config.snapshotPath())
                 .watchEnabled(config.watchSnapshot())
@@ -114,6 +128,7 @@ public final class HybridFlagProvider implements FlagProvider {
                        SnapshotWriter snapshotWriter) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.remote = Objects.requireNonNull(remote, "remote must not be null");
+        this.remote.setPollListener(this::onPollComplete);
         this.file = Objects.requireNonNull(file, "file must not be null");
         this.snapshotWriter = Objects.requireNonNull(snapshotWriter, "snapshotWriter must not be null");
     }
@@ -256,14 +271,11 @@ public final class HybridFlagProvider implements FlagProvider {
 
     // ---- internal listeners ----
 
+    private void onPollComplete(Map<String, Flag> flagSnapshot) {
+        writeSafe(flagSnapshot);
+    }
+
     private void onRemoteChange(FlagChangeEvent event) {
-        Instant now = Instant.now();
-        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, now);
-        if (sinceLastWrite.compareTo(SNAPSHOT_WRITE_COALESCE_WINDOW) >= 0) {
-            writeSafe(remote.getAllFlags());
-        } else {
-            log.debug("HybridFlagProvider: skipping snapshot write within coalesce window");
-        }
         for (FlagChangeListener listener : publicListeners) {
             try {
                 listener.onFlagChange(event);
@@ -274,8 +286,7 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     private void onFileChange(FlagChangeEvent event) {
-        Instant now = Instant.now();
-        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, now);
+        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, Instant.now());
         if (sinceLastWrite.compareTo(config.snapshotDebounce()) < 0) {
             log.debug("HybridFlagProvider: ignoring file event within debounce window ({} ms)",
                     config.snapshotDebounce().toMillis());
@@ -296,10 +307,14 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     private void writeSafe(Map<String, Flag> flags) {
+        // Set timestamp before the write so the FileWatcher event triggered by
+        // our own atomic rename is filtered out by the debounce window in
+        // onFileChange. Otherwise there is a small race where the OS event
+        // arrives before this thread reaches the post-write assignment.
+        lastSnapshotWriteAt = Instant.now();
         try {
             snapshotWriter.write(flags, config.snapshotPath());
             consecutiveWriteFailures.set(0);
-            lastSnapshotWriteAt = Instant.now();
         } catch (IOException e) {
             int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only

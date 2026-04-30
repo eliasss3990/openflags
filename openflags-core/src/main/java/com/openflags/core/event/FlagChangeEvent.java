@@ -10,6 +10,14 @@ import java.util.Optional;
  * <p>
  * Implemented as a Java record (ADR-009).
  * </p>
+ * <p>
+ * Note: using {@link Optional} as a record component is non-idiomatic per Effective Java
+ * (Item 55), which advises against {@code Optional} as a field type. We deliberately keep it
+ * here because (a) Jackson handles {@code Optional} cleanly with the {@code Jdk8Module},
+ * (b) the public API has already shipped with this signature, and (c) consumers use
+ * pattern-matching switch expressions where leaking {@code null} via nullable fields would
+ * be more error-prone than {@code Optional.empty()}.
+ * </p>
  *
  * @param flagKey    the key of the flag that changed
  * @param flagType   the data type of the flag

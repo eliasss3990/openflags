@@ -167,6 +167,19 @@ class FileWatcherTest {
         watcher.stop();
     }
 
+    @Test
+    void scheduleAfterStopDoesNotThrow(@TempDir Path tempDir) throws Exception {
+        Path file = tempDir.resolve("flags.yml");
+        Files.writeString(file, "content");
+
+        FileWatcher watcher = new FileWatcher(file, () -> {});
+        watcher.start();
+        watcher.stop();
+
+        // Calling stop before internal scheduler drains must not throw
+        assertThatCode(watcher::stop).doesNotThrowAnyException();
+    }
+
     private static int countWatcherThreads() {
         int count = 0;
         for (Thread t : Thread.getAllStackTraces().keySet()) {

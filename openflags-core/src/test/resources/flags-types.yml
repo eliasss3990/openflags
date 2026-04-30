@@ -1,0 +1,16 @@
+flags:
+  bool-flag:
+    type: boolean
+    value: true
+  string-flag:
+    type: string
+    value: "hello"
+  number-flag:
+    type: number
+    value: 42.0
+  object-flag:
+    type: object
+    value:
+      key1: value1
+      nested:
+        deep: true

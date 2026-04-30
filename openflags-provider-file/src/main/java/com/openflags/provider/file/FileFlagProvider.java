@@ -5,13 +5,20 @@ import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
+import com.openflags.core.parser.FlagFileParser;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -51,10 +58,12 @@ public final class FileFlagProvider implements FlagProvider {
     private final AtomicReference<Map<String, Flag>> flags = new AtomicReference<>(Collections.emptyMap());
     private final AtomicReference<ProviderState> state = new AtomicReference<>(ProviderState.NOT_READY);
 
-    private boolean initialized = false;
+    // volatile: read by init() guard outside synchronized blocks when a subclass or test inspects it
+    private volatile boolean initialized = false;
     // volatile: read by requireNotShutdown() outside synchronized blocks
     private volatile boolean shutdown = false;
-    private FileWatcher watcher;
+    // volatile: written inside synchronized init(), read inside synchronized shutdown()
+    private volatile FileWatcher watcher;
 
     FileFlagProvider(Path filePath, boolean watchEnabled) {
         this.filePath = Objects.requireNonNull(filePath, "filePath must not be null");
@@ -142,20 +151,24 @@ public final class FileFlagProvider implements FlagProvider {
             synchronized (this) {
                 if (!shutdown) {
                     state.set(ProviderState.ERROR);
-                    log.warn("Failed to reload flags from '{}': {}", filePath, e.getMessage());
+                    log.warn("Failed to reload flags from '{}'", filePath, e);
                 }
             }
             return;
         }
+        boolean shouldEmit;
         synchronized (this) {
             if (shutdown) {
                 return;
             }
             flags.set(newFlags);
             state.set(ProviderState.READY);
+            shouldEmit = true;
         }
         log.debug("Reloaded flags from '{}': {} flags", filePath, newFlags.size());
-        emitChangeEvents(oldFlags, newFlags);
+        if (shouldEmit) {
+            emitChangeEvents(oldFlags, newFlags);
+        }
     }
 
     private Map<String, Flag> parseFile() {
@@ -195,7 +208,7 @@ public final class FileFlagProvider implements FlagProvider {
                     try {
                         l.onFlagChange(finalEvent);
                     } catch (Exception e) {
-                        log.warn("FlagChangeListener threw an exception: {}", e.getMessage());
+                        log.warn("FlagChangeListener threw an exception", e);
                     }
                 });
             }

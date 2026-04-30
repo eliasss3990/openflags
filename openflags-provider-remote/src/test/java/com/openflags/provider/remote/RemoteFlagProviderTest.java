@@ -81,6 +81,36 @@ class RemoteFlagProviderTest {
     }
 
     @Test
+    void init_401_throwsAuthError() {
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(401).withBody("unauthorized")));
+
+        RemoteFlagProvider p = provider();
+        assertThatThrownBy(p::init)
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("Authentication failed")
+                .hasMessageContaining("401");
+
+        assertThat(p.getState()).isEqualTo(ProviderState.NOT_READY);
+        p.shutdown();
+    }
+
+    @Test
+    void init_403_throwsAuthError() {
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(403).withBody("forbidden")));
+
+        RemoteFlagProvider p = provider();
+        assertThatThrownBy(p::init)
+                .isInstanceOf(ProviderException.class)
+                .hasMessageContaining("Authentication failed")
+                .hasMessageContaining("403");
+
+        assertThat(p.getState()).isEqualTo(ProviderState.NOT_READY);
+        p.shutdown();
+    }
+
+    @Test
     void getFlag_beforeInit_throwsIllegalStateException() {
         RemoteFlagProvider p = provider();
         assertThatThrownBy(() -> p.getFlag("any"))

@@ -169,7 +169,7 @@ class FlagEvaluatorTest {
         EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, noMatchCtx);
 
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -199,7 +199,7 @@ class FlagEvaluatorTest {
         EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, ctx);
 
         assertThat(result.value()).isFalse();
-        assertThat(result.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test

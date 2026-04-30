@@ -6,6 +6,7 @@ import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -67,7 +68,7 @@ class RuleEngineTest {
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
 
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -77,7 +78,7 @@ class RuleEngineTest {
 
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -99,7 +100,7 @@ class RuleEngineTest {
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     @Test
@@ -109,7 +110,7 @@ class RuleEngineTest {
         EvaluationContext ctx = EvaluationContext.of("user-1");
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
     }
 
     // ── MultiVariantRule tests ──────────────────────────────────────────────
@@ -135,7 +136,7 @@ class RuleEngineTest {
 
         RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), EvaluationContext.empty());
 
-        assertThat(r.reason()).isEqualTo(EvaluationReason.DEFAULT);
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         assertThat(r.value()).isEqualTo(DEFAULT_VALUE);
     }
 
@@ -160,6 +161,7 @@ class RuleEngineTest {
     }
 
     @Test
+    @Tag("statistical")
     void multiVariantRule_distributionWithinOnePct() {
         // Use STRING flag with 3 distinct values for A/B/C distribution
         FlagValue defStr = FlagValue.of("default", FlagType.STRING);

@@ -9,7 +9,7 @@ import com.openflags.core.evaluation.rule.WeightedVariant;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
-import com.openflags.provider.file.FlagFileParser;
+import com.openflags.core.parser.FlagFileParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

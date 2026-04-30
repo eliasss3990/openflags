@@ -316,7 +316,7 @@ flags:
 
 **Evaluation behavior:**
 - With `targetingKey`: always selects a variant deterministically → `EvaluationReason.VARIANT`
-- Without `targetingKey`: rule is skipped → `EvaluationReason.DEFAULT`
+- Without `targetingKey`: rule is skipped → `EvaluationReason.NO_RULE_MATCHED`
 
 ```java
 EvaluationResult<String> result = client.getStringResult(

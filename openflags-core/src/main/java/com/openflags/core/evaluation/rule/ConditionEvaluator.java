@@ -131,7 +131,11 @@ public final class ConditionEvaluator {
                     MAX_MATCH_INPUT_LENGTH);
             return false;
         }
-        Pattern pattern = (Pattern) expected;
+        if (!(expected instanceof Pattern pattern)) {
+            log.debug("MATCHES operator requires Pattern expected value, got {}",
+                    expected == null ? "null" : expected.getClass().getSimpleName());
+            return false;
+        }
         return pattern.matcher(actualStr).find();
     }
 }

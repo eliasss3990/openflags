@@ -17,9 +17,9 @@ import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,33 +47,33 @@ class InMemoryFlagProviderTest {
     void setBoolean_andGet() {
         provider.setBoolean("dark-mode", true);
         assertThat(provider.getFlag("dark-mode")).isPresent();
-        assertThat(provider.getFlag("dark-mode").get().type()).isEqualTo(FlagType.BOOLEAN);
-        assertThat(provider.getFlag("dark-mode").get().value().asBoolean()).isTrue();
+        assertThat(provider.getFlag("dark-mode").orElseThrow().type()).isEqualTo(FlagType.BOOLEAN);
+        assertThat(provider.getFlag("dark-mode").orElseThrow().value().asBoolean()).isTrue();
     }
 
     @Test
     void setString_andGet() {
         provider.setString("theme", "dark");
-        assertThat(provider.getFlag("theme").get().value().asString()).isEqualTo("dark");
+        assertThat(provider.getFlag("theme").orElseThrow().value().asString()).isEqualTo("dark");
     }
 
     @Test
     void setNumber_andGet() {
         provider.setNumber("rate", 0.5);
-        assertThat(provider.getFlag("rate").get().value().asNumber()).isEqualTo(0.5);
+        assertThat(provider.getFlag("rate").orElseThrow().value().asNumber()).isEqualTo(0.5);
     }
 
     @Test
     void setObject_andGet() {
         provider.setObject("config", Map.of("timeout", 30));
-        assertThat(provider.getFlag("config").get().value().asObject()).containsEntry("timeout", 30);
+        assertThat(provider.getFlag("config").orElseThrow().value().asObject()).containsEntry("timeout", 30);
     }
 
     @Test
     void setDisabled_makesDisabled() {
         provider.setBoolean("feature", true);
         provider.setDisabled("feature");
-        assertThat(provider.getFlag("feature").get().enabled()).isFalse();
+        assertThat(provider.getFlag("feature").orElseThrow().enabled()).isFalse();
     }
 
     @Test
@@ -121,7 +121,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void changeListeners_receivedOnSet() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.setBoolean("f", true);
         assertThat(events).hasSize(1);
@@ -131,7 +131,7 @@ class InMemoryFlagProviderTest {
     @Test
     void changeListeners_receivedOnUpdate() {
         provider.setBoolean("f", false);
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.setBoolean("f", true);
         assertThat(events).hasSize(1);
@@ -141,7 +141,7 @@ class InMemoryFlagProviderTest {
     @Test
     void changeListeners_receivedOnRemove() {
         provider.setBoolean("f", true);
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.remove("f");
         assertThat(events).hasSize(1);
@@ -150,7 +150,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void removeChangeListener_stopsReceivingEvents() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         FlagChangeListener listener = events::add;
         provider.addChangeListener(listener);
         provider.removeChangeListener(listener);
@@ -160,7 +160,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void removeChangeListener_withDifferentInstance_doesNothing() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
         provider.addChangeListener(events::add);
         provider.removeChangeListener(e -> {});
         provider.setBoolean("flag-neg", true);
@@ -184,7 +184,7 @@ class InMemoryFlagProviderTest {
 
     @Test
     void emit_listenerThrowingException_doesNotStopOtherListeners() {
-        List<FlagChangeEvent> received = new ArrayList<>();
+        List<FlagChangeEvent> received = new CopyOnWriteArrayList<>();
         provider.addChangeListener(e -> { throw new RuntimeException("listener exploded"); });
         provider.addChangeListener(received::add);
 
@@ -210,6 +210,33 @@ class InMemoryFlagProviderTest {
     }
 
     @Test
+    void removeAfterShutdown_throwsIllegalState() {
+        provider.setBoolean("flag", true);
+        provider.shutdown();
+        assertThatThrownBy(() -> provider.remove("flag"))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void writesAfterShutdown_throwIllegalState() {
+        provider.setBoolean("existing", true);
+        provider.shutdown();
+
+        assertThatThrownBy(() -> provider.setBoolean("k", true))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setString("k", "v"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setNumber("k", 1.0))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setObject("k", java.util.Map.of("a", 1)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setDisabled("existing"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(provider::clear)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void concurrentWrites_areThreadSafe() throws InterruptedException {
         int threadCount = 10;
         int flagsPerThread = 100;
@@ -229,7 +256,7 @@ class InMemoryFlagProviderTest {
             });
         }
 
-        latch.await(10, TimeUnit.SECONDS);
+        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
         pool.shutdown();
 
         assertThat(provider.getAllFlags()).hasSize(threadCount * flagsPerThread);
@@ -257,7 +284,7 @@ class InMemoryFlagProviderTest {
             EvaluationContext noMatchCtx = EvaluationContext.builder().attribute("country", "BR").build();
             EvaluationResult<Boolean> result2 = client.getBooleanResult("feature-x", false, noMatchCtx);
             assertThat(result2.value()).isFalse();
-            assertThat(result2.reason()).isEqualTo(EvaluationReason.DEFAULT);
+            assertThat(result2.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
         } finally {
             client.shutdown();
         }

@@ -85,8 +85,8 @@ public record Flag(
     }
 
     /**
-     * Backwards-compatible constructor that defaults {@code rules} to empty.
-     * <p>Used by Phase 1 tests and any caller that does not declare rules.</p>
+     * Convenience constructor that defaults {@code rules} to an empty list.
+     * <p>Use this overload when the flag has no targeting rules.</p>
      *
      * @param key      the flag key
      * @param type     the flag type

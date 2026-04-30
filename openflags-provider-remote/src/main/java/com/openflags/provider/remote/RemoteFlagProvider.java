@@ -10,7 +10,7 @@ import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderState;
-import com.openflags.provider.file.FlagFileParser;
+import com.openflags.core.parser.FlagFileParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +73,7 @@ public final class RemoteFlagProvider implements FlagProvider {
     private final CopyOnWriteArrayList<FlagChangeListener> listeners;
 
     private volatile CacheSnapshot snapshot = INITIAL_SNAPSHOT;
+    private volatile RemotePollListener pollListener;
 
     private ScheduledExecutorService scheduler;
 
@@ -88,9 +89,20 @@ public final class RemoteFlagProvider implements FlagProvider {
     }
 
     /**
+     * Registers a {@link RemotePollListener} that will be called once per successful
+     * poll cycle, after all individual {@link com.openflags.core.event.FlagChangeEvent}s
+     * have been emitted. Replaces any previously registered listener.
+     *
+     * @param listener the listener to register; may be null to clear
+     */
+    public void setPollListener(RemotePollListener listener) {
+        this.pollListener = listener;
+    }
+
+    /**
      * Performs the initial fetch synchronously and starts the polling thread.
-     * Idempotent: safe to call multiple times or from multiple threads; only the
-     * first call when {@code state == NOT_READY} takes effect.
+     * Idempotent: subsequent calls return without effect once the snapshot
+     * state is anything other than {@link ProviderState#NOT_READY}.
      *
      * @throws ProviderException if the initial fetch fails (network, parse, or HTTP error)
      */
@@ -213,21 +225,30 @@ public final class RemoteFlagProvider implements FlagProvider {
             Map<String, Flag> oldFlags = snapshot.flags();
             snapshot = new CacheSnapshot(Map.copyOf(newFlags), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, snapshot.flags());
+            notifyPollComplete(snapshot.flags());
             log.debug("Poll succeeded for {}: {} flags loaded", config.baseUrl(), snapshot.flags().size());
 
         } else if (status == 204) {
             Map<String, Flag> oldFlags = snapshot.flags();
+            if (!oldFlags.isEmpty()) {
+                log.warn("Remote returned 204 — clearing {} flags for {}", oldFlags.size(), config.baseUrl());
+            }
             snapshot = new CacheSnapshot(Map.of(), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, Map.of());
+            notifyPollComplete(Map.of());
             log.debug("Poll returned 204 for {}: cache cleared", config.baseUrl());
 
         } else if (status == 304) {
             log.warn("Poll returned 304 for {} (unexpected; no If-None-Match sent)", config.baseUrl());
             // keep cache as-is
 
-        } else if (status == 401) {
-            log.error("Poll returned 401 Unauthorized for {} — check auth configuration", config.baseUrl());
-            checkStaleness();
+        } else if (status == 401 || status == 403) {
+            // throw and let the caller decide:
+            //   - init() rethrows so the user sees a clear auth-failed error
+            //   - pollSafe() catches Throwable, logs once and runs checkStaleness()
+            throw new ProviderException(
+                    "Authentication failed: HTTP " + status + " for " + config.baseUrl()
+                            + " — check auth configuration");
 
         } else {
             log.warn("Poll returned HTTP {} for {}", status, config.baseUrl());
@@ -271,6 +292,17 @@ public final class RemoteFlagProvider implements FlagProvider {
                 Flag oldFlag = entry.getValue();
                 notifyListeners(new FlagChangeEvent(key, oldFlag.type(),
                         Optional.of(oldFlag.value()), Optional.empty(), ChangeType.DELETED));
+            }
+        }
+    }
+
+    private void notifyPollComplete(Map<String, Flag> flagSnapshot) {
+        RemotePollListener pl = pollListener;
+        if (pl != null) {
+            try {
+                pl.onPollComplete(flagSnapshot);
+            } catch (Exception e) {
+                log.warn("RemotePollListener threw an exception", e);
             }
         }
     }

@@ -56,6 +56,15 @@ public final class FileFlagProviderBuilder {
      * points to a classpath resource inside a JAR. WatchService cannot observe files
      * inside JARs. An INFO message is logged in that case.
      * </p>
+     * <p>
+     * <b>Symlinks (Docker / Kubernetes ConfigMap)</b>: Java's {@link java.nio.file.WatchService}
+     * registers the inode of the resolved target, not the symlink itself. ConfigMap volume
+     * mounts in Kubernetes (and similar atomic-swap mechanisms) replace the underlying
+     * directory rather than rewriting the file in place, so the watcher's registration
+     * becomes orphaned and changes are not detected. If you mount the flag file via a
+     * symlink that may be re-pointed at runtime, prefer polling at the application level
+     * or restart the process when the ConfigMap changes.
+     * </p>
      *
      * @param watchEnabled {@code true} to enable hot reload, {@code false} to disable
      * @return this builder

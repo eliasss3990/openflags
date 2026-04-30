@@ -43,6 +43,8 @@ import java.util.regex.Pattern;
  */
 final class SnapshotWriter {
 
+    // ObjectMapper is thread-safe after configuration and reused across writes;
+    // built once per SnapshotWriter (one per HybridFlagProvider).
     private final ObjectMapper mapper;
 
     SnapshotWriter(SnapshotFormat format) {
@@ -209,8 +211,13 @@ final class SnapshotWriter {
                 throws IOException {
             switch (op) {
                 case IN, NOT_IN -> {
+                    if (!(expected instanceof List<?> items)) {
+                        throw new IllegalStateException(
+                                "IN/NOT_IN operator expects a List, got "
+                                        + (expected == null ? "null" : expected.getClass().getName()));
+                    }
                     gen.writeStartArray();
-                    for (Object item : (List<?>) expected) {
+                    for (Object item : items) {
                         if (item instanceof Number n) {
                             gen.writeNumber(n.doubleValue());
                         } else {

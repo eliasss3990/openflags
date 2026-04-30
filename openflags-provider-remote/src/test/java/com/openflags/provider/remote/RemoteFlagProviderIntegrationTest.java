@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -166,14 +166,54 @@ class RemoteFlagProviderIntegrationTest {
 
         // stale cache still served
         assertThat(p.getFlag("flag-a")).isPresent();
-        assertThat(p.getFlag("flag-a").get().value().asBoolean()).isTrue();
+        assertThat(p.getFlag("flag-a").orElseThrow().value().asBoolean()).isTrue();
 
         p.shutdown();
     }
 
     @Test
+    void degradedToError_whenCacheTtlExpires() {
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .inScenario("ttl")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(FLAGS_A_JSON))
+                .willSetStateTo("DOWN"));
+
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .inScenario("ttl")
+                .whenScenarioStateIs("DOWN")
+                .willReturn(aResponse().withStatus(500)));
+
+        // TTL chosen well above pollInterval to give a wide DEGRADED window
+        // before age exceeds TTL and the state transitions to ERROR (avoids
+        // flakiness on slow CI where the first await might miss DEGRADED).
+        Duration shortTtl = Duration.ofSeconds(20);
+        RemoteFlagProvider p = RemoteFlagProviderBuilder
+                .forUrl(URI.create("http://localhost:" + wireMock.port()))
+                .pollInterval(POLL)
+                .cacheTtl(shortTtl)
+                .build();
+        try {
+            p.init();
+            assertThat(p.getState()).isEqualTo(ProviderState.READY);
+
+            // first poll failure (age <= ttl) → DEGRADED
+            Awaitility.await().atMost(AWAIT_SECONDS, TimeUnit.SECONDS)
+                    .until(() -> p.getState() == ProviderState.DEGRADED);
+
+            // continued failures past ttl → ERROR
+            Awaitility.await().atMost(AWAIT_SECONDS * 2, TimeUnit.SECONDS)
+                    .until(() -> p.getState() == ProviderState.ERROR);
+        } finally {
+            p.shutdown();
+        }
+    }
+
+    @Test
     void flagChangeEvents_addedRemovedChanged() {
-        List<FlagChangeEvent> events = new ArrayList<>();
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
 
         wireMock.stubFor(get(urlEqualTo("/flags"))
                 .inScenario("update")
@@ -239,7 +279,7 @@ class RemoteFlagProviderIntegrationTest {
         p.init();
 
         assertThat(p.getFlag("checkout-experiment")).isPresent();
-        assertThat(p.getFlag("checkout-experiment").get().rules()).hasSize(1);
+        assertThat(p.getFlag("checkout-experiment").orElseThrow().rules()).hasSize(1);
 
         p.shutdown();
     }

@@ -3,6 +3,7 @@ package com.openflags.provider.remote;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Immutable configuration for a {@link RemoteFlagProvider}.
@@ -46,16 +47,23 @@ public record RemoteProviderConfig(
     public RemoteProviderConfig {
         Objects.requireNonNull(baseUrl, "baseUrl must not be null");
         String scheme = baseUrl.getScheme();
-        if (scheme == null || !(scheme.equals("http") || scheme.equals("https"))) {
+        if (scheme == null || !Set.of("http", "https").contains(scheme)) {
             throw new IllegalArgumentException(
                     "baseUrl must use http or https, got " + scheme);
         }
         if (flagsPath == null || flagsPath.isBlank()) {
             flagsPath = "/flags";
         }
-        if ((authHeaderName == null) != (authHeaderValue == null)) {
+        boolean nameMissing = authHeaderName == null || authHeaderName.isBlank();
+        boolean valueMissing = authHeaderValue == null || authHeaderValue.isBlank();
+        if (nameMissing != valueMissing) {
             throw new IllegalArgumentException(
-                    "authHeaderName and authHeaderValue must both be set or both be null");
+                    "authHeaderName and authHeaderValue must both be set (non-blank) or both be null/blank");
+        }
+        if (nameMissing) {
+            // normalize blank → null so downstream code only needs a null check
+            authHeaderName = null;
+            authHeaderValue = null;
         }
         Objects.requireNonNull(connectTimeout, "connectTimeout must not be null");
         Objects.requireNonNull(requestTimeout, "requestTimeout must not be null");
