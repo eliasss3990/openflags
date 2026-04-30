@@ -56,6 +56,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Activated JaCoCo, Maven Enforcer and Flatten plugins; coverage threshold tuned per module
 - Centralised WireMock version in the root pom (`${wiremock.version}=3.10.0`); previously duplicated across hybrid/remote/starter (B-02, B-11)
+- Upgraded Spring Boot parent: `3.3.5` → `3.4.7` (B-10). Jackson, Logback, Tomcat and Micrometer remain delegated to the BOM with no overrides.
 
 ---
 
