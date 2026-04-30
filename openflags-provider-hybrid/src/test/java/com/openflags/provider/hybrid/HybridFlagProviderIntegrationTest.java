@@ -119,7 +119,7 @@ class HybridFlagProviderIntegrationTest {
 
         assertThat(provider.getState()).isEqualTo(ProviderState.READY);
         assertThat(provider.getFlag("feature-a")).isPresent();
-        assertThat(provider.getFlag("feature-a").get().value().asBoolean()).isTrue();
+        assertThat(provider.getFlag("feature-a").orElseThrow().value().asBoolean()).isTrue();
 
         // snapshot written by init (remote change events emitted on first fetch)
         Awaitility.await().atMost(3, TimeUnit.SECONDS)

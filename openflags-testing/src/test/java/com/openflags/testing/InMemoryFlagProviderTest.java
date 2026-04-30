@@ -47,33 +47,33 @@ class InMemoryFlagProviderTest {
     void setBoolean_andGet() {
         provider.setBoolean("dark-mode", true);
         assertThat(provider.getFlag("dark-mode")).isPresent();
-        assertThat(provider.getFlag("dark-mode").get().type()).isEqualTo(FlagType.BOOLEAN);
-        assertThat(provider.getFlag("dark-mode").get().value().asBoolean()).isTrue();
+        assertThat(provider.getFlag("dark-mode").orElseThrow().type()).isEqualTo(FlagType.BOOLEAN);
+        assertThat(provider.getFlag("dark-mode").orElseThrow().value().asBoolean()).isTrue();
     }
 
     @Test
     void setString_andGet() {
         provider.setString("theme", "dark");
-        assertThat(provider.getFlag("theme").get().value().asString()).isEqualTo("dark");
+        assertThat(provider.getFlag("theme").orElseThrow().value().asString()).isEqualTo("dark");
     }
 
     @Test
     void setNumber_andGet() {
         provider.setNumber("rate", 0.5);
-        assertThat(provider.getFlag("rate").get().value().asNumber()).isEqualTo(0.5);
+        assertThat(provider.getFlag("rate").orElseThrow().value().asNumber()).isEqualTo(0.5);
     }
 
     @Test
     void setObject_andGet() {
         provider.setObject("config", Map.of("timeout", 30));
-        assertThat(provider.getFlag("config").get().value().asObject()).containsEntry("timeout", 30);
+        assertThat(provider.getFlag("config").orElseThrow().value().asObject()).containsEntry("timeout", 30);
     }
 
     @Test
     void setDisabled_makesDisabled() {
         provider.setBoolean("feature", true);
         provider.setDisabled("feature");
-        assertThat(provider.getFlag("feature").get().enabled()).isFalse();
+        assertThat(provider.getFlag("feature").orElseThrow().enabled()).isFalse();
     }
 
     @Test
@@ -256,7 +256,7 @@ class InMemoryFlagProviderTest {
             });
         }
 
-        latch.await(10, TimeUnit.SECONDS);
+        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
         pool.shutdown();
 
         assertThat(provider.getAllFlags()).hasSize(threadCount * flagsPerThread);

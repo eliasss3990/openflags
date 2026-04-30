@@ -166,7 +166,7 @@ class RemoteFlagProviderIntegrationTest {
 
         // stale cache still served
         assertThat(p.getFlag("flag-a")).isPresent();
-        assertThat(p.getFlag("flag-a").get().value().asBoolean()).isTrue();
+        assertThat(p.getFlag("flag-a").orElseThrow().value().asBoolean()).isTrue();
 
         p.shutdown();
     }
@@ -239,7 +239,7 @@ class RemoteFlagProviderIntegrationTest {
         p.init();
 
         assertThat(p.getFlag("checkout-experiment")).isPresent();
-        assertThat(p.getFlag("checkout-experiment").get().rules()).hasSize(1);
+        assertThat(p.getFlag("checkout-experiment").orElseThrow().rules()).hasSize(1);
 
         p.shutdown();
     }

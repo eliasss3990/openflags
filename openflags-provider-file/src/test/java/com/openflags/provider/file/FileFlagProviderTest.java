@@ -34,7 +34,7 @@ class FileFlagProviderTest {
 
         assertThat(provider.getState()).isEqualTo(ProviderState.READY);
         assertThat(provider.getFlag("dark-mode")).isPresent();
-        assertThat(provider.getFlag("dark-mode").get().type()).isEqualTo(FlagType.BOOLEAN);
+        assertThat(provider.getFlag("dark-mode").orElseThrow().type()).isEqualTo(FlagType.BOOLEAN);
         provider.shutdown();
     }
 
@@ -87,7 +87,7 @@ class FileFlagProviderTest {
         provider.init();
         Thread.sleep(200);
 
-        assertThat(provider.getFlag("my-flag").get().value().asBoolean()).isFalse();
+        assertThat(provider.getFlag("my-flag").orElseThrow().value().asBoolean()).isFalse();
 
         Files.writeString(file, "flags:\n  my-flag:\n    type: boolean\n    value: true\n");
 
