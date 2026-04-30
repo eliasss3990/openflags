@@ -11,7 +11,51 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking Changes (pre-1.0)
 
-- **`EvaluationReason.DEFAULT` renamed to `EvaluationReason.NO_RULE_MATCHED`** — the previous name was ambiguous (it conflated "no rules declared" with "rules declared but none matched"). `RESOLVED` already covers the no-rules case. Callers comparing against `DEFAULT` must update to `NO_RULE_MATCHED`.
+- **`EvaluationReason.DEFAULT` renamed to `EvaluationReason.NO_RULE_MATCHED`** — the previous name was ambiguous (it conflated "no rules declared" with "rules declared but none matched"). `RESOLVED` already covers the no-rules case. Callers comparing against `DEFAULT` must update to `NO_RULE_MATCHED`. (C-02, C-12)
+
+### Added
+
+- `openflags-core`: `FlagFileParser` moved from `openflags-provider-file` to `openflags-core` so providers can share file parsing without depending on `provider-file` (B-08, F-14)
+- `openflags-provider-remote`: `RemotePollListener.onPollComplete(...)` callback — replaces ad-hoc reflection used by `HybridFlagProvider` to observe polling outcomes (R-08)
+- `openflags-spring-boot-starter`: provider lifecycle delegated to Spring container via `@Bean(initMethod, destroyMethod)` (R-09)
+- `openflags-testing`: `withObjectFlag(String, Map<String, Object>)` overload in `OpenFlagsTestSupport` (T-12)
+
+### Changed
+
+- `openflags-core`: `FlagValue.asObject()` no longer wraps in `Collections.unmodifiableMap` — `Map.copyOf` already returns an immutable map (C-09)
+- `openflags-core`: `FlagFileParser` validates inputs and source labels; rejects malformed YAML/JSON with descriptive errors
+- `openflags-provider-remote`: `RemoteProviderConfig` validates auth header name/value (non-blank when configured) and URL scheme (`http`/`https` only) (R-01, R-02, R-18)
+- `openflags-provider-remote`: `RemoteHttpClient` validates inputs and propagates configured timeouts consistently
+- `openflags-provider-file`: `FileWatcher` validates non-null path and callback; safer error handling around watch loop
+- `openflags-provider-file`: `FileFlagProviderBuilder` javadoc warns about symlinks/Docker/K8s ConfigMap behaviour with `WatchService` (F-15)
+- `openflags-provider-hybrid`: `SnapshotWriter` uses a single `ObjectMapper` per writer with documented thread-safety reasoning (R-21)
+- `openflags-provider-hybrid`: `HybridFlagProvider` switched to standard `java.time` imports rather than fully-qualified references (R-14 readability)
+- `openflags-spring-boot-starter`: `OpenFlagsProperties.provider` javadoc clarifies case-sensitivity (`file`/`remote`/`hybrid` lowercase) (R-20)
+- `openflags-testing`: `OpenFlagsTestSupport.createTestClient` javadoc expanded with ownership and lifecycle notes (T-13)
+
+### Fixed
+
+- `openflags-testing`: `InMemoryFlagProvider` shutdown atomicity — `initialized`/`watcher` volatile, `shutdown()` sets `SHUTDOWN` state; `remove()` / `clear()` / `putFlag` / `setDisabled` reject calls after shutdown (T-04)
+- `openflags-core`: race between reload and shutdown closed; `setDisabled` made atomic
+- `openflags-provider-remote`: `init()` raises `ProviderException` with a clear message on 401/403 instead of silently degrading (R-04)
+- `openflags-provider-hybrid`: race between snapshot write and `onFileChange` closed by capturing the debounce timestamp before the atomic move
+- `openflags-provider-hybrid`: `HybridFlagProvider` thread-safety javadoc expanded to document the volatile-snapshot + synchronized-lifecycle model (R-14)
+- core/providers: defensive guards around casts and clearer `Optional` semantics on `FlagChangeEvent`
+
+### Tests
+
+- New: shutdown-vs-evaluation concurrency in `OpenFlagsClient` using `CyclicBarrier` and a shutdown-actually-ran assertion (C-13)
+- New: HTTP request timeout in `RemoteHttpClient` via WireMock `withFixedDelay` (R-17)
+- New: cache-TTL `DEGRADED → ERROR` transition under sustained backend failure (R-16)
+- New: `FlagFileParser` parsing more than `WARN_RULES_PER_FLAG` rules (F-11)
+- Statistical 100k-iteration variant-distribution test tagged `@Tag("statistical")` and excluded from the default Surefire run (override with `-DexcludedGroups=`) (C-15)
+- Test event accumulators switched from `ArrayList` to `CopyOnWriteArrayList` to remove data races between listener threads and the main test thread (T-14)
+- `Optional.get()` on test results replaced with `.orElseThrow()` (T-09); `latch.await(...)` return value asserted (T-10)
+
+### Build
+
+- Activated JaCoCo, Maven Enforcer and Flatten plugins; coverage threshold tuned per module
+- Centralised WireMock version in the root pom (`${wiremock.version}=3.10.0`); previously duplicated across hybrid/remote/starter (B-02, B-11)
 
 ---
 
