@@ -295,10 +295,14 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     private void writeSafe(Map<String, Flag> flags) {
+        // Set timestamp before the write so the FileWatcher event triggered by
+        // our own atomic rename is filtered out by the debounce window in
+        // onFileChange. Otherwise there is a small race where the OS event
+        // arrives before this thread reaches the post-write assignment.
+        lastSnapshotWriteAt = Instant.now();
         try {
             snapshotWriter.write(flags, config.snapshotPath());
             consecutiveWriteFailures.set(0);
-            lastSnapshotWriteAt = Instant.now();
         } catch (IOException e) {
             int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only
