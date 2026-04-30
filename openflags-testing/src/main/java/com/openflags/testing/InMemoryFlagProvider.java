@@ -156,6 +156,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
      * @throws IllegalArgumentException if the flag does not exist
      */
     public InMemoryFlagProvider setDisabled(String key) {
+        requireNotShutdown();
         Flag[] updated = {null};
         flags.computeIfPresent(key, (k, existing) -> {
             Flag disabled = new Flag(k, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
@@ -213,6 +214,7 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     private InMemoryFlagProvider putFlag(Flag newFlag) {
+        requireNotShutdown();
         Flag oldFlag = flags.put(newFlag.key(), newFlag);
         ChangeType changeType = (oldFlag == null) ? ChangeType.CREATED : ChangeType.UPDATED;
         emit(new FlagChangeEvent(

@@ -218,6 +218,25 @@ class InMemoryFlagProviderTest {
     }
 
     @Test
+    void writesAfterShutdown_throwIllegalState() {
+        provider.setBoolean("existing", true);
+        provider.shutdown();
+
+        assertThatThrownBy(() -> provider.setBoolean("k", true))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setString("k", "v"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setNumber("k", 1.0))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setObject("k", java.util.Map.of("a", 1)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> provider.setDisabled("existing"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(provider::clear)
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void concurrentWrites_areThreadSafe() throws InterruptedException {
         int threadCount = 10;
         int flagsPerThread = 100;
