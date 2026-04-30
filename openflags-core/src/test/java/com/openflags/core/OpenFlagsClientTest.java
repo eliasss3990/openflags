@@ -146,7 +146,9 @@ class OpenFlagsClientTest {
     @Test
     void shutdownDuringEvaluation_throwsOrSucceedsCleanly() throws Exception {
         Flag flag = new Flag("k", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), true, null);
-        when(provider.getFlag("k")).thenReturn(Optional.of(flag));
+        // Lenient: shutdown may win the race before any evaluator iteration runs,
+        // leaving this stub unused. That outcome is one of the valid branches under test.
+        lenient().when(provider.getFlag("k")).thenReturn(Optional.of(flag));
 
         int evaluators = 8;
         CyclicBarrier start = new CyclicBarrier(evaluators + 1);
