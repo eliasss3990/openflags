@@ -14,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,7 +73,7 @@ public final class HybridFlagProvider implements FlagProvider {
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
     /** Tracks last successful snapshot write time; used by onFileChange debounce. */
-    private volatile java.time.Instant lastSnapshotWriteAt = java.time.Instant.EPOCH;
+    private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
 
     // volatile: read in requireInitialized() which is called from getFlag() outside synchronized
     private volatile boolean initialized = false;
@@ -272,7 +274,7 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     private void onFileChange(FlagChangeEvent event) {
-        java.time.Duration sinceLastWrite = java.time.Duration.between(lastSnapshotWriteAt, java.time.Instant.now());
+        Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, Instant.now());
         if (sinceLastWrite.compareTo(config.snapshotDebounce()) < 0) {
             log.debug("HybridFlagProvider: ignoring file event within debounce window ({} ms)",
                     config.snapshotDebounce().toMillis());
@@ -296,7 +298,7 @@ public final class HybridFlagProvider implements FlagProvider {
         try {
             snapshotWriter.write(flags, config.snapshotPath());
             consecutiveWriteFailures.set(0);
-            lastSnapshotWriteAt = java.time.Instant.now();
+            lastSnapshotWriteAt = Instant.now();
         } catch (IOException e) {
             int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only
