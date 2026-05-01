@@ -37,7 +37,7 @@ class NoopMetricsRecorderTest {
             noop.recordFlagChange(ChangeType.UPDATED);
             noop.recordHybridFallback("remote", "file");
             noop.recordListenerError("MyListener");
-            noop.registerGauge("name", List.of(Tag.of("k", "v")), () -> 1);
+            noop.registerGauge("name", List.of(new Tag("k", "v")), () -> 1);
         }).doesNotThrowAnyException();
     }
 }

@@ -5,9 +5,10 @@ package com.openflags.core.evaluation;
  *
  * <p>
  * Listeners are invoked synchronously on the evaluating thread. They
- * MUST be non-blocking and MUST NOT throw checked exceptions. Runtime
- * exceptions are caught by the dispatcher and reported via the metrics
- * channel; they never break the evaluation result.
+ * MUST be non-blocking and MUST NOT throw checked exceptions. Any
+ * runtime exception thrown by a listener is caught by the dispatcher in
+ * {@link com.openflags.core.OpenFlagsClient} and surfaced through the
+ * metrics channel; it never breaks the evaluation result.
  *
  * <p>
  * Implementations may safely re-enter the

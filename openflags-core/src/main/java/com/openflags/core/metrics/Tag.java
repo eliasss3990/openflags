@@ -21,15 +21,4 @@ public record Tag(String key, String value) {
         Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");
     }
-
-    /**
-     * Convenience factory matching {@code Map.entry} ergonomics.
-     *
-     * @param key   tag name
-     * @param value tag value
-     * @return a new tag
-     */
-    public static Tag of(String key, String value) {
-        return new Tag(key, value);
-    }
 }
