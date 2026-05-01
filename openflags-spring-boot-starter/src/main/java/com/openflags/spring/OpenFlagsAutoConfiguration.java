@@ -1,6 +1,8 @@
 package com.openflags.spring;
 
 import com.openflags.core.OpenFlagsClient;
+import com.openflags.core.OpenFlagsClientBuilder;
+import com.openflags.core.OpenFlagsClientCustomizer;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.hybrid.HybridFlagProvider;
@@ -12,8 +14,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
@@ -25,14 +29,17 @@ import java.nio.file.Path;
  * Spring Boot auto-configuration for openflags.
  * <p>
  * Creates an {@link OpenFlagsClient} bean backed by the provider configured via
- * {@link OpenFlagsProperties}. Conditional on {@link OpenFlagsClient} being on the classpath.
+ * {@link OpenFlagsProperties}. Conditional on {@link OpenFlagsClient} being on
+ * the classpath.
  * </p>
  *
  * <h2>Classpath resources and file watching</h2>
  * <p>
- * When the configured path uses the {@code classpath:} prefix, the auto-configuration
+ * When the configured path uses the {@code classpath:} prefix, the
+ * auto-configuration
  * resolves it to a filesystem {@link Path}. If the resource lives inside a JAR
- * (i.e., cannot be resolved to a real filesystem path), file watching is automatically
+ * (i.e., cannot be resolved to a real filesystem path), file watching is
+ * automatically
  * disabled with an INFO log message. This is a known limitation of
  * {@link java.nio.file.WatchService}.
  * </p>
@@ -40,6 +47,7 @@ import java.nio.file.Path;
 @AutoConfiguration
 @EnableConfigurationProperties(OpenFlagsProperties.class)
 @ConditionalOnClass(OpenFlagsClient.class)
+@Import(MicrometerBindings.class)
 public class OpenFlagsAutoConfiguration {
 
     /**
@@ -122,9 +130,10 @@ public class OpenFlagsAutoConfiguration {
      * Creates a {@link FlagProvider} bean backed by a local file.
      * Activated when {@code openflags.provider=file} (the default).
      *
-     * @param properties   the openflags properties
+     * @param properties     the openflags properties
      * @param resourceLoader Spring resource loader for resolving classpath paths
-     * @return a configured file provider; init/shutdown are managed by the Spring container
+     * @return a configured file provider; init/shutdown are managed by the Spring
+     *         container
      * @throws IOException if the resource cannot be resolved
      */
     @Bean(initMethod = "init", destroyMethod = "shutdown")
@@ -144,15 +153,21 @@ public class OpenFlagsAutoConfiguration {
 
     /**
      * Creates the {@link OpenFlagsClient} bean.
-     * Back-off: skipped if a custom {@code OpenFlagsClient} bean is already defined.
+     * Back-off: skipped if a custom {@code OpenFlagsClient} bean is already
+     * defined. All {@link OpenFlagsClientCustomizer} beans are applied in
+     * {@code @Order} order before {@link OpenFlagsClientBuilder#build()}.
      *
-     * @param provider the configured flag provider
+     * @param provider    the configured flag provider
+     * @param customizers all client customizer beans, applied in order before build
      * @return a ready-to-use client
      */
     @Bean
     @ConditionalOnMissingBean
-    public OpenFlagsClient openFlagsClient(FlagProvider provider) {
-        return OpenFlagsClient.builder().provider(provider).build();
+    public OpenFlagsClient openFlagsClient(FlagProvider provider,
+                                           ObjectProvider<OpenFlagsClientCustomizer> customizers) {
+        OpenFlagsClientBuilder builder = OpenFlagsClient.builder().provider(provider);
+        customizers.orderedStream().forEach(c -> c.customize(builder));
+        return builder.build();
     }
 
     private ResolvedFile resolveFile(String pathStr, ResourceLoader resourceLoader, boolean watchRequested)
@@ -176,7 +191,8 @@ public class OpenFlagsAutoConfiguration {
         return new ResolvedFile(Path.of(uri), watchRequested);
     }
 
-    private record ResolvedFile(Path path, boolean watchEnabled) {}
+    private record ResolvedFile(Path path, boolean watchEnabled) {
+    }
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "org.springframework.boot.actuate.health.HealthIndicator")
