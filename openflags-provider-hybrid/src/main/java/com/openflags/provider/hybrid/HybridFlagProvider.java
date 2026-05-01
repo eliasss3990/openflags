@@ -449,7 +449,11 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         // Read routingTarget directly; resolveActiveProvider() has side-effects
         // (metric emission) and must not be invoked from a read-only getter.
         // Value may be one transition stale — acceptable for diagnostics.
-        FlagProvider active = "remote".equals(routingTarget.get()) ? remote : file;
+        // Both `remote` and `file` are non-null final fields validated by the builder;
+        // Objects.requireNonNull makes the contract explicit for static analyzers.
+        FlagProvider active = Objects.requireNonNull(
+                "remote".equals(routingTarget.get()) ? remote : file,
+                "active provider must not be null");
         if (active instanceof ProviderDiagnostics d) {
             return d.flagCount();
         }
