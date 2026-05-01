@@ -450,7 +450,10 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         // (metric emission) and must not be invoked from a read-only getter.
         // Value may be one transition stale — acceptable for diagnostics.
         FlagProvider active = "remote".equals(routingTarget.get()) ? remote : file;
-        return active instanceof ProviderDiagnostics d ? d.flagCount() : active.getAllFlags().size();
+        if (active instanceof ProviderDiagnostics d) {
+            return d.flagCount();
+        }
+        return active.getAllFlags().size();
     }
 
     private void requireInitialized() {
