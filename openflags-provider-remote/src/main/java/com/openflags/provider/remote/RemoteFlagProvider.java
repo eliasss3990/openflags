@@ -118,6 +118,10 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
         this.listeners = new CopyOnWriteArrayList<>();
         this.circuitBreaker = new CircuitBreakerState(
                 config.failureThreshold(), config.pollInterval(), config.maxBackoff());
+        if (config.maxBackoff().compareTo(config.pollInterval()) == 0) {
+            log.warn("maxBackoff equals pollInterval ({}); circuit breaker backoff "
+                    + "will have no effect — consider raising maxBackoff", config.pollInterval());
+        }
     }
 
     /**
@@ -254,16 +258,20 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
     private void pollAndReschedule() {
         long started = System.nanoTime();
         String outcome;
+        long durationNanos;
         try {
             outcome = pollOnceWithCircuitBreaker();
+            durationNanos = System.nanoTime() - started;
         } catch (Throwable t) {
+            // Capture duration of the network/parse work before logging or follow-up
+            // bookkeeping so the metric reflects the poll itself, not the catch path.
+            durationNanos = System.nanoTime() - started;
             log.warn("Unexpected error in poll loop for {}", config.baseUrl(), t);
             circuitBreaker.recordFailure();
             checkStaleness();
             logThrottledFailure();
             outcome = "failure";
         }
-        long durationNanos = System.nanoTime() - started;
         notifyPollOutcome(outcome, durationNanos);
         scheduleNextPoll(circuitBreaker.nextDelay());
     }

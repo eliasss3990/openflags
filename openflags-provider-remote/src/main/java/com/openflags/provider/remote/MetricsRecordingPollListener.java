@@ -30,8 +30,7 @@ public final class MetricsRecordingPollListener implements RemotePollListener {
 
     @Override
     public void onPollComplete(Map<String, Flag> snapshot) {
-        // Snapshot delivery is not a metric concern; counters are driven by
-        // onPollOutcome.
+        // Snapshot delivery is not a metric concern; counters are driven by onPollOutcome.
     }
 
     @Override
