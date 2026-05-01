@@ -447,7 +447,7 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
 
     @Override
     public int flagCount() {
-        return snapshot.flags().size();
+        return snapshot.state() == ProviderState.SHUTDOWN ? 0 : snapshot.flags().size();
     }
 
     private void notifyListeners(FlagChangeEvent event) {
