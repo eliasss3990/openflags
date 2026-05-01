@@ -58,4 +58,53 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <surefire.groups></surefire.groups>
+        <surefire.excludedGroups>no-micrometer</surefire.excludedGroups>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <groups>${surefire.groups}</groups>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Runs every test tagged "no-micrometer" with the Micrometer
+             artifacts excluded from the test classpath. Validates ADR-501:
+             openflags-core remains fully usable when Micrometer is absent. -->
+        <profile>
+            <id>no-micrometer</id>
+            <properties>
+                <surefire.groups>no-micrometer</surefire.groups>
+                <surefire.excludedGroups></surefire.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/metrics/MicrometerMetricsRecorderTest.java</exclude>
+                            </excludes>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>io.micrometer:micrometer-core</classpathDependencyExclude>
+                                <classpathDependencyExclude>io.micrometer:micrometer-commons</classpathDependencyExclude>
+                                <classpathDependencyExclude>io.micrometer:micrometer-observation</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
