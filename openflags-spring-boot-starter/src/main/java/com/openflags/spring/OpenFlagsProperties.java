@@ -5,6 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Configuration properties for the openflags Spring Boot integration.
@@ -40,6 +42,12 @@ public class OpenFlagsProperties {
 
     /** Hybrid provider configuration. Only consulted when {@code provider=hybrid}. */
     private HybridProperties hybrid = new HybridProperties();
+
+    /** Metrics configuration for the Micrometer-based observability layer. */
+    private final Metrics metrics = new Metrics();
+
+    /** Audit configuration for evaluation MDC propagation. */
+    private final Audit audit = new Audit();
 
     /**
      * Returns the active provider type.
@@ -111,6 +119,24 @@ public class OpenFlagsProperties {
      */
     public void setHybrid(HybridProperties hybrid) {
         this.hybrid = hybrid;
+    }
+
+    /**
+     * Returns the metrics configuration.
+     *
+     * @return the metrics properties
+     */
+    public Metrics getMetrics() {
+        return metrics;
+    }
+
+    /**
+     * Returns the audit configuration.
+     *
+     * @return the audit properties
+     */
+    public Audit getAudit() {
+        return audit;
     }
 
     /**
@@ -200,6 +226,18 @@ public class OpenFlagsProperties {
 
         /** User-Agent header value. Defaults to {@code "openflags-java"} if blank. */
         private String userAgent;
+
+        /**
+         * Consecutive remote poll failures before exponential backoff kicks in.
+         * Default: 5. Must be {@code >= 1} and {@code <= 100}.
+         */
+        private int failureThreshold = 5;
+
+        /**
+         * Upper bound for the backoff delay applied when the circuit is open.
+         * Default: 5 minutes. Must be {@code >= pollInterval}.
+         */
+        private Duration maxBackoff = Duration.ofMinutes(5);
 
         /**
          * Returns the base URL.
@@ -362,6 +400,42 @@ public class OpenFlagsProperties {
         public void setUserAgent(String userAgent) {
             this.userAgent = userAgent;
         }
+
+        /**
+         * Returns the circuit breaker failure threshold.
+         *
+         * @return the failure threshold
+         */
+        public int getFailureThreshold() {
+            return failureThreshold;
+        }
+
+        /**
+         * Sets the circuit breaker failure threshold.
+         *
+         * @param failureThreshold the failure threshold
+         */
+        public void setFailureThreshold(int failureThreshold) {
+            this.failureThreshold = failureThreshold;
+        }
+
+        /**
+         * Returns the maximum backoff delay applied when the circuit is open.
+         *
+         * @return the maximum backoff duration
+         */
+        public Duration getMaxBackoff() {
+            return maxBackoff;
+        }
+
+        /**
+         * Sets the maximum backoff delay applied when the circuit is open.
+         *
+         * @param maxBackoff the maximum backoff duration
+         */
+        public void setMaxBackoff(Duration maxBackoff) {
+            this.maxBackoff = maxBackoff;
+        }
     }
 
     /**
@@ -486,6 +560,120 @@ public class OpenFlagsProperties {
          */
         public void setFailIfNoFallback(boolean failIfNoFallback) {
             this.failIfNoFallback = failIfNoFallback;
+        }
+    }
+
+    /**
+     * Configuration for the Micrometer metrics integration.
+     * <p>Activated only when {@code micrometer-core} is on the classpath and a
+     * {@code MeterRegistry} bean is available.</p>
+     */
+    public static class Metrics {
+
+        /**
+         * Whether to enable Micrometer metrics. Default: {@code true}.
+         * <p>Even when {@code true}, no metrics are emitted if {@code micrometer-core} is
+         * absent or no {@code MeterRegistry} bean is exposed.</p>
+         */
+        private boolean enabled = true;
+
+        /**
+         * Whether to add the {@code flag} tag to per-flag counters and timers.
+         * Disable to reduce cardinality when N &gt; 200 flags. Default: {@code true}.
+         */
+        private boolean tagFlagKey = true;
+
+        /**
+         * Static tags applied to every openflags metric. Useful for environment, region,
+         * or service identification.
+         */
+        private Map<String, String> tags = new LinkedHashMap<>();
+
+        /**
+         * Returns whether metrics are enabled.
+         *
+         * @return {@code true} if enabled
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Sets whether metrics are enabled.
+         *
+         * @param enabled {@code true} to enable
+         */
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        /**
+         * Returns whether the {@code flag} tag is included on per-flag metrics.
+         *
+         * @return {@code true} if the flag key is tagged
+         */
+        public boolean isTagFlagKey() {
+            return tagFlagKey;
+        }
+
+        /**
+         * Sets whether the {@code flag} tag is included on per-flag metrics.
+         *
+         * @param tagFlagKey {@code true} to tag the flag key
+         */
+        public void setTagFlagKey(boolean tagFlagKey) {
+            this.tagFlagKey = tagFlagKey;
+        }
+
+        /**
+         * Returns the static tags applied to all openflags metrics.
+         *
+         * @return the static tags map
+         */
+        public Map<String, String> getTags() {
+            return tags;
+        }
+
+        /**
+         * Sets the static tags applied to all openflags metrics.
+         *
+         * @param tags the static tags map
+         */
+        public void setTags(Map<String, String> tags) {
+            this.tags = tags;
+        }
+    }
+
+    /**
+     * Configuration for the audit integration that propagates evaluation context to
+     * SLF4J MDC.
+     */
+    public static class Audit {
+
+        /**
+         * Whether to set {@code openflags.flag_key} and {@code openflags.targeting_key}
+         * in SLF4J MDC during evaluation. Default: {@code false}.
+         * <p><b>Warning:</b> the targeting key may contain PII; review your logging
+         * pipeline before enabling.</p>
+         */
+        private boolean mdcEnabled = false;
+
+        /**
+         * Returns whether MDC propagation is enabled.
+         *
+         * @return {@code true} if MDC propagation is enabled
+         */
+        public boolean isMdcEnabled() {
+            return mdcEnabled;
+        }
+
+        /**
+         * Sets whether MDC propagation is enabled.
+         *
+         * @param mdcEnabled {@code true} to enable MDC propagation
+         */
+        public void setMdcEnabled(boolean mdcEnabled) {
+            this.mdcEnabled = mdcEnabled;
         }
     }
 }

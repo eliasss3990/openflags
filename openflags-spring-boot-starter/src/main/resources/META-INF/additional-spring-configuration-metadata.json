@@ -3,7 +3,7 @@
     {
       "name": "openflags.provider",
       "type": "java.lang.String",
-      "description": "The flag provider type to use. Currently supported: 'file'.",
+      "description": "The flag provider type to use. Supported: 'file', 'remote', 'hybrid'.",
       "defaultValue": "file"
     },
     {
@@ -17,6 +17,41 @@
       "type": "java.lang.Boolean",
       "description": "Whether to enable hot reload when the flag file changes. Automatically disabled for files inside JARs.",
       "defaultValue": true
+    },
+    {
+      "name": "openflags.metrics.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Micrometer metrics. Requires micrometer-core in classpath and a MeterRegistry bean.",
+      "defaultValue": true
+    },
+    {
+      "name": "openflags.metrics.tag-flag-key",
+      "type": "java.lang.Boolean",
+      "description": "If true, the 'flag' tag is added to per-flag counters and timers. Disable to reduce cardinality when N > 200 flags.",
+      "defaultValue": true
+    },
+    {
+      "name": "openflags.metrics.tags",
+      "type": "java.util.Map<java.lang.String,java.lang.String>",
+      "description": "Static tags applied to all openflags metrics."
+    },
+    {
+      "name": "openflags.audit.mdc-enabled",
+      "type": "java.lang.Boolean",
+      "description": "If true, sets 'openflags.flag_key' and 'openflags.targeting_key' in SLF4J MDC during evaluation. WARNING: targeting key may contain PII.",
+      "defaultValue": false
+    },
+    {
+      "name": "openflags.remote.failure-threshold",
+      "type": "java.lang.Integer",
+      "description": "Consecutive remote poll failures before exponential backoff kicks in.",
+      "defaultValue": 5
+    },
+    {
+      "name": "openflags.remote.max-backoff",
+      "type": "java.time.Duration",
+      "description": "Upper bound for the backoff delay applied when the circuit is open.",
+      "defaultValue": "5m"
     }
   ]
 }
