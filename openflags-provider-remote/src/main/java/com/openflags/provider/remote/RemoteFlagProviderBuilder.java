@@ -15,9 +15,11 @@ public final class RemoteFlagProviderBuilder {
     private String authHeaderValue;
     private Duration connectTimeout = Duration.ofSeconds(5);
     private Duration requestTimeout = Duration.ofSeconds(10);
-    private Duration pollInterval   = Duration.ofSeconds(30);
-    private Duration cacheTtl       = Duration.ofMinutes(5);
+    private Duration pollInterval = Duration.ofSeconds(30);
+    private Duration cacheTtl = Duration.ofMinutes(5);
     private String userAgent;
+    private int failureThreshold = 5;
+    private Duration maxBackoff = Duration.ofMinutes(5);
 
     /**
      * Creates a builder for the given base URL.
@@ -62,7 +64,7 @@ public final class RemoteFlagProviderBuilder {
      * @return this builder
      */
     public RemoteFlagProviderBuilder bearerToken(String token) {
-        this.authHeaderName  = "Authorization";
+        this.authHeaderName = "Authorization";
         this.authHeaderValue = "Bearer " + token;
         return this;
     }
@@ -70,12 +72,12 @@ public final class RemoteFlagProviderBuilder {
     /**
      * Sets a custom authentication header.
      *
-     * @param headerName  the header name (e.g. {@code "X-API-Key"})
-     * @param value       the header value
+     * @param headerName the header name (e.g. {@code "X-API-Key"})
+     * @param value      the header value
      * @return this builder
      */
     public RemoteFlagProviderBuilder apiKey(String headerName, String value) {
-        this.authHeaderName  = headerName;
+        this.authHeaderName = headerName;
         this.authHeaderValue = value;
         return this;
     }
@@ -136,6 +138,31 @@ public final class RemoteFlagProviderBuilder {
     }
 
     /**
+     * Sets the number of consecutive poll failures required before the
+     * circuit breaker opens and the poll interval starts growing
+     * exponentially.
+     *
+     * @param threshold the failure threshold; must be in {@code [1, 100]}
+     * @return this builder
+     */
+    public RemoteFlagProviderBuilder failureThreshold(int threshold) {
+        this.failureThreshold = threshold;
+        return this;
+    }
+
+    /**
+     * Sets the maximum delay applied between polls when the circuit
+     * breaker is open.
+     *
+     * @param d the maximum backoff; must be positive and {@code >= pollInterval}
+     * @return this builder
+     */
+    public RemoteFlagProviderBuilder maxBackoff(Duration d) {
+        this.maxBackoff = d;
+        return this;
+    }
+
+    /**
      * Builds a configured but un-initialized {@link RemoteFlagProvider}.
      * Caller must invoke {@link RemoteFlagProvider#init()}.
      *
@@ -151,8 +178,9 @@ public final class RemoteFlagProviderBuilder {
                 requestTimeout,
                 pollInterval,
                 cacheTtl,
-                userAgent
-        );
+                userAgent,
+                failureThreshold,
+                maxBackoff);
         return new RemoteFlagProvider(cfg);
     }
 }

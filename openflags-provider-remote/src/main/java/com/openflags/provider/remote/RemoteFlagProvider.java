@@ -9,13 +9,17 @@ import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
+import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.core.provider.ProviderState;
 import com.openflags.core.parser.FlagFileParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,48 +27,64 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * A {@link FlagProvider} implementation that fetches flag definitions from a remote
- * HTTP endpoint and caches them locally with a configurable TTL and polling interval.
+ * A {@link FlagProvider} implementation that fetches flag definitions from a
+ * remote
+ * HTTP endpoint and caches them locally with a configurable TTL and polling
+ * interval.
  *
  * <h2>Resilience</h2>
  * <p>
- * The provider follows a stale-while-error policy: if a poll fails, the previous cache
- * keeps serving until a successful fetch happens. The provider transitions through:
+ * The provider follows a stale-while-error policy: if a poll fails, the
+ * previous cache
+ * keeps serving until a successful fetch happens. The provider transitions
+ * through:
  * </p>
  * <ul>
- *   <li>{@link ProviderState#NOT_READY} → {@link ProviderState#READY} on a successful {@code init()}.</li>
- *   <li>{@link ProviderState#READY} → {@link ProviderState#DEGRADED} on a poll failure that has not exceeded the cache TTL.</li>
- *   <li>{@link ProviderState#DEGRADED} → {@link ProviderState#ERROR} when {@code now - lastSuccessfulFetch > cacheTtl}.</li>
- *   <li>Any state → {@link ProviderState#SHUTDOWN} after {@link #shutdown()}.</li>
+ * <li>{@link ProviderState#NOT_READY} → {@link ProviderState#READY} on a
+ * successful {@code init()}.</li>
+ * <li>{@link ProviderState#READY} → {@link ProviderState#DEGRADED} on a poll
+ * failure that has not exceeded the cache TTL.</li>
+ * <li>{@link ProviderState#DEGRADED} → {@link ProviderState#ERROR} when
+ * {@code now - lastSuccessfulFetch > cacheTtl}.</li>
+ * <li>Any state → {@link ProviderState#SHUTDOWN} after
+ * {@link #shutdown()}.</li>
  * </ul>
  * <p>
- * In all states except {@code SHUTDOWN} and {@code NOT_READY}, {@link #getFlag(String)} returns
+ * In all states except {@code SHUTDOWN} and {@code NOT_READY},
+ * {@link #getFlag(String)} returns
  * the most recently successfully fetched data.
  * </p>
  *
  * <h2>Thread-safety</h2>
- * <p>This class is thread-safe. The underlying cache is swapped atomically on each
- * successful poll via a single {@code volatile} {@link CacheSnapshot} reference;
- * readers always see a consistent snapshot. {@link #init()} and {@link #shutdown()}
- * are {@code synchronized} to prevent concurrent scheduler creation or double-shutdown.</p>
+ * <p>
+ * This class is thread-safe. The underlying cache is swapped atomically on each
+ * successful poll via a single {@code volatile} {@link CacheSnapshot}
+ * reference;
+ * readers always see a consistent snapshot. {@link #init()} and
+ * {@link #shutdown()}
+ * are {@code synchronized} to prevent concurrent scheduler creation or
+ * double-shutdown.
+ * </p>
  */
-public final class RemoteFlagProvider implements FlagProvider {
+public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnostics {
 
     private static final Logger log = LoggerFactory.getLogger(RemoteFlagProvider.class);
 
     /**
-     * Immutable snapshot of the cache state. Written atomically via a single volatile field.
+     * Immutable snapshot of the cache state. Written atomically via a single
+     * volatile field.
      */
     private record CacheSnapshot(
             Map<String, Flag> flags,
             Instant fetchedAt,
-            ProviderState state
-    ) {}
+            ProviderState state) {
+    }
 
-    private static final CacheSnapshot INITIAL_SNAPSHOT =
-            new CacheSnapshot(Map.of(), Instant.EPOCH, ProviderState.NOT_READY);
+    private static final CacheSnapshot INITIAL_SNAPSHOT = new CacheSnapshot(Map.of(), Instant.EPOCH,
+            ProviderState.NOT_READY);
 
     private final RemoteProviderConfig config;
     private final RemoteHttpClient httpClient;
@@ -74,6 +94,16 @@ public final class RemoteFlagProvider implements FlagProvider {
 
     private volatile CacheSnapshot snapshot = INITIAL_SNAPSHOT;
     private volatile RemotePollListener pollListener;
+
+    private final CircuitBreakerState circuitBreaker;
+
+    /**
+     * Nanos timestamp ({@link System#nanoTime()}) when the last poll task was
+     * scheduled.
+     */
+    private final AtomicLong lastScheduleNanos = new AtomicLong(0L);
+    /** Delay (millis) of the most recently scheduled poll. */
+    private final AtomicLong lastScheduleDelayMillis = new AtomicLong(0L);
 
     private ScheduledExecutorService scheduler;
 
@@ -86,11 +116,15 @@ public final class RemoteFlagProvider implements FlagProvider {
         this.parser = new FlagFileParser();
         this.objectMapper = JsonMapper.builder().build();
         this.listeners = new CopyOnWriteArrayList<>();
+        this.circuitBreaker = new CircuitBreakerState(
+                config.failureThreshold(), config.pollInterval(), config.maxBackoff());
     }
 
     /**
-     * Registers a {@link RemotePollListener} that will be called once per successful
-     * poll cycle, after all individual {@link com.openflags.core.event.FlagChangeEvent}s
+     * Registers a {@link RemotePollListener} that will be called once per
+     * successful
+     * poll cycle, after all individual
+     * {@link com.openflags.core.event.FlagChangeEvent}s
      * have been emitted. Replaces any previously registered listener.
      *
      * @param listener the listener to register; may be null to clear
@@ -104,7 +138,8 @@ public final class RemoteFlagProvider implements FlagProvider {
      * Idempotent: subsequent calls return without effect once the snapshot
      * state is anything other than {@link ProviderState#NOT_READY}.
      *
-     * @throws ProviderException if the initial fetch fails (network, parse, or HTTP error)
+     * @throws ProviderException if the initial fetch fails (network, parse, or HTTP
+     *                           error)
      */
     @Override
     public synchronized void init() {
@@ -199,23 +234,62 @@ public final class RemoteFlagProvider implements FlagProvider {
             t.setDaemon(true);
             return t;
         });
-        scheduler.scheduleAtFixedRate(
-                this::pollSafe,
-                config.pollInterval().toMillis(),
-                config.pollInterval().toMillis(),
-                TimeUnit.MILLISECONDS);
+        scheduleNextPoll(config.pollInterval());
     }
 
-    private void pollSafe() {
+    private void scheduleNextPoll(Duration delay) {
+        if (snapshot.state() == ProviderState.SHUTDOWN || scheduler == null || scheduler.isShutdown()) {
+            return;
+        }
+        long millis = delay.toMillis();
+        lastScheduleNanos.set(System.nanoTime());
+        lastScheduleDelayMillis.set(millis);
         try {
-            pollOnce();
-        } catch (Throwable t) {
-            log.warn("Unexpected error in poll loop for {}", config.baseUrl(), t);
-            checkStaleness();
+            scheduler.schedule(this::pollAndReschedule, millis, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // scheduler shut down between the guard and schedule(); benign.
         }
     }
 
-    private void pollOnce() throws Exception {
+    private void pollAndReschedule() {
+        long started = System.nanoTime();
+        String outcome;
+        try {
+            outcome = pollOnceWithCircuitBreaker();
+        } catch (Throwable t) {
+            log.warn("Unexpected error in poll loop for {}", config.baseUrl(), t);
+            circuitBreaker.recordFailure();
+            checkStaleness();
+            logThrottledFailure();
+            outcome = "failure";
+        }
+        long durationNanos = System.nanoTime() - started;
+        notifyPollOutcome(outcome, durationNanos);
+        scheduleNextPoll(circuitBreaker.nextDelay());
+    }
+
+    private String pollOnceWithCircuitBreaker() throws Exception {
+        String outcome = pollOnce();
+        // 200/204 → success; 304 → not_modified (still a healthy contact);
+        // anything else (non-2xx without throwing) → failure.
+        if ("success".equals(outcome) || "not_modified".equals(outcome)) {
+            circuitBreaker.recordSuccess();
+        } else {
+            circuitBreaker.recordFailure();
+            logThrottledFailure();
+        }
+        return outcome;
+    }
+
+    private void logThrottledFailure() {
+        int failures = circuitBreaker.failureCount();
+        if (failures > 0 && (failures & (failures - 1)) == 0) {
+            log.warn("Remote poll failed (count={}); next attempt in ~{}ms",
+                    failures, circuitBreaker.nextDelay().toMillis());
+        }
+    }
+
+    private String pollOnce() throws Exception {
         HttpResponse<String> response = httpClient.fetch();
         int status = response.statusCode();
 
@@ -227,6 +301,7 @@ public final class RemoteFlagProvider implements FlagProvider {
             emitDiff(oldFlags, snapshot.flags());
             notifyPollComplete(snapshot.flags());
             log.debug("Poll succeeded for {}: {} flags loaded", config.baseUrl(), snapshot.flags().size());
+            return "success";
 
         } else if (status == 204) {
             Map<String, Flag> oldFlags = snapshot.flags();
@@ -237,15 +312,17 @@ public final class RemoteFlagProvider implements FlagProvider {
             emitDiff(oldFlags, Map.of());
             notifyPollComplete(Map.of());
             log.debug("Poll returned 204 for {}: cache cleared", config.baseUrl());
+            return "success";
 
         } else if (status == 304) {
             log.warn("Poll returned 304 for {} (unexpected; no If-None-Match sent)", config.baseUrl());
             // keep cache as-is
+            return "not_modified";
 
         } else if (status == 401 || status == 403) {
             // throw and let the caller decide:
-            //   - init() rethrows so the user sees a clear auth-failed error
-            //   - pollSafe() catches Throwable, logs once and runs checkStaleness()
+            // - init() rethrows so the user sees a clear auth-failed error
+            // - pollAndReschedule() catches Throwable, logs once and runs checkStaleness()
             throw new ProviderException(
                     "Authentication failed: HTTP " + status + " for " + config.baseUrl()
                             + " — check auth configuration");
@@ -253,6 +330,7 @@ public final class RemoteFlagProvider implements FlagProvider {
         } else {
             log.warn("Poll returned HTTP {} for {}", status, config.baseUrl());
             checkStaleness();
+            return "failure";
         }
     }
 
@@ -305,6 +383,63 @@ public final class RemoteFlagProvider implements FlagProvider {
                 log.warn("RemotePollListener threw an exception", e);
             }
         }
+    }
+
+    private void notifyPollOutcome(String outcome, long durationNanos) {
+        RemotePollListener pl = pollListener;
+        if (pl != null) {
+            try {
+                pl.onPollOutcome(outcome, durationNanos);
+            } catch (Exception e) {
+                log.warn("RemotePollListener.onPollOutcome threw an exception", e);
+            }
+        }
+    }
+
+    @Override
+    public String providerType() {
+        return "remote";
+    }
+
+    @Override
+    public Map<String, Object> diagnostics() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("remote.base_url", config.baseUrl().toString());
+        data.put("remote.poll_interval_ms", config.pollInterval().toMillis());
+        data.put("remote.cache_ttl_ms", config.cacheTtl().toMillis());
+        data.put("remote.state", snapshot.state().name());
+        Instant fetched = snapshot.fetchedAt();
+        data.put("remote.last_fetch",
+                fetched.equals(Instant.EPOCH) ? "" : fetched.toString());
+        data.put("remote.flag_count", snapshot.flags().size());
+        data.put("remote.consecutive_failures", circuitBreaker.failureCount());
+        data.put("remote.circuit_open", circuitBreaker.isOpen());
+        data.put("remote.next_poll_in_ms", computeNextPollInMs());
+        return Collections.unmodifiableMap(data);
+    }
+
+    private long computeNextPollInMs() {
+        // Best-effort: the two atomics are read independently, so a concurrent
+        // re-schedule between reads can mix a fresh timestamp with a stale delay.
+        // Acceptable for diagnostics; consumers should treat the value as approximate.
+        long scheduledNanos = lastScheduleNanos.get();
+        if (scheduledNanos == 0L) {
+            return 0L;
+        }
+        long elapsedMillis = (System.nanoTime() - scheduledNanos) / 1_000_000L;
+        long remaining = lastScheduleDelayMillis.get() - elapsedMillis;
+        return Math.max(remaining, 0L);
+    }
+
+    @Override
+    public Instant lastUpdate() {
+        Instant fetched = snapshot.fetchedAt();
+        return fetched.equals(Instant.EPOCH) ? null : fetched;
+    }
+
+    @Override
+    public int flagCount() {
+        return snapshot.flags().size();
     }
 
     private void notifyListeners(FlagChangeEvent event) {

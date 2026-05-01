@@ -8,20 +8,33 @@ import java.util.Set;
 /**
  * Immutable configuration for a {@link RemoteFlagProvider}.
  *
- * @param baseUrl         the base URL of the backend (e.g. {@code https://flags.example.com}); non-null,
- *                        scheme must be {@code http} or {@code https}
- * @param flagsPath       the path appended to {@code baseUrl} for fetching flags; default {@code "/flags"}
- * @param authHeaderName  the HTTP header used for authentication (e.g. {@code "Authorization"} or
- *                        {@code "X-API-Key"}); may be null to disable auth
- * @param authHeaderValue the literal header value (e.g. {@code "Bearer eyJ..."}); may be null
- *                        if {@code authHeaderName} is null. Never logged.
- * @param connectTimeout  HTTP connect timeout; must be positive
- * @param requestTimeout  HTTP request timeout (per request); must be positive
- * @param pollInterval    interval between polls; must be {@code >= 5s}
- * @param cacheTtl        cache TTL after which the provider transitions to {@code ERROR} state
- *                        if no successful fetch happens; must be {@code >= pollInterval}
- * @param userAgent       value of the {@code User-Agent} header; non-blank, default
- *                        {@code "openflags-java"}
+ * @param baseUrl          the base URL of the backend (e.g.
+ *                         {@code https://flags.example.com}); non-null,
+ *                         scheme must be {@code http} or {@code https}
+ * @param flagsPath        the path appended to {@code baseUrl} for fetching
+ *                         flags; default {@code "/flags"}
+ * @param authHeaderName   the HTTP header used for authentication (e.g.
+ *                         {@code "Authorization"} or
+ *                         {@code "X-API-Key"}); may be null to disable auth
+ * @param authHeaderValue  the literal header value (e.g.
+ *                         {@code "Bearer eyJ..."}); may be null
+ *                         if {@code authHeaderName} is null. Never logged.
+ * @param connectTimeout   HTTP connect timeout; must be positive
+ * @param requestTimeout   HTTP request timeout (per request); must be positive
+ * @param pollInterval     interval between polls; must be {@code >= 5s}
+ * @param cacheTtl         cache TTL after which the provider transitions to
+ *                         {@code ERROR} state
+ *                         if no successful fetch happens; must be
+ *                         {@code >= pollInterval}
+ * @param userAgent        value of the {@code User-Agent} header; non-blank,
+ *                         default
+ *                         {@code "openflags-java"}
+ * @param failureThreshold consecutive poll failures required before the circuit
+ *                         breaker opens;
+ *                         must be in {@code [1, 100]}; default {@code 5}
+ * @param maxBackoff       maximum delay applied between polls when the circuit
+ *                         breaker is open;
+ *                         must be {@code >= pollInterval}; default {@code 5min}
  */
 public record RemoteProviderConfig(
         URI baseUrl,
@@ -32,14 +45,48 @@ public record RemoteProviderConfig(
         Duration requestTimeout,
         Duration pollInterval,
         Duration cacheTtl,
-        String userAgent
-) {
+        String userAgent,
+        int failureThreshold,
+        Duration maxBackoff) {
+
+    /** Sanity ceiling for {@code failureThreshold}. */
+    public static final int MAX_FAILURE_THRESHOLD = 100;
+
+    /** Default consecutive-failures threshold before opening the circuit breaker. */
+    public static final int DEFAULT_FAILURE_THRESHOLD = 5;
+
+    /** Default maximum backoff applied while the circuit breaker is open. */
+    public static final Duration DEFAULT_MAX_BACKOFF = Duration.ofMinutes(5);
+
+    /**
+     * Convenience constructor preserving the pre-circuit-breaker signature.
+     * Applies {@link #DEFAULT_FAILURE_THRESHOLD} and the larger of
+     * {@link #DEFAULT_MAX_BACKOFF} or {@code pollInterval} as defaults.
+     */
+    public RemoteProviderConfig(
+            URI baseUrl,
+            String flagsPath,
+            String authHeaderName,
+            String authHeaderValue,
+            Duration connectTimeout,
+            Duration requestTimeout,
+            Duration pollInterval,
+            Duration cacheTtl,
+            String userAgent) {
+        this(baseUrl, flagsPath, authHeaderName, authHeaderValue,
+                connectTimeout, requestTimeout, pollInterval, cacheTtl, userAgent,
+                DEFAULT_FAILURE_THRESHOLD,
+                pollInterval != null && pollInterval.compareTo(DEFAULT_MAX_BACKOFF) > 0
+                        ? pollInterval
+                        : DEFAULT_MAX_BACKOFF);
+    }
 
     /** Minimum allowed poll interval to prevent accidental backend overload. */
     public static final Duration MIN_POLL_INTERVAL = Duration.ofSeconds(5);
 
     /**
-     * Compact constructor that validates fields and applies defaults to optional ones.
+     * Compact constructor that validates fields and applies defaults to optional
+     * ones.
      *
      * @throws NullPointerException     if any required field is null
      * @throws IllegalArgumentException if any range/scheme constraint is violated
@@ -85,6 +132,22 @@ public record RemoteProviderConfig(
         }
         if (userAgent == null || userAgent.isBlank()) {
             userAgent = "openflags-java";
+        }
+        if (failureThreshold <= 0) {
+            throw new IllegalArgumentException(
+                    "failureThreshold must be > 0, got " + failureThreshold);
+        }
+        if (failureThreshold > MAX_FAILURE_THRESHOLD) {
+            throw new IllegalArgumentException(
+                    "failureThreshold must be <= " + MAX_FAILURE_THRESHOLD + ", got " + failureThreshold);
+        }
+        Objects.requireNonNull(maxBackoff, "maxBackoff must not be null");
+        if (maxBackoff.isNegative() || maxBackoff.isZero()) {
+            throw new IllegalArgumentException("maxBackoff must be positive");
+        }
+        if (maxBackoff.compareTo(pollInterval) < 0) {
+            throw new IllegalArgumentException(
+                    "maxBackoff must be greater than or equal to pollInterval");
         }
     }
 }
