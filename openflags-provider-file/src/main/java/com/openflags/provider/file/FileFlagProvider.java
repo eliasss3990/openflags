@@ -7,13 +7,16 @@ import com.openflags.core.exception.ProviderException;
 import com.openflags.core.model.Flag;
 import com.openflags.core.parser.FlagFileParser;
 import com.openflags.core.provider.FlagProvider;
+import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.core.provider.ProviderState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>Use {@link FileFlagProviderBuilder} (via {@link #builder()}) to create instances.</p>
  */
-public final class FileFlagProvider implements FlagProvider {
+public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics {
 
     private static final Logger log = LoggerFactory.getLogger(FileFlagProvider.class);
 
@@ -57,6 +60,7 @@ public final class FileFlagProvider implements FlagProvider {
 
     private final AtomicReference<Map<String, Flag>> flags = new AtomicReference<>(Collections.emptyMap());
     private final AtomicReference<ProviderState> state = new AtomicReference<>(ProviderState.NOT_READY);
+    private volatile Instant lastReloadAt;
 
     // volatile: read by init() guard outside synchronized blocks when a subclass or test inspects it
     private volatile boolean initialized = false;
@@ -87,6 +91,7 @@ public final class FileFlagProvider implements FlagProvider {
 
         Map<String, Flag> loaded = parseFile();
         flags.set(loaded);
+        lastReloadAt = Instant.now();
         state.set(ProviderState.READY);
         initialized = true;
 
@@ -162,6 +167,7 @@ public final class FileFlagProvider implements FlagProvider {
                 return;
             }
             flags.set(newFlags);
+            lastReloadAt = Instant.now();
             state.set(ProviderState.READY);
             shouldEmit = true;
         }
@@ -213,6 +219,43 @@ public final class FileFlagProvider implements FlagProvider {
                 });
             }
         }
+    }
+
+    @Override
+    public String providerType() {
+        return "file";
+    }
+
+    @Override
+    public Map<String, Object> diagnostics() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("file.path", filePath.toString());
+        data.put("file.format", detectFormat(filePath));
+        Instant updatedAt = lastReloadAt;
+        data.put("file.last_reload",
+                updatedAt == null ? "" : updatedAt.toString());
+        FileWatcher current = watcher;
+        data.put("file.watcher_alive",
+                watchEnabled && current != null && current.isAlive());
+        data.put("file.flag_count", flags.get().size());
+        return Collections.unmodifiableMap(data);
+    }
+
+    @Override
+    public Instant lastUpdate() {
+        return lastReloadAt;
+    }
+
+    @Override
+    public int flagCount() {
+        return flags.get().size();
+    }
+
+    private static String detectFormat(Path path) {
+        String name = path.getFileName().toString().toLowerCase();
+        if (name.endsWith(".yaml") || name.endsWith(".yml")) return "yaml";
+        if (name.endsWith(".json")) return "json";
+        return "unknown";
     }
 
     private void requireNotShutdown() {

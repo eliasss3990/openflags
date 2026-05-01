@@ -80,6 +80,16 @@ public final class FileWatcher {
     }
 
     /**
+     * Returns {@code true} while the watcher is observing the file. Becomes
+     * {@code false} as soon as {@link #stop()} is invoked.
+     *
+     * @return whether the watcher is still active
+     */
+    public boolean isAlive() {
+        return !stopped.get();
+    }
+
+    /**
      * Stops watching and releases all resources. Idempotent.
      */
     public synchronized void stop() {
@@ -130,7 +140,7 @@ public final class FileWatcher {
                 }
             }
         } catch (IOException e) {
-            if (!stopped.get()) {
+            if (stopped.compareAndSet(false, true)) {
                 log.error("FileWatcher error for '{}': {}", filePath, e.getMessage());
             }
         }
