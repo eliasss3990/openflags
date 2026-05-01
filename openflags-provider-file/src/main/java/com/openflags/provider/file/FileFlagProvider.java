@@ -248,7 +248,7 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
 
     @Override
     public int flagCount() {
-        return flags.get().size();
+        return shutdown ? 0 : flags.get().size();
     }
 
     private static String detectFormat(Path path) {
