@@ -38,3 +38,6 @@ failsafe-reports/
 
 # JaCoCo
 jacoco.exec
+
+# Scripts locales del mantenedor (no se versionan)
+scripts/
