@@ -192,7 +192,7 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
         return switch (reason) {
             case FLAG_NOT_FOUND -> "MISSING";
             case TYPE_MISMATCH -> "TYPE_MISMATCH";
-            case PROVIDER_ERROR -> "RULE_ERROR";
+            case PROVIDER_ERROR -> "PROVIDER_ERROR";
             default -> null;
         };
     }
