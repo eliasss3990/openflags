@@ -170,4 +170,30 @@ public record RemoteProviderConfig(
                     "maxBackoff must be greater than or equal to pollInterval");
         }
     }
+
+    /**
+     * Returns a string representation that masks {@code authHeaderValue} so
+     * secrets never leak through logs, exception messages or diagnostics.
+     * The masked value is {@code null} when the field is null, {@code <blank>}
+     * when it is non-null but blank, and {@code ***} otherwise.
+     */
+    @Override
+    public String toString() {
+        String maskedValue = authHeaderValue == null ? "null"
+                : authHeaderValue.isBlank() ? "<blank>"
+                : "***";
+        return "RemoteProviderConfig["
+                + "baseUrl=" + baseUrl
+                + ", flagsPath=" + flagsPath
+                + ", authHeaderName=" + authHeaderName
+                + ", authHeaderValue=" + maskedValue
+                + ", connectTimeout=" + connectTimeout
+                + ", requestTimeout=" + requestTimeout
+                + ", pollInterval=" + pollInterval
+                + ", cacheTtl=" + cacheTtl
+                + ", userAgent=" + userAgent
+                + ", failureThreshold=" + failureThreshold
+                + ", maxBackoff=" + maxBackoff
+                + "]";
+    }
 }
