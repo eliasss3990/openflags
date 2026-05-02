@@ -4,13 +4,17 @@ import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.OpenFlagsClientBuilder;
 import com.openflags.core.OpenFlagsClientCustomizer;
 import com.openflags.core.evaluation.EvaluationListener;
+import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.provider.FlagProvider;
+import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.hybrid.HybridFlagProvider;
+import com.openflags.provider.remote.MetricsRecordingPollListener;
 import com.openflags.provider.remote.RemoteFlagProvider;
 import com.openflags.provider.remote.RemoteProviderConfig;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,6 +29,7 @@ import org.springframework.core.io.ResourceLoader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /**
  * Spring Boot auto-configuration for openflags.
@@ -39,7 +44,8 @@ import java.nio.file.Path;
  * The provider is chosen by {@code openflags.provider} (default {@code file}):
  * </p>
  * <ul>
- * <li>{@code file} — local YAML/JSON file. Requires {@code openflags.file.path};
+ * <li>{@code file} — local YAML/JSON file. Requires
+ * {@code openflags.file.path};
  * supports {@code classpath:} and {@code file:} prefixes. See "Classpath
  * resources and file watching" below.</li>
  * <li>{@code remote} — HTTP polling against a flag service. Requires
@@ -48,7 +54,8 @@ import java.nio.file.Path;
  * under {@code openflags.remote.*}.</li>
  * <li>{@code hybrid} — remote with a local file fallback. Reuses
  * {@code openflags.remote.*} for the remote half and {@code openflags.hybrid.*}
- * for the snapshot file (path, format, watch, debounce, fail-if-no-fallback).</li>
+ * for the snapshot file (path, format, watch, debounce,
+ * fail-if-no-fallback).</li>
  * </ul>
  *
  * <h2>Classpath resources and file watching</h2>
@@ -67,7 +74,8 @@ import java.nio.file.Path;
  * <h2>Observability</h2>
  * <p>
  * When Micrometer is on the classpath the starter wires the provider with a
- * {@link com.openflags.core.metrics.MetricsRecorder} backed by the application's
+ * {@link com.openflags.core.metrics.MetricsRecorder} backed by the
+ * application's
  * {@code MeterRegistry}. The {@link OpenFlagsHealthIndicator} bean is published
  * automatically when Spring Boot Actuator is present; it surfaces
  * {@code provider.type}, {@code provider.state} and any provider-specific
@@ -76,6 +84,7 @@ import java.nio.file.Path;
  * </p>
  */
 @AutoConfiguration
+@AutoConfigureAfter(name = "org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration")
 @EnableConfigurationProperties(OpenFlagsProperties.class)
 @ConditionalOnClass(OpenFlagsClient.class)
 @Import(MicrometerBindings.class)
@@ -92,7 +101,8 @@ public class OpenFlagsAutoConfiguration {
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "remote")
     @ConditionalOnMissingBean(FlagProvider.class)
     @ConditionalOnClass(name = "com.openflags.provider.remote.RemoteFlagProvider")
-    public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties) {
+    public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties,
+            ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
         OpenFlagsProperties.RemoteProperties r = properties.getRemote();
         if (r.getBaseUrl() == null) {
             throw new IllegalStateException(
@@ -100,6 +110,7 @@ public class OpenFlagsAutoConfiguration {
         }
         RemoteFlagProviderBuilder builder = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
                 .flagsPath(r.getFlagsPath())
+                .connectTimeout(r.getConnectTimeout())
                 .requestTimeout(r.getRequestTimeout())
                 .pollInterval(r.getPollInterval())
                 .cacheTtl(r.getCacheTtl())
@@ -109,7 +120,12 @@ public class OpenFlagsAutoConfiguration {
         if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
             builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
         }
-        return builder.build();
+        RemoteFlagProvider provider = builder.build();
+        MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
+        if (recorder != null) {
+            provider.setPollListener(new MetricsRecordingPollListener(recorder));
+        }
+        return provider;
     }
 
     /**
@@ -125,7 +141,8 @@ public class OpenFlagsAutoConfiguration {
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
     @ConditionalOnMissingBean(FlagProvider.class)
     @ConditionalOnClass(name = "com.openflags.provider.hybrid.HybridFlagProvider")
-    public HybridFlagProvider hybridFlagProvider(OpenFlagsProperties props) {
+    public HybridFlagProvider hybridFlagProvider(OpenFlagsProperties props,
+            ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
         OpenFlagsProperties.RemoteProperties r = props.getRemote();
         OpenFlagsProperties.HybridProperties h = props.getHybrid();
 
@@ -151,7 +168,7 @@ public class OpenFlagsAutoConfiguration {
                 r.getFailureThreshold(),
                 r.getMaxBackoff());
 
-        return HybridFlagProvider.builder()
+        HybridFlagProvider provider = HybridFlagProvider.builder()
                 .remoteConfig(rc)
                 .snapshotPath(h.getSnapshotPath())
                 .snapshotFormat(h.getSnapshotFormat())
@@ -159,6 +176,11 @@ public class OpenFlagsAutoConfiguration {
                 .snapshotDebounce(h.getSnapshotDebounce())
                 .failIfNoFallback(h.isFailIfNoFallback())
                 .build();
+        MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
+        if (recorder != null) {
+            provider.setMetricsRecorder(recorder);
+        }
+        return provider;
     }
 
     /**
@@ -205,9 +227,21 @@ public class OpenFlagsAutoConfiguration {
             ObjectProvider<OpenFlagsClientCustomizer> customizers) {
         OpenFlagsClientBuilder builder = OpenFlagsClient.builder()
                 .provider(provider)
+                .providerType(resolveProviderType(provider, properties))
                 .auditMdcEnabled(properties.getAudit().isMdcEnabled());
         customizers.orderedStream().forEach(c -> c.customize(builder));
         return builder.build();
+    }
+
+    private static String resolveProviderType(FlagProvider provider, OpenFlagsProperties properties) {
+        if (provider instanceof ProviderDiagnostics d) {
+            String type = d.providerType();
+            if (type != null && !type.isBlank()) {
+                return type.toLowerCase(Locale.ROOT);
+            }
+        }
+        String configured = properties.getProvider();
+        return configured == null ? "unknown" : configured.toLowerCase(Locale.ROOT);
     }
 
     private ResolvedFile resolveFile(String pathStr, ResourceLoader resourceLoader, boolean watchRequested)

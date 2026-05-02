@@ -2,6 +2,8 @@ package com.openflags.spring;
 
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.OpenFlagsClientCustomizer;
+import com.openflags.core.metrics.MetricsRecorder;
+import com.openflags.core.metrics.MicrometerMetricsRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -103,6 +105,27 @@ class MicrometerAutoConfigurationTest {
                                 assertThat(counter.getId().getTag("region")).isEqualTo("eu-west-1");
                             });
                 });
+    }
+
+    @Test
+    void registersMetricsRecorderBean_whenMeterRegistryBeanPresent() {
+        runner.withUserConfiguration(MeterRegistryConfig.class).run(ctx -> {
+            assertThat(ctx).hasBean("openflagsMetricsRecorder");
+            assertThat(ctx.getBean(MetricsRecorder.class))
+                    .isInstanceOf(MicrometerMetricsRecorder.class);
+        });
+    }
+
+    @Test
+    void doesNotRegisterMetricsRecorderBean_whenMetricsDisabled() {
+        runner.withUserConfiguration(MeterRegistryConfig.class)
+                .withPropertyValues("openflags.metrics.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean("openflagsMetricsRecorder"));
+    }
+
+    @Test
+    void doesNotRegisterMetricsRecorderBean_whenNoMeterRegistryBean() {
+        runner.run(ctx -> assertThat(ctx).doesNotHaveBean("openflagsMetricsRecorder"));
     }
 
     @Configuration(proxyBeanMethods = false)
