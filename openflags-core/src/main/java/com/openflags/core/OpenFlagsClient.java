@@ -45,8 +45,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class OpenFlagsClient {
 
-    static final String MDC_FLAG_KEY = "openflags.flag_key";
-    static final String MDC_TARGETING_KEY = "openflags.targeting_key";
+    private static final String MDC_FLAG_KEY = OpenFlagsMdc.FLAG_KEY;
+    private static final String MDC_TARGETING_KEY = OpenFlagsMdc.TARGETING_KEY;
 
     private final FlagProvider provider;
     private final FlagEvaluator evaluator;
@@ -91,7 +91,8 @@ public final class OpenFlagsClient {
      * Evaluates a boolean flag.
      *
      * @param key          the flag key
-     * @param defaultValue value returned if the flag is missing, disabled, or wrong type
+     * @param defaultValue value returned if the flag is missing, disabled, or wrong
+     *                     type
      * @return the flag value, or {@code defaultValue}
      * @throws IllegalStateException if the client has been shut down
      */
@@ -113,7 +114,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Evaluates a boolean flag and returns the full result including the resolution reason.
+     * Evaluates a boolean flag and returns the full result including the resolution
+     * reason.
      *
      * @param key          the flag key
      * @param defaultValue fallback value
@@ -154,7 +156,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Evaluates a string flag and returns the full result including the resolution reason.
+     * Evaluates a string flag and returns the full result including the resolution
+     * reason.
      *
      * @param key          the flag key
      * @param defaultValue fallback value
@@ -195,7 +198,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Evaluates a number flag and returns the full result including the resolution reason.
+     * Evaluates a number flag and returns the full result including the resolution
+     * reason.
      *
      * @param key          the flag key
      * @param defaultValue fallback value
@@ -236,7 +240,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Evaluates an object (JSON) flag and returns the full result including the resolution reason.
+     * Evaluates an object (JSON) flag and returns the full result including the
+     * resolution reason.
      *
      * @param key          the flag key
      * @param defaultValue fallback value

@@ -58,62 +58,66 @@ final class MicrometerMetricsRecorder implements MetricsRecorder {
     public void recordEvaluation(EvaluationEvent event) {
         Objects.requireNonNull(event, "event must not be null");
         Tags base = Tags.of(
-                "provider.type", event.providerType(),
-                "type", typeTag(event.type()),
-                "reason", event.reason().name());
+                OpenFlagsMetrics.Tags.PROVIDER_TYPE, event.providerType(),
+                OpenFlagsMetrics.Tags.TYPE, typeTag(event.type()),
+                OpenFlagsMetrics.Tags.REASON, event.reason().name());
         if (tagFlagKey) {
-            base = base.and("flag", event.flagKey());
+            base = base.and(OpenFlagsMetrics.Tags.FLAG, event.flagKey());
             if (event.variant() != null) {
-                base = base.and("variant", normalizeVariant(event.variant()));
+                base = base.and(OpenFlagsMetrics.Tags.VARIANT, normalizeVariant(event.variant()));
             }
         }
-        counter("openflags.evaluations.total", base).increment();
-        timer("openflags.evaluation.duration", base)
+        counter(OpenFlagsMetrics.Names.EVALUATIONS_TOTAL, base).increment();
+        timer(OpenFlagsMetrics.Names.EVALUATION_DURATION, base)
                 .record(Duration.ofNanos(event.durationNanos()));
 
         String errorType = errorType(event.reason());
         if (errorType != null) {
-            Tags errTags = Tags.of("provider.type", event.providerType(), "error.type", errorType);
+            Tags errTags = Tags.of(
+                    OpenFlagsMetrics.Tags.PROVIDER_TYPE, event.providerType(),
+                    OpenFlagsMetrics.Tags.ERROR_TYPE, errorType);
             if (tagFlagKey)
-                errTags = errTags.and("flag", event.flagKey());
-            counter("openflags.evaluations.errors.total", errTags).increment();
+                errTags = errTags.and(OpenFlagsMetrics.Tags.FLAG, event.flagKey());
+            counter(OpenFlagsMetrics.Names.EVALUATIONS_ERRORS_TOTAL, errTags).increment();
         }
     }
 
     @Override
     public void recordPoll(String outcome, long durationNanos) {
         Objects.requireNonNull(outcome, "outcome must not be null");
-        Tags tags = Tags.of("outcome", outcome);
-        counter("openflags.poll.total", tags).increment();
-        timer("openflags.poll.duration", tags).record(Duration.ofNanos(durationNanos));
+        Tags tags = Tags.of(OpenFlagsMetrics.Tags.OUTCOME, outcome);
+        counter(OpenFlagsMetrics.Names.POLL_TOTAL, tags).increment();
+        timer(OpenFlagsMetrics.Names.POLL_DURATION, tags).record(Duration.ofNanos(durationNanos));
     }
 
     @Override
     public void recordSnapshotWrite(String outcome, long durationNanos) {
         Objects.requireNonNull(outcome, "outcome must not be null");
-        Tags tags = Tags.of("outcome", outcome);
-        counter("openflags.snapshot.writes.total", tags).increment();
-        timer("openflags.snapshot.write.duration", tags).record(Duration.ofNanos(durationNanos));
+        Tags tags = Tags.of(OpenFlagsMetrics.Tags.OUTCOME, outcome);
+        counter(OpenFlagsMetrics.Names.SNAPSHOT_WRITES_TOTAL, tags).increment();
+        timer(OpenFlagsMetrics.Names.SNAPSHOT_WRITE_DURATION, tags).record(Duration.ofNanos(durationNanos));
     }
 
     @Override
     public void recordFlagChange(ChangeType type) {
         Objects.requireNonNull(type, "type must not be null");
-        counter("openflags.flag_changes.total", Tags.of("change_type", type.name())).increment();
+        counter(OpenFlagsMetrics.Names.FLAG_CHANGES_TOTAL,
+                Tags.of(OpenFlagsMetrics.Tags.CHANGE_TYPE, type.name())).increment();
     }
 
     @Override
     public void recordHybridFallback(String from, String to) {
         Objects.requireNonNull(from, "from must not be null");
         Objects.requireNonNull(to, "to must not be null");
-        counter("openflags.hybrid.fallback.total", Tags.of("from", from, "to", to)).increment();
+        counter(OpenFlagsMetrics.Names.HYBRID_FALLBACK_TOTAL,
+                Tags.of(OpenFlagsMetrics.Tags.FROM, from, OpenFlagsMetrics.Tags.TO, to)).increment();
     }
 
     @Override
     public void recordListenerError(String listenerSimpleName) {
         Objects.requireNonNull(listenerSimpleName, "listenerSimpleName must not be null");
-        counter("openflags.evaluations.listener.errors.total",
-                Tags.of("listener", listenerSimpleName)).increment();
+        counter(OpenFlagsMetrics.Names.EVALUATIONS_LISTENER_ERRORS_TOTAL,
+                Tags.of(OpenFlagsMetrics.Tags.LISTENER, listenerSimpleName)).increment();
     }
 
     @Override
