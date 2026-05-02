@@ -3,6 +3,7 @@ package com.openflags.spring;
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.OpenFlagsClientBuilder;
 import com.openflags.core.OpenFlagsClientCustomizer;
+import com.openflags.core.evaluation.EvaluationListener;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.hybrid.HybridFlagProvider;
@@ -164,7 +165,7 @@ public class OpenFlagsAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public OpenFlagsClient openFlagsClient(FlagProvider provider,
-                                           ObjectProvider<OpenFlagsClientCustomizer> customizers) {
+            ObjectProvider<OpenFlagsClientCustomizer> customizers) {
         OpenFlagsClientBuilder builder = OpenFlagsClient.builder().provider(provider);
         customizers.orderedStream().forEach(c -> c.customize(builder));
         return builder.build();
@@ -192,6 +193,35 @@ public class OpenFlagsAutoConfiguration {
     }
 
     private record ResolvedFile(Path path, boolean watchEnabled) {
+    }
+
+    /**
+     * Auto-detection of {@link EvaluationListener} beans in the application
+     * context.
+     * <p>
+     * Every bean of type {@link EvaluationListener} is registered on the
+     * {@link OpenFlagsClient} builder in {@code @Order} order via an
+     * {@link OpenFlagsClientCustomizer}. This lets applications attach evaluation
+     * listeners (audit, MDC, custom telemetry) declaratively without owning the
+     * client construction.
+     * </p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    static class EvaluationListenersConfiguration {
+
+        /**
+         * Customizer that registers every {@link EvaluationListener} bean on the
+         * client builder in order.
+         *
+         * @param listeners the discovered evaluation listener beans
+         * @return a customizer that wires the listeners onto the builder
+         */
+        @Bean
+        @ConditionalOnMissingBean(name = "evaluationListenersCustomizer")
+        OpenFlagsClientCustomizer evaluationListenersCustomizer(
+                ObjectProvider<EvaluationListener> listeners) {
+            return builder -> listeners.orderedStream().forEach(builder::addEvaluationListener);
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
