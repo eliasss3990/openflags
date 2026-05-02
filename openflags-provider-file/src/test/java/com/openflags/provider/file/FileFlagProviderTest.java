@@ -205,7 +205,7 @@ class FileFlagProviderTest {
         AtomicReference<Throwable> listenerError = new AtomicReference<>();
         provider.addChangeListener(e -> {
             try {
-                assertThat(provider.getState()).isNotEqualTo(ProviderState.STALE);
+                assertThat(provider.getState()).isNotEqualTo(ProviderState.SHUTDOWN);
             } catch (Throwable t) {
                 listenerError.set(t);
             }
@@ -223,7 +223,7 @@ class FileFlagProviderTest {
         assertThat(shutdownIssued.await(3, SECONDS)).isTrue();
         pool.shutdown();
 
-        assertThat(provider.getState()).isEqualTo(ProviderState.STALE);
+        assertThat(provider.getState()).isEqualTo(ProviderState.SHUTDOWN);
         assertThat(listenerError.get()).isNull();
         assertThatThrownBy(() -> provider.getFlag("toggle"))
                 .isInstanceOf(IllegalStateException.class);

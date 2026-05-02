@@ -139,7 +139,7 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
         if (watcher != null) {
             watcher.stop();
         }
-        state.set(ProviderState.STALE);
+        state.set(ProviderState.SHUTDOWN);
         log.info("FileFlagProvider shut down");
     }
 
