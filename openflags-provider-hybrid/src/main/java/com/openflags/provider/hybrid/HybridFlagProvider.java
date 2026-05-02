@@ -3,8 +3,10 @@ package com.openflags.provider.hybrid;
 import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
+import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
+import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.core.provider.ProviderState;
 import com.openflags.provider.file.FileFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProvider;
@@ -16,12 +18,15 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link FlagProvider} that combines a {@link RemoteFlagProvider}
@@ -30,48 +35,69 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <h2>Initialization</h2>
  * <ul>
- *   <li>The provider first attempts to initialize the remote provider.</li>
- *   <li>If the remote initialization fails, it falls back to the file provider reading
- *       the snapshot path; if that also fails, {@code init()} throws
- *       {@link ProviderException}.</li>
- *   <li>If the remote succeeds, the file provider is initialized lazily as a watcher for
- *       manual edits; if the snapshot file does not exist yet, file initialization is
- *       deferred until the first snapshot is written.</li>
+ * <li>The provider first attempts to initialize the remote provider.</li>
+ * <li>If the remote initialization fails, it falls back to the file provider
+ * reading
+ * the snapshot path; if that also fails, {@code init()} throws
+ * {@link ProviderException}.</li>
+ * <li>If the remote succeeds, the file provider is initialized lazily as a
+ * watcher for
+ * manual edits; if the snapshot file does not exist yet, file initialization is
+ * deferred until the first snapshot is written.</li>
  * </ul>
  *
  * <h2>Routing</h2>
- * <p>{@link #getFlag(String)} routes to the remote provider when its state is
- * {@link ProviderState#READY} or {@link ProviderState#DEGRADED}; otherwise it routes to
- * the file provider.</p>
+ * <p>
+ * {@link #getFlag(String)} routes to the remote provider when its state is
+ * {@link ProviderState#READY} or {@link ProviderState#DEGRADED}; otherwise it
+ * routes to
+ * the file provider.
+ * </p>
  *
  * <h2>Snapshot writing</h2>
- * <p>On each remote change event, the entire {@code Map<String, Flag>} is serialized to
- * the configured snapshot path using a write-to-temp + atomic rename strategy.</p>
+ * <p>
+ * On each remote change event, the entire {@code Map<String, Flag>} is
+ * serialized to
+ * the configured snapshot path using a write-to-temp + atomic rename strategy.
+ * </p>
  *
  * <h2>Behavior when both providers are unavailable</h2>
- * <p>If both the remote and the file provider are in {@code NOT_READY} or {@code ERROR},
+ * <p>
+ * If both the remote and the file provider are in {@code NOT_READY} or
+ * {@code ERROR},
  * {@link #getFlag(String)} delegates to the file provider, which will return
- * {@link Optional#empty()}. The hybrid provider does not throw on read; consumers must
- * handle the empty result. {@link #getState()} reports {@code ERROR} in this case (or
- * {@code NOT_READY} if neither provider has been initialized yet).</p>
+ * {@link Optional#empty()}. The hybrid provider does not throw on read;
+ * consumers must
+ * handle the empty result. {@link #getState()} reports {@code ERROR} in this
+ * case (or
+ * {@code NOT_READY} if neither provider has been initialized yet).
+ * </p>
  *
  * <h2>Thread-safety</h2>
- * <p>Thread-safe. Concurrency model:</p>
+ * <p>
+ * Thread-safe. Concurrency model:
+ * </p>
  * <ul>
- *   <li>{@code init()} and {@code shutdown()} are {@code synchronized} on the provider
- *       instance to prevent concurrent lifecycle transitions.</li>
- *   <li>{@code initialized} and {@code shutdown} are {@code volatile} so that
- *       {@code requireInitialized()} / {@code requireNotShutdown()} (called from
- *       {@code getFlag()} outside any lock) observe a consistent state.</li>
- *   <li>{@code lastSnapshotWriteAt} is {@code volatile}; written by the remote poll
- *       thread before the atomic rename so that the FileWatcher event triggered by our
- *       own write falls inside the debounce window.</li>
- *   <li>Read paths ({@code getFlag}, {@code getAllFlags}, {@code getState}) are lock-free
- *       and delegate to the underlying providers, whose own snapshots are atomic.</li>
- *   <li>Listener lists use {@link CopyOnWriteArrayList}; iteration runs outside any lock.</li>
+ * <li>{@code init()} and {@code shutdown()} are {@code synchronized} on the
+ * provider
+ * instance to prevent concurrent lifecycle transitions.</li>
+ * <li>{@code initialized} and {@code shutdown} are {@code volatile} so that
+ * {@code requireInitialized()} / {@code requireNotShutdown()} (called from
+ * {@code getFlag()} outside any lock) observe a consistent state.</li>
+ * <li>{@code lastSnapshotWriteAt} is {@code volatile}; written by the remote
+ * poll
+ * thread before the atomic rename so that the FileWatcher event triggered by
+ * our
+ * own write falls inside the debounce window.</li>
+ * <li>Read paths ({@code getFlag}, {@code getAllFlags}, {@code getState}) are
+ * lock-free
+ * and delegate to the underlying providers, whose own snapshots are
+ * atomic.</li>
+ * <li>Listener lists use {@link CopyOnWriteArrayList}; iteration runs outside
+ * any lock.</li>
  * </ul>
  */
-public final class HybridFlagProvider implements FlagProvider {
+public final class HybridFlagProvider implements FlagProvider, ProviderDiagnostics {
 
     private static final Logger log = LoggerFactory.getLogger(HybridFlagProvider.class);
 
@@ -84,15 +110,31 @@ public final class HybridFlagProvider implements FlagProvider {
     /** Counts consecutive snapshot write failures for log throttling. */
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
-    /** Tracks last successful snapshot write time; used by onFileChange debounce. */
+    /**
+     * Tracks last successful snapshot write time; used by onFileChange debounce.
+     */
     private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
 
-    // volatile: read in requireInitialized() which is called from getFlag() outside synchronized
+    /**
+     * Current routing target ("remote" or "file"); detects transitions for
+     * hybrid.fallback metric.
+     */
+    private final AtomicReference<String> routingTarget = new AtomicReference<>("remote");
+
+    /**
+     * Optional metrics recorder; defaults to NOOP. Wired by the Spring Boot
+     * starter.
+     */
+    private volatile MetricsRecorder metricsRecorder = MetricsRecorder.NOOP;
+
+    // volatile: read in requireInitialized() which is called from getFlag() outside
+    // synchronized
     private volatile boolean initialized = false;
     private volatile boolean shutdown = false;
 
     /**
-     * Use {@link HybridFlagProviderBuilder} (via {@link #builder()}) to construct instances.
+     * Use {@link HybridFlagProviderBuilder} (via {@link #builder()}) to construct
+     * instances.
      *
      * @param config the immutable configuration; non-null
      */
@@ -125,9 +167,9 @@ public final class HybridFlagProvider implements FlagProvider {
      * Package-private constructor for testing; allows injecting mock providers.
      */
     HybridFlagProvider(HybridProviderConfig config,
-                       RemoteFlagProvider remote,
-                       FileFlagProvider file,
-                       SnapshotWriter snapshotWriter) {
+            RemoteFlagProvider remote,
+            FileFlagProvider file,
+            SnapshotWriter snapshotWriter) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.remote = Objects.requireNonNull(remote, "remote must not be null");
         this.remote.setPollListener(this::onPollComplete);
@@ -153,7 +195,8 @@ public final class HybridFlagProvider implements FlagProvider {
     @Override
     public synchronized void init() {
         requireNotShutdown();
-        if (initialized) return;
+        if (initialized)
+            return;
 
         boolean remoteOk = false;
         boolean fileOk = false;
@@ -201,14 +244,14 @@ public final class HybridFlagProvider implements FlagProvider {
         Objects.requireNonNull(key, "key must not be null");
         requireInitialized();
         requireNotShutdown();
-        return activeProvider().getFlag(key);
+        return resolveActiveProvider().getFlag(key);
     }
 
     @Override
     public Map<String, Flag> getAllFlags() {
         requireInitialized();
         requireNotShutdown();
-        return activeProvider().getAllFlags();
+        return resolveActiveProvider().getAllFlags();
     }
 
     /**
@@ -216,8 +259,10 @@ public final class HybridFlagProvider implements FlagProvider {
      */
     @Override
     public ProviderState getState() {
-        if (shutdown) return ProviderState.SHUTDOWN;
-        if (!initialized) return ProviderState.NOT_READY;
+        if (shutdown)
+            return ProviderState.SHUTDOWN;
+        if (!initialized)
+            return ProviderState.NOT_READY;
         ProviderState rs = remote.getState();
         ProviderState fs = file.getState();
 
@@ -250,11 +295,13 @@ public final class HybridFlagProvider implements FlagProvider {
     }
 
     /**
-     * Shuts down the inner providers in reverse order of initialization. Idempotent.
+     * Shuts down the inner providers in reverse order of initialization.
+     * Idempotent.
      */
     @Override
     public synchronized void shutdown() {
-        if (shutdown) return;
+        if (shutdown)
+            return;
         shutdown = true;
 
         try {
@@ -327,12 +374,92 @@ public final class HybridFlagProvider implements FlagProvider {
         }
     }
 
-    private FlagProvider activeProvider() {
+    /**
+     * Resolves the active sub-provider for the current request, updates
+     * {@link #routingTarget}, and emits a {@code hybrid.fallback} metric on
+     * every transition. <strong>Has side-effects</strong>: never call from
+     * read-only getters like {@code getState()} or {@code flagCount()};
+     * those must read {@code routingTarget} directly.
+     */
+    private FlagProvider resolveActiveProvider() {
         ProviderState rs = remote.getState();
-        if (rs == ProviderState.READY || rs == ProviderState.DEGRADED) {
-            return remote;
+        String target = (rs == ProviderState.READY || rs == ProviderState.DEGRADED)
+                ? "remote"
+                : "file";
+        String prev = routingTarget.getAndSet(target);
+        if (!prev.equals(target)) {
+            try {
+                metricsRecorder.recordHybridFallback(prev, target);
+            } catch (Throwable t) {
+                log.warn("MetricsRecorder.recordHybridFallback threw", t);
+            }
         }
-        return file;
+        return target.equals("remote") ? remote : file;
+    }
+
+    /**
+     * Wires a {@link MetricsRecorder} that receives {@code hybrid.fallback}
+     * events on every routing transition. Defaults to {@link MetricsRecorder#NOOP}.
+     *
+     * @param recorder the recorder; non-null
+     */
+    public void setMetricsRecorder(MetricsRecorder recorder) {
+        this.metricsRecorder = Objects.requireNonNull(recorder, "recorder must not be null");
+    }
+
+    @Override
+    public String providerType() {
+        return "hybrid";
+    }
+
+    @Override
+    public Map<String, Object> diagnostics() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("hybrid.routing_target", routingTarget.get());
+        data.put("hybrid.snapshot_path", config.snapshotPath().toString());
+        Instant write = lastSnapshotWriteAt;
+        long ageSec = write.equals(Instant.EPOCH)
+                ? -1L
+                : Duration.between(write, Instant.now()).toSeconds();
+        data.put("hybrid.snapshot_age_seconds", ageSec);
+        data.put("hybrid.last_snapshot_write",
+                write.equals(Instant.EPOCH) ? "" : write.toString());
+        if (remote instanceof ProviderDiagnostics rd) {
+            data.putAll(rd.diagnostics());
+        }
+        if (file instanceof ProviderDiagnostics fd) {
+            data.putAll(fd.diagnostics());
+        }
+        return Collections.unmodifiableMap(data);
+    }
+
+    @Override
+    public Instant lastUpdate() {
+        Instant r = (remote instanceof ProviderDiagnostics rd) ? rd.lastUpdate() : null;
+        Instant f = (file instanceof ProviderDiagnostics fd) ? fd.lastUpdate() : null;
+        if (r == null)
+            return f;
+        if (f == null)
+            return r;
+        return r.isAfter(f) ? r : f;
+    }
+
+    @Override
+    public int flagCount() {
+        if (shutdown)
+            return 0;
+        // Read routingTarget directly; resolveActiveProvider() has side-effects
+        // (metric emission) and must not be invoked from a read-only getter.
+        // Value may be one transition stale — acceptable for diagnostics.
+        // Both `remote` and `file` are non-null final fields validated by the builder;
+        // Objects.requireNonNull makes the contract explicit for static analyzers.
+        FlagProvider active = Objects.requireNonNull(
+                "remote".equals(routingTarget.get()) ? remote : file,
+                "active provider must not be null");
+        if (active instanceof ProviderDiagnostics d) {
+            return d.flagCount();
+        }
+        return active.getAllFlags().size();
     }
 
     private void requireInitialized() {
