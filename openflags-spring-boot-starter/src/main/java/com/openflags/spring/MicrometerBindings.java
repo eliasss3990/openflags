@@ -1,0 +1,92 @@
+package com.openflags.spring;
+
+import com.openflags.core.OpenFlagsClientCustomizer;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.config.MeterFilter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Conditional Micrometer bindings for the openflags Spring Boot starter.
+ * <p>
+ * This configuration is loaded only when
+ * {@code io.micrometer.core.instrument.MeterRegistry}
+ * is on the classpath and the property {@code openflags.metrics.enabled} is
+ * {@code true}
+ * (the default). It contributes:
+ * </p>
+ * <ul>
+ * <li>An {@link OpenFlagsClientCustomizer} that wires the {@link MeterRegistry}
+ * into the
+ * {@code OpenFlagsClient} builder via {@code metricsRegistry(...)} and
+ * propagates the
+ * {@code openflags.metrics.tag-flag-key} flag.</li>
+ * <li>An optional {@link MeterFilter} bean exposing the static tags configured
+ * under
+ * {@code openflags.metrics.tags.*} as common tags on the registry.</li>
+ * </ul>
+ * <p>
+ * Package-private on purpose: this class is an implementation detail of
+ * {@link OpenFlagsAutoConfiguration} and is not part of the public API surface.
+ * </p>
+ */
+@Configuration(proxyBeanMethods = false)
+@ConditionalOnClass(MeterRegistry.class)
+@ConditionalOnProperty(prefix = "openflags.metrics", name = "enabled", havingValue = "true", matchIfMissing = true)
+class MicrometerBindings {
+
+    /**
+     * Customizer that attaches the active {@link MeterRegistry} to the openflags
+     * client
+     * builder. Only registered when a {@code MeterRegistry} bean is present.
+     *
+     * @param registry the active meter registry
+     * @param props    the openflags properties; used to read
+     *                 {@code metrics.tag-flag-key}
+     * @return a customizer that binds metrics into the client builder
+     */
+    @Bean
+    @ConditionalOnBean(MeterRegistry.class)
+    OpenFlagsClientCustomizer openflagsMicrometerCustomizer(MeterRegistry registry,
+            OpenFlagsProperties props) {
+        boolean tagFlagKey = props.getMetrics().isTagFlagKey();
+        return builder -> builder
+                .metricsRegistry(registry)
+                .metricsTagFlagKey(tagFlagKey);
+    }
+
+    /**
+     * Exposes the static tags configured under {@code openflags.metrics.tags.*} as
+     * a
+     * {@link MeterFilter} bean. Spring Boot Actuator auto-applies every
+     * {@code MeterFilter}
+     * bean to all auto-configured registries, so the tags become common to every
+     * metric.
+     * <p>
+     * If no tags are configured the bean is still created but acts as a no-op
+     * filter.
+     * </p>
+     *
+     * @param props the openflags properties; used to read {@code metrics.tags}
+     * @return a meter filter contributing the configured static tags
+     */
+    @Bean
+    @ConditionalOnBean(MeterRegistry.class)
+    MeterFilter openflagsCommonTagsFilter(OpenFlagsProperties props) {
+        Map<String, String> configured = props.getMetrics().getTags();
+        if (configured == null || configured.isEmpty()) {
+            return MeterFilter.commonTags(List.of());
+        }
+        List<Tag> tags = new ArrayList<>(configured.size());
+        configured.forEach((k, v) -> tags.add(Tag.of(k, v)));
+        return MeterFilter.commonTags(tags);
+    }
+}
