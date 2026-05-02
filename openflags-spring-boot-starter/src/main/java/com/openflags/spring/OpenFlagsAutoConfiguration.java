@@ -130,6 +130,7 @@ public class OpenFlagsAutoConfiguration {
     /**
      * Creates a {@link FlagProvider} bean backed by a local file.
      * Activated when {@code openflags.provider=file} (the default).
+     * Skipped if a custom {@link FlagProvider} bean is already defined.
      *
      * @param properties     the openflags properties
      * @param resourceLoader Spring resource loader for resolving classpath paths
@@ -139,6 +140,7 @@ public class OpenFlagsAutoConfiguration {
      */
     @Bean(initMethod = "init", destroyMethod = "shutdown")
     @ConditionalOnProperty(name = "openflags.provider", havingValue = "file", matchIfMissing = true)
+    @ConditionalOnMissingBean(FlagProvider.class)
     public FlagProvider fileFlagProvider(OpenFlagsProperties properties, ResourceLoader resourceLoader)
             throws IOException {
         String pathStr = properties.getFile().getPath();
@@ -229,8 +231,9 @@ public class OpenFlagsAutoConfiguration {
     static class ActuatorConfiguration {
         @Bean
         @ConditionalOnMissingBean
-        public OpenFlagsHealthIndicator openFlagsHealthIndicator(OpenFlagsClient client) {
-            return new OpenFlagsHealthIndicator(client);
+        public OpenFlagsHealthIndicator openFlagsHealthIndicator(OpenFlagsClient client,
+                ObjectProvider<FlagProvider> providers) {
+            return new OpenFlagsHealthIndicator(client, providers.getIfAvailable());
         }
     }
 }
