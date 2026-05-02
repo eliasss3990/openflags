@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -85,10 +86,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code requireInitialized()} / {@code requireNotShutdown()} (called from
  * {@code getFlag()} outside any lock) observe a consistent state.</li>
  * <li>{@code lastSnapshotWriteAt} is {@code volatile}; written by the remote
- * poll
- * thread before the atomic rename so that the FileWatcher event triggered by
- * our
- * own write falls inside the debounce window.</li>
+ * poll thread only after a successful atomic rename. The {@code AtomicBoolean}
+ * {@code expectingSelfWrite} is set <em>before</em> the rename and consumed by
+ * the first {@code onFileChange} invocation, ensuring our own self-write
+ * events are filtered even when the OS event races ahead of the post-write
+ * bookkeeping.</li>
  * <li>Read paths ({@code getFlag}, {@code getAllFlags}, {@code getState}) are
  * lock-free
  * and delegate to the underlying providers, whose own snapshots are
@@ -114,6 +116,17 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * Tracks last successful snapshot write time; used by onFileChange debounce.
      */
     private volatile Instant lastSnapshotWriteAt = Instant.EPOCH;
+
+    /**
+     * Set immediately before invoking {@link SnapshotWriter#write} so that the
+     * filesystem watcher event triggered by our own atomic rename is filtered
+     * out by {@link #onFileChange}, even if the OS event arrives before the
+     * post-write timestamp assignment. The flag uses consume-once semantics:
+     * the first {@code onFileChange} invocation while it is {@code true}
+     * clears it. Cleared as well after a write failure so that subsequent
+     * external events are not silenced.
+     */
+    private final AtomicBoolean expectingSelfWrite = new AtomicBoolean(false);
 
     /**
      * Current routing target ("remote" or "file"); detects transitions for
@@ -335,6 +348,10 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     }
 
     private void onFileChange(FlagChangeEvent event) {
+        if (expectingSelfWrite.compareAndSet(true, false)) {
+            log.debug("HybridFlagProvider: ignoring file event from our own snapshot write");
+            return;
+        }
         Duration sinceLastWrite = Duration.between(lastSnapshotWriteAt, Instant.now());
         if (sinceLastWrite.compareTo(config.snapshotDebounce()) < 0) {
             log.debug("HybridFlagProvider: ignoring file event within debounce window ({} ms)",
@@ -356,20 +373,37 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     }
 
     private void writeSafe(Map<String, Flag> flags) {
-        // Set timestamp before the write so the FileWatcher event triggered by
-        // our own atomic rename is filtered out by the debounce window in
-        // onFileChange. Otherwise there is a small race where the OS event
-        // arrives before this thread reaches the post-write assignment.
-        lastSnapshotWriteAt = Instant.now();
+        // Mark the impending self-write before invoking the writer so that an
+        // OS file event arriving before this thread reaches the post-write
+        // bookkeeping is still filtered out by onFileChange.
+        expectingSelfWrite.set(true);
+        long startNanos = System.nanoTime();
+        boolean success = false;
         try {
             snapshotWriter.write(flags, config.snapshotPath());
+            success = true;
+            long durationNanos = System.nanoTime() - startNanos;
+            // Update the timestamp only after a successful write so that the
+            // debounce window in onFileChange reflects real snapshots and a
+            // failed self-write does not silence subsequent external events.
+            lastSnapshotWriteAt = Instant.now();
             consecutiveWriteFailures.set(0);
+            recordSnapshotWriteSafely("success", durationNanos);
         } catch (IOException e) {
+            long durationNanos = System.nanoTime() - startNanos;
             int failures = consecutiveWriteFailures.incrementAndGet();
             // log at power-of-two milestones only
             if (Integer.bitCount(failures) == 1) {
                 log.warn("HybridFlagProvider: snapshot write failed (consecutive={}): {}",
                         failures, e.getMessage());
+            }
+            recordSnapshotWriteSafely("failure", durationNanos);
+        } finally {
+            // If the write did not complete (IOException or any unchecked
+            // throwable) there will be no self-event to filter: clear the
+            // flag so the next legitimate file event is not silenced.
+            if (!success) {
+                expectingSelfWrite.set(false);
             }
         }
     }
@@ -388,13 +422,25 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 : "file";
         String prev = routingTarget.getAndSet(target);
         if (!prev.equals(target)) {
-            try {
-                metricsRecorder.recordHybridFallback(prev, target);
-            } catch (Throwable t) {
-                log.warn("MetricsRecorder.recordHybridFallback threw", t);
-            }
+            recordHybridFallbackSafely(prev, target);
         }
         return target.equals("remote") ? remote : file;
+    }
+
+    private void recordSnapshotWriteSafely(String outcome, long durationNanos) {
+        try {
+            metricsRecorder.recordSnapshotWrite(outcome, durationNanos);
+        } catch (Exception e) {
+            log.warn("MetricsRecorder.recordSnapshotWrite threw", e);
+        }
+    }
+
+    private void recordHybridFallbackSafely(String from, String to) {
+        try {
+            metricsRecorder.recordHybridFallback(from, to);
+        } catch (Exception e) {
+            log.warn("MetricsRecorder.recordHybridFallback threw", e);
+        }
     }
 
     /**
