@@ -1,6 +1,7 @@
 package com.openflags.provider.file;
 
 import com.openflags.core.event.FlagChangeEvent;
+import com.openflags.core.provider.ProviderState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -66,8 +67,8 @@ class FileFlagProviderConcurrencyTest {
         reloadThread.join(5000);
         shutdownThread.join(5000);
 
-        // After shutdown the state must be STALE or SHUTDOWN; no events emitted by a
+        // After shutdown the state must be SHUTDOWN; no events emitted by a
         // shutdown provider should cause listener exceptions.
-        assertThat(provider.getState().name()).isIn("STALE", "SHUTDOWN");
+        assertThat(provider.getState()).isEqualTo(ProviderState.SHUTDOWN);
     }
 }
