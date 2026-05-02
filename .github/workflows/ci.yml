@@ -71,3 +71,26 @@ jobs:
 
       - name: Generate Javadoc
         run: mvn -B javadoc:aggregate -Dquiet=true
+
+  release-dry-run:
+    name: Release dry-run (sign without publishing)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.MAVEN_GPG_PRIVATE_KEY != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Verify release profile (sign locally, do not publish)
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: mvn -B -P release -DskipPublish=true clean verify

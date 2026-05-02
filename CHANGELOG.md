@@ -9,9 +9,42 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Breaking Changes (pre-1.0)
+## [1.0.0] - 2026-05-02
+
+First stable release. Public API frozen; subsequent releases follow Semantic Versioning.
+
+### Breaking Changes
 
 - `openflags-spring-boot-starter`: renamed property `openflags.remote.auth-header-value` to `openflags.remote.auth-header-secret`. The `-secret` suffix triggers Spring Boot Actuator's automatic value sanitization on `/actuator/configprops` and `/actuator/env`. Migration: rename the key in `application.yml`/`application.properties`; the value semantics are unchanged.
+
+### Added
+
+- `openflags-core`: public meter-name and MDC-key constants (`OpenFlagsMetrics`, `OpenFlagsMdc`) for stable observability contracts
+- `openflags-spring-boot-starter`: full configuration metadata coverage with `ConfigurationMetadataDriftTest` to prevent regressions
+- `openflags-core`: bytecode-level `NoMicrometerHardClassRefTest` ensures no hard reference to Micrometer leaks into core
+
+### Changed
+
+- `openflags-provider-remote`: 9-arg convenience constructor of `RemoteProviderConfig` marked `@Deprecated`; prefer `RemoteFlagProviderBuilder.forUrl(URI)` which evolves gracefully when new optional fields are added
+- `openflags-provider-remote`: `RemoteProviderConfig.toString()` masks `authHeaderValue` (`null`/`<blank>`/`***`) to prevent secret leakage in logs and diagnostics
+- `openflags-spring-boot-starter`: `MetricsRecorder` consolidated as a single bean injected into the Micrometer customizer (no more reflective `MeterRegistry` lookup)
+- `openflags-core`: `EvaluationEvent` Javadoc documents concrete runtime types of `defaultValue` / `resolvedValue` (`Boolean`, `String`, `Double`, `Long`, `Map<String,Object>`)
+
+### Fixed
+
+- `openflags-provider-hybrid`: race between provider initialization and internal listener registration — `expectingSelfWrite` flag is now reset and listeners attached only after both providers complete `init()`
+- `openflags-provider-hybrid`: snapshot debounce timestamp now captured before atomic move to suppress self-induced WatchService events under concurrent writes
+- `openflags-provider-file`: `shutdown()` correctly transitions to `SHUTDOWN` state (was leaving the provider in `STALE` after race with reload)
+- `openflags-core`: `error.type` metric tag corrected for `PROVIDER_ERROR` outcomes
+- `openflags-spring-boot-starter`: `failureThreshold`, `maxBackoff` and `auditMdcEnabled` properties are now wired through to the underlying providers (previously ignored)
+- `openflags-provider-hybrid` / `openflags-provider-remote`: dispatch loops catch `Exception` instead of `Throwable` so JVM `Error`s (e.g. `OutOfMemoryError`) propagate to the caller instead of being swallowed
+- `openflags-provider-remote`: failed-poll log line now includes the target URL for easier diagnosis
+- `openflags-provider-remote`: defaults centralised in `RemoteProviderConfig` (`DEFAULT_FAILURE_THRESHOLD`, `DEFAULT_MAX_BACKOFF`, `DEFAULT_CONNECT_TIMEOUT`, `DEFAULT_REQUEST_TIMEOUT`, `DEFAULT_POLL_INTERVAL`, `DEFAULT_CACHE_TTL`, `DEFAULT_USER_AGENT`, `DEFAULT_FLAGS_PATH`) and reused by builder, properties and Spring auto-configuration
+
+### Build
+
+- Documentation: README and module Javadoc realigned with the actual public API surface (F1)
+- Maven Central readiness: signing, sources, javadoc and POM metadata configured under the `release` profile
 
 ## [0.5.0] - 2026-05-02
 
@@ -227,4 +260,5 @@ shipped as part of `0.5.0`. They are kept here for traceability.
 
 ---
 
-[Unreleased]: https://github.com/eliasss3990/openflags/commits/main
+[Unreleased]: https://github.com/eliasss3990/openflags/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/eliasss3990/openflags/releases/tag/v1.0.0
