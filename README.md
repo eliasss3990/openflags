@@ -442,6 +442,96 @@ atomic move, the provider falls back to `REPLACE_EXISTING`.
 
 ---
 
+## Observability (Phase 5)
+
+Phase 5 adds metrics, evaluation listeners, an extended health endpoint and a circuit
+breaker on the remote provider. All features are zero-config when using the Spring Boot
+starter and degrade gracefully when their optional dependencies are absent.
+
+### Metrics with Micrometer
+
+`micrometer-core` is an optional dependency of `openflags-core`. The starter wires a
+`MicrometerMetricsRecorder` automatically when a `MeterRegistry` bean is present and
+`openflags.metrics.enabled=true` (default). Without Micrometer or without a registry
+bean the client uses a NOOP recorder; nothing else changes.
+
+Counters and timers exposed (default tag set; `flag` and `variant` are added when
+`tag-flag-key=true`):
+
+- `openflags.evaluations.total{provider.type,type,reason}` — one increment per evaluation
+- `openflags.evaluation.duration{provider.type,type,reason}` (timer) — per-evaluation latency
+- `openflags.evaluations.errors.total{provider.type,error.type}` — evaluation errors (also tags `flag` when `tag-flag-key=true`)
+- `openflags.evaluations.listener.errors.total{listener}` — listener that threw
+- `openflags.poll.total{outcome}` — remote-provider poll counter
+- `openflags.poll.duration{outcome}` (timer) — remote-provider poll latency
+- `openflags.snapshot.writes.total{outcome}` / `openflags.snapshot.write.duration{outcome}` — hybrid snapshot writes
+- `openflags.flag_changes.total{change_type}` — flag change events observed
+- `openflags.hybrid.fallback.total{from,to}` — routing change in hybrid
+
+The remote-provider circuit-breaker state and the file-watcher heartbeat are surfaced
+through `ProviderDiagnostics` (and therefore the `/actuator/health` payload) as
+`remote.circuit_open` and `file.watcher_alive` respectively. Gauges with those names
+are not currently registered on the `MeterRegistry`.
+
+Configuration:
+
+```yaml
+openflags:
+  metrics:
+    enabled: true            # set to false to disable the customizer
+    tag-flag-key: true       # add a flag=<key> tag to per-flag counters
+    tags:
+      env: prod              # static tags applied via MeterFilter.commonTags
+      region: eu-west-1
+```
+
+### EvaluationListener
+
+Every bean that implements `EvaluationListener` is auto-detected and invoked after every
+evaluation. Listeners are dispatched synchronously, in `@Order` order, with per-listener
+exception isolation.
+
+```java
+@Bean
+EvaluationListener auditListener() {
+    return event -> {
+        // event.flagKey, event.targetingKey, event.resolvedValue, event.reason, ...
+        log.info("flag {} -> {}", event.flagKey(), event.resolvedValue());
+    };
+}
+```
+
+### Health endpoint
+
+When Actuator is on the classpath the starter registers `OpenFlagsHealthIndicator`. The
+indicator reports `UP` for `READY`, `OUT_OF_SERVICE` for `DEGRADED`/`STALE` and `DOWN`
+otherwise. When the active provider implements `ProviderDiagnostics`, response details
+include `provider.type`, `file.path`, `file.flag_count`, `remote.last_poll`,
+`remote.consecutive_failures`, `remote.circuit_open` and the equivalent hybrid keys.
+
+### Circuit breaker (remote provider)
+
+The remote provider tracks consecutive poll failures and applies exponential backoff
+once the threshold is reached. Defaults: `failure-threshold=5`, `max-backoff=5m`. Both
+are exposed as Spring properties and surfaced via the health indicator.
+
+```yaml
+openflags:
+  remote:
+    failure-threshold: 5
+    max-backoff: 5m
+```
+
+### MDC and PII
+
+When `openflags.audit.mdc-enabled=true` the client sets `openflags.flag_key` and
+`openflags.targeting_key` on the SLF4J `MDC` for the duration of each evaluation,
+restoring the previous values afterwards (nesting-safe). Remember that
+`openflags.targeting_key` may carry PII; keep it disabled by default in environments
+where logs are not sufficiently controlled.
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please open an issue before submitting a pull request for significant changes.

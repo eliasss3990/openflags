@@ -9,6 +9,50 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-02
+
+### Added
+
+- `openflags-core`: `EvaluationEvent` record + `EvaluationListener` SPI — synchronous, per-evaluation hook for audit/tracing/custom telemetry, with per-listener exception isolation
+- `openflags-core`: `OpenFlagsClientCustomizer` SPI — lets the Spring starter (or any consumer) tweak the builder before `build()`
+- `openflags-core`: `MetricsRecorder` interface and `Tag` record (no Micrometer imports leaked into the public API)
+- `openflags-core`: `MicrometerMetricsRecorder` (package-private) wired reflectively via `metricsRegistry(Object)` on the builder; `micrometer-core` is an `<optional>true</optional>` dependency
+- `openflags-core`: MDC integration — `openflags.flag_key` and `openflags.targeting_key` set during evaluation when `auditMdcEnabled=true`, restored on return (nesting-safe)
+- `openflags-core`: `ProviderDiagnostics` SPI — provider-level diagnostics surface (type, last update, flag count, free-form map)
+- `openflags-provider-file`: `FileFlagProvider` implements `ProviderDiagnostics` (path, format, flag count, watcher health, last reload)
+- `openflags-provider-remote`: `CircuitBreakerState` (package-private) — exponential backoff after N consecutive poll failures, `failureThreshold` (default 5), `maxBackoff` (default 5min)
+- `openflags-provider-remote`: `RemoteFlagProvider` implements `ProviderDiagnostics`; circuit-breaker state exposed via diagnostics
+- `openflags-provider-remote`: `RemotePollListener.onPollOutcome(outcome, durationNanos)` default method to publish poll metrics without coupling core to the remote module
+- `openflags-provider-hybrid`: `HybridFlagProvider` implements `ProviderDiagnostics` (composes remote + file diagnostics, exposes routing target and snapshot age) and emits `recordHybridFallback(from, to)` on routing changes
+- `openflags-spring-boot-starter`: `OpenFlagsProperties.Metrics` and `OpenFlagsProperties.Audit` inner classes; `RemoteProperties.failureThreshold` / `maxBackoff`; full configuration metadata for IDE auto-complete
+- `openflags-spring-boot-starter`: conditional Micrometer auto-config via `MicrometerBindings` — registers `openflagsMicrometerCustomizer` and a static-tags `MeterFilter` when a `MeterRegistry` bean is present and `openflags.metrics.enabled=true`
+- `openflags-spring-boot-starter`: auto-detection of every `EvaluationListener` bean via an `OpenFlagsClientCustomizer`
+- `openflags-spring-boot-starter`: `OpenFlagsHealthIndicator` enriched with `provider.type` and the provider's `diagnostics()` map; `FlagProvider` now exposed as a separate `@Bean` and injected via `ObjectProvider` for graceful absence
+- `openflags-bom`: version bumped to 0.5.0
+
+### Changed
+
+- `openflags-spring-boot-starter`: `fileFlagProvider` gains `@ConditionalOnMissingBean(FlagProvider.class)` for consistency with the remote/hybrid bean definitions
+- Provider state mapping in the health indicator: `READY=UP`, `DEGRADED|STALE=OUT_OF_SERVICE`, otherwise `DOWN`
+
+### Tests
+
+- New: bytecode-level `NoMicrometerHardClassRefTest` and a dedicated `no-micrometer` Surefire profile that verifies the SDK works with Micrometer absent from the classpath
+- New: `ObservabilityE2ETest` — `@SpringBootTest` exercising the full wiring (auto-detect listener, Micrometer customizer, extended health indicator)
+- New: hybrid-fallback metric, file watcher diagnostics and circuit-breaker state coverage in their respective provider modules
+
+### Notes
+
+- The SDK keeps strict backward compatibility with 0.4.x: every new listener/recorder is opt-in and degrades to NOOP without configuration
+- `openflags.audit.mdc-enabled` is `false` by default because `openflags.targeting_key` may carry PII
+
+---
+
+## [Unreleased — folded into 0.5.0]
+
+The entries below were tracked under `[Unreleased]` while phase 5 was in flight and are
+shipped as part of `0.5.0`. They are kept here for traceability.
+
 ### Breaking Changes (pre-1.0)
 
 - **`EvaluationReason.DEFAULT` renamed to `EvaluationReason.NO_RULE_MATCHED`** — the previous name was ambiguous (it conflated "no rules declared" with "rules declared but none matched"). `RESOLVED` already covers the no-rules case. Callers comparing against `DEFAULT` must update to `NO_RULE_MATCHED`. (C-02, C-12)
