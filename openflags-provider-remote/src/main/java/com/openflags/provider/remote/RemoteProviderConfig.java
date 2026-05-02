@@ -82,7 +82,13 @@ public record RemoteProviderConfig(
      * Convenience constructor preserving the pre-circuit-breaker signature.
      * Applies {@link #DEFAULT_FAILURE_THRESHOLD} and the larger of
      * {@link #DEFAULT_MAX_BACKOFF} or {@code pollInterval} as defaults.
+     *
+     * @deprecated Prefer {@link RemoteFlagProviderBuilder} (obtained via
+     *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
+     *             evolves gracefully when new optional fields are added to
+     *             the record.
      */
+    @Deprecated
     public RemoteProviderConfig(
             URI baseUrl,
             String flagsPath,
