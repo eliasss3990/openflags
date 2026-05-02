@@ -11,9 +11,10 @@ package com.openflags.core.metrics;
  * reference them would otherwise break silently. New names and tags MAY be
  * added in minor releases.
  *
- * @apiNote Use these constants instead of string literals when configuring
- *          dashboards programmatically (e.g. via Grafana provisioning) or
- *          when filtering metrics in tests.
+ * <p>
+ * <strong>API note:</strong> use these constants instead of string literals
+ * when configuring dashboards programmatically (e.g. via Grafana provisioning)
+ * or when filtering metrics in tests.
  */
 public final class OpenFlagsMetrics {
 

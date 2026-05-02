@@ -10,9 +10,10 @@ package com.openflags.core;
  * (e.g. {@code %X{openflags.flag_key}}) would break on rename, so any change
  * is a <em>major</em> version bump.
  *
- * @apiNote Reference these constants from log layout configurations when
- *          building patterns programmatically; they are also useful in
- *          tests asserting on captured MDC content.
+ * <p>
+ * <strong>API note:</strong> reference these constants from log layout
+ * configurations when building patterns programmatically; they are also
+ * useful in tests asserting on captured MDC content.
  */
 public final class OpenFlagsMdc {
 
