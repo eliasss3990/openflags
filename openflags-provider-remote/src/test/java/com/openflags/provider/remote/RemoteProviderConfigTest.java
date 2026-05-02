@@ -157,4 +157,23 @@ class RemoteProviderConfigTest {
         assertThat(c.authHeaderName()).isNull();
         assertThat(c.authHeaderValue()).isNull();
     }
+
+    @Test
+    void toString_masksAuthHeaderValue_whenSet() {
+        RemoteProviderConfig c = new RemoteProviderConfig(HTTPS_URL, "/flags",
+                "Authorization", "Bearer xyz-secret-token", POS, POS, POLL, TTL, "agent");
+        String s = c.toString();
+        assertThat(s).doesNotContain("xyz-secret-token");
+        assertThat(s).doesNotContain("Bearer");
+        assertThat(s).contains("authHeaderValue=***");
+        assertThat(s).contains("authHeaderName=Authorization");
+    }
+
+    @Test
+    void toString_showsNullForAbsentAuthHeaderValue() {
+        RemoteProviderConfig c = valid();
+        String s = c.toString();
+        assertThat(s).contains("authHeaderValue=null");
+        assertThat(s).doesNotContain("***");
+    }
 }
