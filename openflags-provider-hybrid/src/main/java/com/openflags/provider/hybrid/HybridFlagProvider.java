@@ -105,7 +105,9 @@ public final class HybridFlagProvider implements FlagProvider {
                 .requestTimeout(config.remoteConfig().requestTimeout())
                 .pollInterval(config.remoteConfig().pollInterval())
                 .cacheTtl(config.remoteConfig().cacheTtl())
-                .userAgent(config.remoteConfig().userAgent());
+                .userAgent(config.remoteConfig().userAgent())
+                .failureThreshold(config.remoteConfig().failureThreshold())
+                .maxBackoff(config.remoteConfig().maxBackoff());
         if (config.remoteConfig().authHeaderName() != null) {
             remoteBuilder.apiKey(config.remoteConfig().authHeaderName(),
                     config.remoteConfig().authHeaderValue());

@@ -512,7 +512,9 @@ When Actuator is on the classpath the starter registers `OpenFlagsHealthIndicato
 indicator reports `UP` for `READY`, `OUT_OF_SERVICE` for `DEGRADED`/`STALE` and `DOWN`
 otherwise. When the active provider implements `ProviderDiagnostics`, response details
 include `provider.type`, `file.path`, `file.flag_count`, `remote.last_poll`,
-`remote.consecutive_failures`, `remote.circuit_open` and the equivalent hybrid keys.
+`remote.consecutive_failures` and `remote.circuit_open`. The `hybrid` provider
+does not currently expose `ProviderDiagnostics`, so when it is the active
+provider only the basic `provider.state` field is reported.
 
 ### Circuit breaker (remote provider)
 

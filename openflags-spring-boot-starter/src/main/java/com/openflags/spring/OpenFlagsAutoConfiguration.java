@@ -73,7 +73,9 @@ public class OpenFlagsAutoConfiguration {
                 .requestTimeout(r.getRequestTimeout())
                 .pollInterval(r.getPollInterval())
                 .cacheTtl(r.getCacheTtl())
-                .userAgent(r.getUserAgent());
+                .userAgent(r.getUserAgent())
+                .failureThreshold(r.getFailureThreshold())
+                .maxBackoff(r.getMaxBackoff());
         if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
             builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
         }
@@ -115,7 +117,9 @@ public class OpenFlagsAutoConfiguration {
                 r.getRequestTimeout(),
                 r.getPollInterval(),
                 r.getCacheTtl(),
-                r.getUserAgent());
+                r.getUserAgent(),
+                r.getFailureThreshold(),
+                r.getMaxBackoff());
 
         return HybridFlagProvider.builder()
                 .remoteConfig(rc)
@@ -167,8 +171,11 @@ public class OpenFlagsAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public OpenFlagsClient openFlagsClient(FlagProvider provider,
+            OpenFlagsProperties properties,
             ObjectProvider<OpenFlagsClientCustomizer> customizers) {
-        OpenFlagsClientBuilder builder = OpenFlagsClient.builder().provider(provider);
+        OpenFlagsClientBuilder builder = OpenFlagsClient.builder()
+                .provider(provider)
+                .auditMdcEnabled(properties.getAudit().isMdcEnabled());
         customizers.orderedStream().forEach(c -> c.customize(builder));
         return builder.build();
     }
