@@ -388,11 +388,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             // failed self-write does not silence subsequent external events.
             lastSnapshotWriteAt = Instant.now();
             consecutiveWriteFailures.set(0);
-            try {
-                metricsRecorder.recordSnapshotWrite("success", durationNanos);
-            } catch (Throwable t) {
-                log.warn("MetricsRecorder.recordSnapshotWrite threw", t);
-            }
+            recordSnapshotWriteSafely("success", durationNanos);
         } catch (IOException e) {
             long durationNanos = System.nanoTime() - startNanos;
             int failures = consecutiveWriteFailures.incrementAndGet();
@@ -401,11 +397,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 log.warn("HybridFlagProvider: snapshot write failed (consecutive={}): {}",
                         failures, e.getMessage());
             }
-            try {
-                metricsRecorder.recordSnapshotWrite("failure", durationNanos);
-            } catch (Throwable t) {
-                log.warn("MetricsRecorder.recordSnapshotWrite threw", t);
-            }
+            recordSnapshotWriteSafely("failure", durationNanos);
         } finally {
             // If the write did not complete (IOException or any unchecked
             // throwable) there will be no self-event to filter: clear the
@@ -430,13 +422,25 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 : "file";
         String prev = routingTarget.getAndSet(target);
         if (!prev.equals(target)) {
-            try {
-                metricsRecorder.recordHybridFallback(prev, target);
-            } catch (Throwable t) {
-                log.warn("MetricsRecorder.recordHybridFallback threw", t);
-            }
+            recordHybridFallbackSafely(prev, target);
         }
         return target.equals("remote") ? remote : file;
+    }
+
+    private void recordSnapshotWriteSafely(String outcome, long durationNanos) {
+        try {
+            metricsRecorder.recordSnapshotWrite(outcome, durationNanos);
+        } catch (Exception e) {
+            log.warn("MetricsRecorder.recordSnapshotWrite threw", e);
+        }
+    }
+
+    private void recordHybridFallbackSafely(String from, String to) {
+        try {
+            metricsRecorder.recordHybridFallback(from, to);
+        } catch (Exception e) {
+            log.warn("MetricsRecorder.recordHybridFallback threw", e);
+        }
     }
 
     /**

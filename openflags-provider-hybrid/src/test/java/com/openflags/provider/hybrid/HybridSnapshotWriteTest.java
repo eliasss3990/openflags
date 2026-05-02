@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,20 +45,12 @@ class HybridSnapshotWriteTest {
                         FileFlagProvider file,
                         SnapshotWriter writer,
                         Path dir) {
-                return buildProvider(remote, file, writer, dir, Duration.ofMillis(200));
-        }
-
-        private HybridFlagProvider buildProvider(RemoteFlagProvider remote,
-                        FileFlagProvider file,
-                        SnapshotWriter writer,
-                        Path dir,
-                        Duration debounce) {
                 HybridProviderConfig cfg = new HybridProviderConfig(
                                 HybridFlagProviderTest.REMOTE_CFG,
                                 dir.resolve("snap.json"),
                                 SnapshotFormat.JSON,
                                 false,
-                                debounce,
+                                Duration.ofMillis(200),
                                 false);
                 return new HybridFlagProvider(cfg, remote, file, writer);
         }
@@ -119,7 +112,7 @@ class HybridSnapshotWriteTest {
                 provider.init();
                 verify(mockRemote, atLeastOnce()).setPollListener(pollListenerCaptor.capture());
 
-                assertThat(provider.diagnostics().get("hybrid.last_snapshot_write")).isEqualTo("");
+                assertThat(provider.diagnostics()).containsEntry("hybrid.last_snapshot_write", "");
 
                 pollListenerCaptor.getValue().onPollComplete(Collections.emptyMap());
 
@@ -147,7 +140,7 @@ class HybridSnapshotWriteTest {
 
                 pollListenerCaptor.getValue().onPollComplete(Collections.emptyMap());
 
-                assertThat(provider.diagnostics().get("hybrid.last_snapshot_write")).isEqualTo("");
+                assertThat(provider.diagnostics()).containsEntry("hybrid.last_snapshot_write", "");
                 provider.shutdown();
         }
 
@@ -201,7 +194,7 @@ class HybridSnapshotWriteTest {
         }
 
         @Test
-        void writeSuccess_selfFileEventIsFiltered(@TempDir Path dir) throws InterruptedException {
+        void writeSuccess_selfFileEventIsFiltered(@TempDir Path dir) throws Exception {
                 RemoteFlagProvider mockRemote = mock(RemoteFlagProvider.class);
                 FileFlagProvider mockFile = mock(FileFlagProvider.class);
                 SnapshotWriter mockWriter = mock(SnapshotWriter.class);
@@ -214,12 +207,7 @@ class HybridSnapshotWriteTest {
                 ArgumentCaptor<RemotePollListener> pollListenerCaptor = ArgumentCaptor
                                 .forClass(RemotePollListener.class);
 
-                // Use a tiny debounce window so we can sleep past it and
-                // isolate the expectingSelfWrite path: any silencing observed
-                // after the sleep is attributable to the consume-once flag,
-                // not to the debounce timestamp.
-                HybridFlagProvider provider = buildProvider(mockRemote, mockFile, mockWriter, dir,
-                                Duration.ofMillis(1));
+                HybridFlagProvider provider = buildProvider(mockRemote, mockFile, mockWriter, dir);
                 provider.init();
                 verify(mockFile).addChangeListener(fileListenerCaptor.capture());
                 verify(mockRemote, atLeastOnce()).setPollListener(pollListenerCaptor.capture());
@@ -229,14 +217,30 @@ class HybridSnapshotWriteTest {
 
                 pollListenerCaptor.getValue().onPollComplete(Collections.emptyMap());
 
-                // Sleep past the debounce window so the event would be
-                // forwarded if it were not for expectingSelfWrite.
-                Thread.sleep(50);
+                // Read the internal flag via reflection to assert the
+                // consume-once contract directly, rather than depending on the
+                // debounce window also being a filter (which would mask a
+                // regression where expectingSelfWrite stopped working).
+                AtomicBoolean expectingSelfWrite = readExpectingSelfWriteFlag(provider);
+                assertThat(expectingSelfWrite.get())
+                                .as("flag must be armed after a successful self-write")
+                                .isTrue();
 
                 FlagChangeEvent selfEvent = sampleFileEvent();
                 fileListenerCaptor.getValue().onFlagChange(selfEvent);
 
+                assertThat(expectingSelfWrite.get())
+                                .as("flag must be cleared after one onFileChange invocation")
+                                .isFalse();
                 verify(publicListener, never()).onFlagChange(selfEvent);
                 provider.shutdown();
+        }
+
+        private static AtomicBoolean readExpectingSelfWriteFlag(HybridFlagProvider provider)
+                        throws ReflectiveOperationException {
+                java.lang.reflect.Field field = HybridFlagProvider.class
+                                .getDeclaredField("expectingSelfWrite");
+                field.setAccessible(true);
+                return (AtomicBoolean) field.get(provider);
         }
 }
