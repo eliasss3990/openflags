@@ -27,8 +27,8 @@ Evaluate boolean, string, number, and object flags from a local YAML or JSON fil
 
 ## Requirements
 
-- Java 17 or later
-- Maven 3.8+
+- Java 21 or later
+- Maven 3.9+
 - Spring Boot 3.x (for the starter; core is framework-agnostic)
 
 ---
@@ -133,7 +133,7 @@ public class FeatureService {
 
 ```yaml
 openflags:
-  provider: file                        # currently the only supported provider
+  provider: file                        # file (default) | remote | hybrid
   file:
     path: classpath:flags.yml           # supports classpath: and file: prefixes
     watch-enabled: true                 # hot reload (auto-disabled for files inside JARs)
@@ -157,9 +157,9 @@ flags:
     description: "New checkout flow"
     rules:
       - name: argentina-users
-        type: targeting
+        kind: targeting
         value: true
-        conditions:
+        when:
           - attribute: country
             operator: EQ
             value: "AR"
@@ -177,7 +177,7 @@ flags:
     description: "New dashboard UI"
     rules:
       - name: 20pct-rollout
-        type: split
+        kind: split
         value: true
         percentage: 20
 ```
@@ -202,10 +202,15 @@ EvaluationResult<Boolean> result = client.getBooleanResult("new-checkout", false
 
 | Reason | When |
 |---|---|
+| `RESOLVED` | Flag has no rules; the flag's static value was returned |
 | `TARGETING_MATCH` | A `TargetingRule` matched the context attributes |
 | `SPLIT` | A `SplitRule` matched based on bucket allocation |
-| `DEFAULT` | Rules were present but none matched; static flag value was returned |
-| `RESOLVED` | No rules declared; flag value returned directly |
+| `VARIANT` | A `MultiVariantRule` matched and a weighted variant was selected |
+| `NO_RULE_MATCHED` | Flag has rules but none matched; the flag's static value was returned |
+| `FLAG_NOT_FOUND` | The flag key does not exist in the provider; the caller's default was returned |
+| `FLAG_DISABLED` | The flag exists but is disabled; the caller's default was returned |
+| `TYPE_MISMATCH` | The flag type does not match the requested type; the caller's default was returned |
+| `PROVIDER_ERROR` | The provider failed during resolution; the caller's default was returned |
 
 ### Backward compatibility
 
@@ -285,7 +290,7 @@ cd openflags
 mvn clean verify
 ```
 
-Requires Java 17+ and Maven 3.8+.
+Requires Java 21+ and Maven 3.9+.
 
 ---
 
@@ -510,11 +515,18 @@ EvaluationListener auditListener() {
 
 When Actuator is on the classpath the starter registers `OpenFlagsHealthIndicator`. The
 indicator reports `UP` for `READY`, `OUT_OF_SERVICE` for `DEGRADED`/`STALE` and `DOWN`
-otherwise. When the active provider implements `ProviderDiagnostics`, response details
-include `provider.type`, `file.path`, `file.flag_count`, `remote.last_poll`,
-`remote.consecutive_failures` and `remote.circuit_open`. The `hybrid` provider
-does not currently expose `ProviderDiagnostics`, so when it is the active
-provider only the basic `provider.state` field is reported.
+otherwise. The response always includes `provider.state`. When the active provider
+implements `ProviderDiagnostics`, the response is enriched with `provider.type` plus a
+provider-specific map:
+
+- `file` provider — `file.path`, `file.format`, `file.last_reload`, `file.watcher_alive`,
+  `file.flag_count`.
+- `remote` provider — `remote.base_url`, `remote.poll_interval_ms`, `remote.cache_ttl_ms`,
+  `remote.state`, `remote.last_fetch`, `remote.flag_count`,
+  `remote.consecutive_failures`, `remote.circuit_open`, `remote.next_poll_in_ms`.
+- `hybrid` provider — `hybrid.routing_target` (`remote` or `file`), `hybrid.snapshot_path`,
+  `hybrid.snapshot_age_seconds`, `hybrid.last_snapshot_write`, plus all keys exposed by
+  the underlying remote and file providers.
 
 ### Circuit breaker (remote provider)
 
