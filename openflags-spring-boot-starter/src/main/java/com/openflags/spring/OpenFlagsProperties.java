@@ -228,9 +228,10 @@ public class OpenFlagsProperties {
 
         /**
          * HTTP header value for authentication. May be null if {@code authHeaderName}
-         * is null.
+         * is null. Property name uses the {@code -secret} suffix so that
+         * Spring Boot Actuator's sanitizer masks it automatically.
          */
-        private String authHeaderValue;
+        private String authHeaderSecret;
 
         /** HTTP connect timeout. Default: 5 seconds. */
         private Duration connectTimeout = Duration.ofSeconds(5);
@@ -317,21 +318,22 @@ public class OpenFlagsProperties {
         }
 
         /**
-         * Returns the auth header value.
+         * Returns the auth header value (mapped from
+         * {@code openflags.remote.auth-header-secret}).
          *
          * @return the auth header value, or null
          */
-        public String getAuthHeaderValue() {
-            return authHeaderValue;
+        public String getAuthHeaderSecret() {
+            return authHeaderSecret;
         }
 
         /**
-         * Sets the auth header value.
+         * Sets the auth header secret.
          *
-         * @param authHeaderValue the auth header value
+         * @param authHeaderSecret the auth header secret
          */
-        public void setAuthHeaderValue(String authHeaderValue) {
-            this.authHeaderValue = authHeaderValue;
+        public void setAuthHeaderSecret(String authHeaderSecret) {
+            this.authHeaderSecret = authHeaderSecret;
         }
 
         /**
