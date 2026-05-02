@@ -20,10 +20,14 @@ merge and the immediately following snapshot-bump merge.
 | `MAVEN_GPG_PASSPHRASE`     | Passphrase for the GPG key                                |
 | `CENTRAL_USERNAME`         | Sonatype Central portal username (or token name)          |
 | `CENTRAL_PASSWORD`         | Sonatype Central portal password (or token value)         |
-| `SONAR_TOKEN`              | Token for the SonarCloud GitHub App / `sonar:sonar` goal  |
 
 The signing public key must be published to `keys.openpgp.org` (or another
 key server reachable from Maven Central's verification step).
+
+SonarCloud analysis is run via the SonarCloud GitHub App (not a workflow),
+so no `SONAR_TOKEN` secret is required in GitHub. The token lives on
+SonarCloud's side; ensure the project is linked to this repo in
+sonarcloud.io.
 
 ### Branch protection (Settings → Branches → main)
 
