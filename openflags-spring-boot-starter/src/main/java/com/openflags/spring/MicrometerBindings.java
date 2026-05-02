@@ -26,14 +26,15 @@ import java.util.Map;
  * (the default). It contributes:
  * </p>
  * <ul>
- * <li>An {@link OpenFlagsClientCustomizer} that wires the {@link MeterRegistry}
- * into the
- * {@code OpenFlagsClient} builder via {@code metricsRegistry(...)} and
- * propagates the
- * {@code openflags.metrics.tag-flag-key} flag.</li>
+ * <li>A shared {@link MetricsRecorder} bean built against the active
+ * {@link MeterRegistry}. {@code openflags.metrics.tag-flag-key} controls
+ * whether the {@code flag} and {@code variant} tags are attached.</li>
+ * <li>An {@link OpenFlagsClientCustomizer} that injects the same
+ * {@link MetricsRecorder} bean into the {@code OpenFlagsClient} builder via
+ * {@code metricsRecorder(...)}, avoiding the reflective
+ * {@code metricsRegistry(...)} path and a duplicate recorder instance.</li>
  * <li>An optional {@link MeterFilter} bean exposing the static tags configured
- * under
- * {@code openflags.metrics.tags.*} as common tags on the registry.</li>
+ * under {@code openflags.metrics.tags.*} as common tags on the registry.</li>
  * </ul>
  * <p>
  * Package-private on purpose: this class is an implementation detail of
@@ -46,23 +47,18 @@ import java.util.Map;
 class MicrometerBindings {
 
     /**
-     * Customizer that attaches the active {@link MeterRegistry} to the openflags
-     * client
-     * builder. Only registered when a {@code MeterRegistry} bean is present.
+     * Customizer that wires the shared {@link MetricsRecorder} bean into the
+     * openflags client builder. Reusing the same recorder avoids creating a
+     * second {@code MicrometerMetricsRecorder} via the reflective
+     * {@code metricsRegistry(...)} path and keeps a single counter cache.
      *
-     * @param registry the active meter registry
-     * @param props    the openflags properties; used to read
-     *                 {@code metrics.tag-flag-key}
-     * @return a customizer that binds metrics into the client builder
+     * @param recorder the metrics recorder bean
+     * @return a customizer that binds the recorder into the client builder
      */
     @Bean
     @ConditionalOnBean(MeterRegistry.class)
-    OpenFlagsClientCustomizer openflagsMicrometerCustomizer(MeterRegistry registry,
-            OpenFlagsProperties props) {
-        boolean tagFlagKey = props.getMetrics().isTagFlagKey();
-        return builder -> builder
-                .metricsRegistry(registry)
-                .metricsTagFlagKey(tagFlagKey);
+    OpenFlagsClientCustomizer openflagsMicrometerCustomizer(MetricsRecorder recorder) {
+        return builder -> builder.metricsRecorder(recorder);
     }
 
     /**
