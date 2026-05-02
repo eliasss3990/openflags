@@ -39,8 +39,17 @@ public final class OpenFlagsClientBuilder {
     OpenFlagsClientBuilder() {
     }
 
-    /** Test hook: inject a custom recorder without going through Micrometer. */
-    OpenFlagsClientBuilder metricsRecorder(MetricsRecorder recorder) {
+    /**
+     * Sets the {@link MetricsRecorder} directly. Use this when the caller
+     * already has a recorder bean (typical in Spring contexts) instead of the
+     * reflective {@link #metricsRegistry(Object)} path. When both are set,
+     * the explicitly provided recorder wins.
+     *
+     * @param recorder the recorder to use; must not be null
+     * @return this builder
+     * @throws NullPointerException if recorder is null
+     */
+    public OpenFlagsClientBuilder metricsRecorder(MetricsRecorder recorder) {
         this.metricsRecorder = Objects.requireNonNull(recorder, "recorder must not be null");
         return this;
     }
