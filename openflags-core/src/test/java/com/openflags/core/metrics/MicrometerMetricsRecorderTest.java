@@ -84,7 +84,7 @@ class MicrometerMetricsRecorderTest {
                                 .counter()
                                 .count()).isEqualTo(1.0);
                 assertThat(
-                                registry.find("openflags.evaluations.errors.total").tag("error.type", "RULE_ERROR")
+                                registry.find("openflags.evaluations.errors.total").tag("error.type", "PROVIDER_ERROR")
                                                 .counter().count())
                                 .isEqualTo(1.0);
         }
