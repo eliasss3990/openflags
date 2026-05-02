@@ -9,6 +9,8 @@ import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.time.Instant;
@@ -44,6 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </p>
  */
 public final class OpenFlagsClient {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenFlagsClient.class);
 
     private static final String MDC_FLAG_KEY = OpenFlagsMdc.FLAG_KEY;
     private static final String MDC_TARGETING_KEY = OpenFlagsMdc.TARGETING_KEY;
@@ -371,8 +375,10 @@ public final class OpenFlagsClient {
                     providerType);
             try {
                 metrics.recordEvaluation(event);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException e) {
                 // metrics failures must never break the evaluation result
+                log.debug("MetricsRecorder.recordEvaluation threw {}: {}",
+                        e.getClass().getSimpleName(), e.getMessage());
             }
             listeners.dispatch(event);
             return result;

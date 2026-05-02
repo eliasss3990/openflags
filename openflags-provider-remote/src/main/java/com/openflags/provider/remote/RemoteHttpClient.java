@@ -7,6 +7,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Thin wrapper around {@link java.net.http.HttpClient} that owns the client instance,
  * builds requests with the configured auth header and user agent, and exposes a single
@@ -16,6 +19,8 @@ import java.nio.charset.StandardCharsets;
  * </p>
  */
 final class RemoteHttpClient {
+
+    private static final Logger log = LoggerFactory.getLogger(RemoteHttpClient.class);
 
     private final HttpClient httpClient;
     private final RemoteProviderConfig config;
@@ -67,8 +72,9 @@ final class RemoteHttpClient {
         if (httpClient instanceof AutoCloseable ac) {
             try {
                 ac.close();
-            } catch (Exception ignored) {
-                // best effort
+            } catch (Exception e) {
+                log.debug("Best-effort close of HttpClient for {} failed: {}: {}",
+                        config.baseUrl(), e.getClass().getSimpleName(), e.getMessage());
             }
         }
     }

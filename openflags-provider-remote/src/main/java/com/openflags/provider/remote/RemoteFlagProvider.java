@@ -262,11 +262,11 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
         try {
             outcome = pollOnceWithCircuitBreaker();
             durationNanos = System.nanoTime() - started;
-        } catch (Throwable t) {
+        } catch (Exception e) {
             // Capture duration of the network/parse work before logging or follow-up
             // bookkeeping so the metric reflects the poll itself, not the catch path.
             durationNanos = System.nanoTime() - started;
-            log.warn("Unexpected error in poll loop for {}", config.baseUrl(), t);
+            log.warn("Unexpected error in poll loop for {}", config.baseUrl(), e);
             circuitBreaker.recordFailure();
             checkStaleness();
             logThrottledFailure();
@@ -292,8 +292,8 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
     private void logThrottledFailure() {
         int failures = circuitBreaker.failureCount();
         if (failures > 0 && (failures & (failures - 1)) == 0) {
-            log.warn("Remote poll failed (count={}); next attempt in ~{}ms",
-                    failures, circuitBreaker.nextDelay().toMillis());
+            log.warn("Remote poll failed for {} (count={}); next attempt in ~{}ms",
+                    config.baseUrl(), failures, circuitBreaker.nextDelay().toMillis());
         }
     }
 
