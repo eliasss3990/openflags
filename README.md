@@ -6,7 +6,7 @@
 
 Lightweight, SDK-first feature flag library for Java and Spring Boot.
 
-Evaluate boolean, string, number, and object flags from a local YAML or JSON file — no external service required. Hot reload detects file changes at runtime without restarting the application. The provider model is extensible: remote and hybrid providers are planned for future phases.
+Evaluate boolean, string, number, and object flags from a local YAML or JSON file, an HTTP backend, or a hybrid setup that combines remote sync with a local fallback. Hot reload detects file changes at runtime without restarting the application, and the provider model is extensible — implement `FlagProvider` to plug in any backend.
 
 ---
 
@@ -16,7 +16,10 @@ Evaluate boolean, string, number, and object flags from a local YAML or JSON fil
 - **File-based provider** — YAML and JSON, configurable path
 - **Hot reload** — automatic reload on file change via `WatchService`, with debounce and mid-write retry
 - **Spring Boot auto-configuration** — zero-config setup via `openflags-spring-boot-starter`
-- **Spring Actuator integration** — `/actuator/health` reports provider state when Actuator is on the classpath
+- **Remote and hybrid providers** — HTTP polling with circuit breaker, optional local snapshot for offline resilience
+- **Spring Actuator integration** — `/actuator/health` reports provider state and provider-specific diagnostics when Actuator is on the classpath
+- **Metrics with Micrometer** — opt-in adapter that exposes evaluations, polls and routing fallbacks (no Micrometer dependency required if unused)
+- **Evaluation listeners** — synchronous hook for audit, tracing and custom telemetry
 - **In-memory provider** — for testing without files
 - **Extensible** — implement `FlagProvider` to plug in any backend
 
@@ -40,7 +43,7 @@ Evaluate boolean, string, number, and object flags from a local YAML or JSON fil
 <dependency>
     <groupId>com.openflags</groupId>
     <artifactId>openflags-provider-file</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.5.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -102,7 +105,7 @@ client.shutdown();
 <dependency>
     <groupId>com.openflags</groupId>
     <artifactId>openflags-spring-boot-starter</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.5.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -140,7 +143,7 @@ openflags:
 
 ## Targeting rules
 
-Phase 2 adds conditional evaluation via rules declared directly in the flag file. Rules are evaluated in order; the first match wins.
+Conditional evaluation is supported via rules declared directly in the flag file. Rules are evaluated in order; the first match wins.
 
 ### TargetingRule — attribute-based targeting
 
@@ -202,11 +205,11 @@ EvaluationResult<Boolean> result = client.getBooleanResult("new-checkout", false
 | `TARGETING_MATCH` | A `TargetingRule` matched the context attributes |
 | `SPLIT` | A `SplitRule` matched based on bucket allocation |
 | `DEFAULT` | Rules were present but none matched; static flag value was returned |
-| `RESOLVED` | No rules declared; flag value returned directly (Phase 1 behaviour) |
+| `RESOLVED` | No rules declared; flag value returned directly |
 
 ### Backward compatibility
 
-Flags without a `rules:` section continue to work exactly as in Phase 1. The static `value` is returned with reason `RESOLVED`.
+Flags without a `rules:` section keep working as plain key-value lookups: the static `value` is returned with reason `RESOLVED`.
 
 ---
 
@@ -253,7 +256,7 @@ Add the testing module to your test scope:
 <dependency>
     <groupId>com.openflags</groupId>
     <artifactId>openflags-testing</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.5.0-SNAPSHOT</version>
     <scope>test</scope>
 </dependency>
 ```
@@ -264,9 +267,11 @@ Add the testing module to your test scope:
 
 | Module | Description |
 |---|---|
-| `openflags-core` | Core SDK: `OpenFlagsClient`, `FlagProvider` interface, evaluation engine |
+| `openflags-core` | Core SDK: `OpenFlagsClient`, `FlagProvider` interface, evaluation engine, observability SPIs |
 | `openflags-provider-file` | File-based provider with YAML/JSON parsing and hot reload |
-| `openflags-spring-boot-starter` | Spring Boot auto-configuration and Actuator health indicator |
+| `openflags-provider-remote` | HTTP-polling provider with circuit breaker and configurable backoff |
+| `openflags-provider-hybrid` | Remote-primary, file-fallback provider with snapshot persistence |
+| `openflags-spring-boot-starter` | Spring Boot auto-configuration, Actuator health indicator and Micrometer wiring |
 | `openflags-testing` | `InMemoryFlagProvider` for unit and integration tests |
 | `openflags-bom` | Bill of Materials for consistent dependency management |
 
@@ -286,9 +291,9 @@ Requires Java 17+ and Maven 3.8+.
 
 ## Roadmap
 
-- **Phase 2** — Targeting rules: percentage rollout, user/group segmentation, consistent hashing
-- **Phase 3** — Remote provider: OpenAPI contract + `RemoteProvider` implementation
-- **Phase 4** — `HybridProvider`: local fallback + remote sync
+- Distributed-tracing helpers built on top of `EvaluationListener`
+- Additional providers (HTTP push, message-bus subscription)
+- Native-image / GraalVM reflection metadata bundle
 
 ---
 
@@ -340,7 +345,7 @@ Fetch flags from an HTTP backend with automatic polling and stale-while-error ca
 <dependency>
     <groupId>com.openflags</groupId>
     <artifactId>openflags-provider-remote</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.5.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -442,11 +447,11 @@ atomic move, the provider falls back to `REPLACE_EXISTING`.
 
 ---
 
-## Observability (Phase 5)
+## Observability
 
-Phase 5 adds metrics, evaluation listeners, an extended health endpoint and a circuit
-breaker on the remote provider. All features are zero-config when using the Spring Boot
-starter and degrade gracefully when their optional dependencies are absent.
+openflags ships with metrics, evaluation listeners, an extended health endpoint and a
+circuit breaker on the remote provider. Every feature is zero-config when using the
+Spring Boot starter and degrades gracefully when its optional dependencies are absent.
 
 ### Metrics with Micrometer
 
