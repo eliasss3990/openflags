@@ -1,6 +1,8 @@
 package com.openflags.spring;
 
 import com.openflags.core.OpenFlagsClientCustomizer;
+import com.openflags.core.metrics.MetricsRecorder;
+import com.openflags.core.metrics.MicrometerMetricsRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.config.MeterFilter;
@@ -61,6 +63,26 @@ class MicrometerBindings {
         return builder -> builder
                 .metricsRegistry(registry)
                 .metricsTagFlagKey(tagFlagKey);
+    }
+
+    /**
+     * Exposes a {@link MetricsRecorder} bean wired against the active
+     * {@link MeterRegistry}. {@link OpenFlagsAutoConfiguration} injects this
+     * bean (via {@code ObjectProvider}) into the provider factory methods to
+     * wire poll listeners, snapshot-write metrics and hybrid fallback metrics. The recorder shares the same {@link MeterRegistry} as
+     * the one wired into {@link com.openflags.core.OpenFlagsClient}, so all
+     * meters end up in a single registry.
+     *
+     * @param registry the active meter registry
+     * @param props    the openflags properties; used to read
+     *                 {@code metrics.tag-flag-key}
+     * @return a Micrometer-backed metrics recorder
+     */
+    @Bean
+    @ConditionalOnBean(MeterRegistry.class)
+    MetricsRecorder openflagsMetricsRecorder(MeterRegistry registry,
+            OpenFlagsProperties props) {
+        return new MicrometerMetricsRecorder(registry, props.getMetrics().isTagFlagKey());
     }
 
     /**

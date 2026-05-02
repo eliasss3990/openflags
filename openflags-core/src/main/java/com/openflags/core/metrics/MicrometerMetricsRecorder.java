@@ -22,17 +22,27 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * Micrometer adapter for {@link MetricsRecorder}. Package-private: it MUST
- * be referenced only via reflection by
- * {@link com.openflags.core.OpenFlagsClientBuilder} so that consumers
- * without Micrometer on their classpath never load this class.
+ * Micrometer adapter for {@link MetricsRecorder}.
  *
  * <p>
  * This class is the ONLY place in {@code openflags-core} that depends
  * on {@code io.micrometer.*}. The boundary is asserted by
- * {@code NoMicrometerHardClassRefTest} (T6).
+ * {@code NoMicrometerHardClassRefTest} (T6): nothing in
+ * {@code openflags-core}'s public API surface (notably
+ * {@link com.openflags.core.OpenFlagsClient} and
+ * {@link com.openflags.core.OpenFlagsClientBuilder}) references this class
+ * statically; it is loaded only when something actually constructs it. As a
+ * result, consumers of {@code openflags-core} without Micrometer on their
+ * classpath never trigger class-loading of this type.
+ *
+ * <p>
+ * Made public so the Spring Boot starter (a separate module that already has
+ * Micrometer on its classpath) can construct it directly to expose a
+ * {@link MetricsRecorder} bean for wiring into provider beans. Application
+ * code should not depend on this type; it is not part of the stable public
+ * API of {@code openflags-core}.
  */
-final class MicrometerMetricsRecorder implements MetricsRecorder {
+public final class MicrometerMetricsRecorder implements MetricsRecorder {
 
     private static final Logger log = LoggerFactory.getLogger(MicrometerMetricsRecorder.class);
 
@@ -49,7 +59,7 @@ final class MicrometerMetricsRecorder implements MetricsRecorder {
     private final AtomicInteger normalizedVariantsLoggedSize = new AtomicInteger();
     private final AtomicLong droppedNormalizedVariants = new AtomicLong();
 
-    MicrometerMetricsRecorder(MeterRegistry registry, boolean tagFlagKey) {
+    public MicrometerMetricsRecorder(MeterRegistry registry, boolean tagFlagKey) {
         this.registry = Objects.requireNonNull(registry, "registry must not be null");
         this.tagFlagKey = tagFlagKey;
     }
