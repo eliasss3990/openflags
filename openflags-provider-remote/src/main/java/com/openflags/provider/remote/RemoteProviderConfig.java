@@ -52,11 +52,31 @@ public record RemoteProviderConfig(
     /** Sanity ceiling for {@code failureThreshold}. */
     public static final int MAX_FAILURE_THRESHOLD = 100;
 
-    /** Default consecutive-failures threshold before opening the circuit breaker. */
+    /**
+     * Default consecutive-failures threshold before opening the circuit breaker.
+     */
     public static final int DEFAULT_FAILURE_THRESHOLD = 5;
 
     /** Default maximum backoff applied while the circuit breaker is open. */
     public static final Duration DEFAULT_MAX_BACKOFF = Duration.ofMinutes(5);
+
+    /** Default HTTP connect timeout. */
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+
+    /** Default HTTP request timeout. */
+    public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(10);
+
+    /** Default polling interval. */
+    public static final Duration DEFAULT_POLL_INTERVAL = Duration.ofSeconds(30);
+
+    /** Default cache TTL. */
+    public static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(5);
+
+    /** Default {@code User-Agent} header value used when none is provided. */
+    public static final String DEFAULT_USER_AGENT = "openflags-java";
+
+    /** Default flags path appended to the base URL. */
+    public static final String DEFAULT_FLAGS_PATH = "/flags";
 
     /**
      * Convenience constructor preserving the pre-circuit-breaker signature.
@@ -99,7 +119,7 @@ public record RemoteProviderConfig(
                     "baseUrl must use http or https, got " + scheme);
         }
         if (flagsPath == null || flagsPath.isBlank()) {
-            flagsPath = "/flags";
+            flagsPath = DEFAULT_FLAGS_PATH;
         }
         boolean nameMissing = authHeaderName == null || authHeaderName.isBlank();
         boolean valueMissing = authHeaderValue == null || authHeaderValue.isBlank();
@@ -131,7 +151,7 @@ public record RemoteProviderConfig(
                     "cacheTtl must be >= pollInterval");
         }
         if (userAgent == null || userAgent.isBlank()) {
-            userAgent = "openflags-java";
+            userAgent = DEFAULT_USER_AGENT;
         }
         if (failureThreshold <= 0) {
             throw new IllegalArgumentException(
