@@ -52,6 +52,85 @@
       "type": "java.time.Duration",
       "description": "Upper bound for the backoff delay applied when the circuit is open.",
       "defaultValue": "5m"
+    },
+    {
+      "name": "openflags.remote.flags-path",
+      "type": "java.lang.String",
+      "description": "Path appended to the base URL for fetching flags. Defaults to '/flags'.",
+      "defaultValue": "/flags"
+    },
+    {
+      "name": "openflags.remote.auth-header-name",
+      "type": "java.lang.String",
+      "description": "HTTP header name for authentication, e.g. 'X-API-Key'. May be null."
+    },
+    {
+      "name": "openflags.remote.auth-header-value",
+      "type": "java.lang.String",
+      "description": "HTTP header value for authentication. May be null if auth-header-name is null."
+    },
+    {
+      "name": "openflags.remote.cache-ttl",
+      "type": "java.time.Duration",
+      "description": "Cache TTL. Default: 5 minutes. Must be greater than or equal to poll-interval.",
+      "defaultValue": "5m"
+    },
+    {
+      "name": "openflags.remote.connect-timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP connect timeout. Default: 5 seconds.",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "openflags.remote.request-timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP request timeout. Default: 10 seconds.",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "openflags.remote.poll-interval",
+      "type": "java.time.Duration",
+      "description": "Polling interval. Default: 30 seconds. Minimum: 5 seconds.",
+      "defaultValue": "30s"
+    },
+    {
+      "name": "openflags.remote.user-agent",
+      "type": "java.lang.String",
+      "description": "User-Agent header value. Defaults to 'openflags-java' when null or blank."
+    },
+    {
+      "name": "openflags.remote.base-url",
+      "type": "java.net.URI",
+      "description": "Base URL of the remote flags backend. Required when provider=remote or hybrid."
+    },
+    {
+      "name": "openflags.hybrid.snapshot-path",
+      "type": "java.lang.String",
+      "description": "Filesystem path of the local snapshot file. Required when provider=hybrid."
+    },
+    {
+      "name": "openflags.hybrid.snapshot-format",
+      "type": "com.openflags.provider.hybrid.SnapshotFormat",
+      "description": "Snapshot format: JSON (default) or YAML.",
+      "defaultValue": "JSON"
+    },
+    {
+      "name": "openflags.hybrid.watch-snapshot",
+      "type": "java.lang.Boolean",
+      "description": "Enable filesystem watching of the snapshot for manual edits.",
+      "defaultValue": true
+    },
+    {
+      "name": "openflags.hybrid.snapshot-debounce",
+      "type": "java.time.Duration",
+      "description": "Debounce window for ignoring self-induced file events.",
+      "defaultValue": "500ms"
+    },
+    {
+      "name": "openflags.hybrid.fail-if-no-fallback",
+      "type": "java.lang.Boolean",
+      "description": "If true, fail initialization when neither remote nor snapshot can produce data.",
+      "defaultValue": false
     }
   ]
 }
