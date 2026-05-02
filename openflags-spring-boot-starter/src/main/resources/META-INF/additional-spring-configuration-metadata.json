@@ -65,9 +65,9 @@
       "description": "HTTP header name for authentication, e.g. 'X-API-Key'. May be null."
     },
     {
-      "name": "openflags.remote.auth-header-value",
+      "name": "openflags.remote.auth-header-secret",
       "type": "java.lang.String",
-      "description": "HTTP header value for authentication. May be null if auth-header-name is null."
+      "description": "HTTP header value for authentication. May be null if auth-header-name is null. The '-secret' suffix triggers Spring Boot Actuator's automatic value sanitization."
     },
     {
       "name": "openflags.remote.cache-ttl",

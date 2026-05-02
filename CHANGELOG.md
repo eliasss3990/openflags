@@ -9,6 +9,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Breaking Changes (pre-1.0)
+
+- `openflags-spring-boot-starter`: renamed property `openflags.remote.auth-header-value` to `openflags.remote.auth-header-secret`. The `-secret` suffix triggers Spring Boot Actuator's automatic value sanitization on `/actuator/configprops` and `/actuator/env`. Migration: rename the key in `application.yml`/`application.properties`; the value semantics are unchanged.
+
 ## [0.5.0] - 2026-05-02
 
 ### Added

@@ -376,7 +376,7 @@ openflags:
   remote:
     base-url: https://flags.example.com
     auth-header-name: Authorization
-    auth-header-value: "Bearer my-token"
+    auth-header-secret: "Bearer my-token"
     poll-interval: 30s
     cache-ttl: 5m
 ```

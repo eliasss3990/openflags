@@ -118,7 +118,7 @@ public class OpenFlagsAutoConfiguration {
                 .failureThreshold(r.getFailureThreshold())
                 .maxBackoff(r.getMaxBackoff());
         if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
-            builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderValue());
+            builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderSecret());
         }
         RemoteFlagProvider provider = builder.build();
         MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
@@ -159,7 +159,7 @@ public class OpenFlagsAutoConfiguration {
                 r.getBaseUrl(),
                 r.getFlagsPath(),
                 r.getAuthHeaderName(),
-                r.getAuthHeaderValue(),
+                r.getAuthHeaderSecret(),
                 r.getConnectTimeout(),
                 r.getRequestTimeout(),
                 r.getPollInterval(),
