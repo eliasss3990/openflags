@@ -36,6 +36,24 @@ jobs:
           path: '**/target/site/jacoco/'
           retention-days: 7
 
+  no-micrometer-smoke:
+    name: No-Micrometer smoke (core)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Run no-micrometer profile
+        run: mvn -B -pl openflags-core -am -P no-micrometer test
+
   verify-javadoc:
     name: Javadoc
     runs-on: ubuntu-latest
