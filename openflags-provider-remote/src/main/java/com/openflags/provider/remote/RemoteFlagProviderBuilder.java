@@ -13,13 +13,13 @@ public final class RemoteFlagProviderBuilder {
     private String flagsPath;
     private String authHeaderName;
     private String authHeaderValue;
-    private Duration connectTimeout = Duration.ofSeconds(5);
-    private Duration requestTimeout = Duration.ofSeconds(10);
-    private Duration pollInterval = Duration.ofSeconds(30);
-    private Duration cacheTtl = Duration.ofMinutes(5);
+    private Duration connectTimeout = RemoteProviderConfig.DEFAULT_CONNECT_TIMEOUT;
+    private Duration requestTimeout = RemoteProviderConfig.DEFAULT_REQUEST_TIMEOUT;
+    private Duration pollInterval = RemoteProviderConfig.DEFAULT_POLL_INTERVAL;
+    private Duration cacheTtl = RemoteProviderConfig.DEFAULT_CACHE_TTL;
     private String userAgent;
-    private int failureThreshold = 5;
-    private Duration maxBackoff = Duration.ofMinutes(5);
+    private int failureThreshold = RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD;
+    private Duration maxBackoff = RemoteProviderConfig.DEFAULT_MAX_BACKOFF;
 
     /**
      * Creates a builder for the given base URL.

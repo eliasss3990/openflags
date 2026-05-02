@@ -37,10 +37,14 @@ public class OpenFlagsProperties {
     /** File provider configuration. */
     private FileProperties file = new FileProperties();
 
-    /** Remote provider configuration. Only consulted when {@code provider=remote}. */
+    /**
+     * Remote provider configuration. Only consulted when {@code provider=remote}.
+     */
     private RemoteProperties remote = new RemoteProperties();
 
-    /** Hybrid provider configuration. Only consulted when {@code provider=hybrid}. */
+    /**
+     * Hybrid provider configuration. Only consulted when {@code provider=hybrid}.
+     */
     private HybridProperties hybrid = new HybridProperties();
 
     /** Metrics configuration for the Micrometer-based observability layer. */
@@ -196,20 +200,36 @@ public class OpenFlagsProperties {
     }
 
     /**
-     * Configuration for the remote provider; only consulted when {@code provider=remote}.
+     * Configuration for the remote provider; only consulted when
+     * {@code provider=remote}.
      */
     public static class RemoteProperties {
 
         /** Base URL of the remote flags backend. */
         private URI baseUrl;
 
-        /** Path appended to the base URL for fetching flags. Default: {@code "/flags"}. */
+        /**
+         * Path appended to the base URL for fetching flags. Default: {@code "/flags"}.
+         * <p>
+         * <strong>Note on literals:</strong> every default in this class mirrors
+         * a {@code DEFAULT_*} constant in {@code RemoteProviderConfig} but is
+         * kept as a literal because {@code openflags-provider-remote} is an
+         * <em>optional</em> dependency of the starter — referencing the
+         * constants from this always-loaded class would break file-only
+         * deployments with {@code NoClassDefFoundError}. Equivalence between
+         * literals and constants is enforced by {@code RemoteDefaultsAlignmentTest}.
+         */
         private String flagsPath = "/flags";
 
-        /** HTTP header name for authentication, e.g. {@code "X-API-Key"}. May be null. */
+        /**
+         * HTTP header name for authentication, e.g. {@code "X-API-Key"}. May be null.
+         */
         private String authHeaderName;
 
-        /** HTTP header value for authentication. May be null if {@code authHeaderName} is null. */
+        /**
+         * HTTP header value for authentication. May be null if {@code authHeaderName}
+         * is null.
+         */
         private String authHeaderValue;
 
         /** HTTP connect timeout. Default: 5 seconds. */
@@ -224,7 +244,10 @@ public class OpenFlagsProperties {
         /** Cache TTL. Default: 5 minutes. Must be {@code >= pollInterval}. */
         private Duration cacheTtl = Duration.ofMinutes(5);
 
-        /** User-Agent header value. Defaults to {@code "openflags-java"} if blank. */
+        /**
+         * User-Agent header value. If null or blank, {@code RemoteProviderConfig}
+         * applies its {@code DEFAULT_USER_AGENT}.
+         */
         private String userAgent;
 
         /**
@@ -439,7 +462,8 @@ public class OpenFlagsProperties {
     }
 
     /**
-     * Configuration for the hybrid provider; only consulted when {@code provider=hybrid}.
+     * Configuration for the hybrid provider; only consulted when
+     * {@code provider=hybrid}.
      */
     public static class HybridProperties {
 
@@ -467,7 +491,8 @@ public class OpenFlagsProperties {
         private Duration snapshotDebounce = Duration.ofMillis(500);
 
         /**
-         * If {@code true}, fail initialization when neither remote nor snapshot can produce data.
+         * If {@code true}, fail initialization when neither remote nor snapshot can
+         * produce data.
          * Default: {@code false}.
          */
         private boolean failIfNoFallback = false;
@@ -565,15 +590,19 @@ public class OpenFlagsProperties {
 
     /**
      * Configuration for the Micrometer metrics integration.
-     * <p>Activated only when {@code micrometer-core} is on the classpath and a
-     * {@code MeterRegistry} bean is available.</p>
+     * <p>
+     * Activated only when {@code micrometer-core} is on the classpath and a
+     * {@code MeterRegistry} bean is available.
+     * </p>
      */
     public static class Metrics {
 
         /**
          * Whether to enable Micrometer metrics. Default: {@code true}.
-         * <p>Even when {@code true}, no metrics are emitted if {@code micrometer-core} is
-         * absent or no {@code MeterRegistry} bean is exposed.</p>
+         * <p>
+         * Even when {@code true}, no metrics are emitted if {@code micrometer-core} is
+         * absent or no {@code MeterRegistry} bean is exposed.
+         * </p>
          */
         private boolean enabled = true;
 
@@ -584,7 +613,8 @@ public class OpenFlagsProperties {
         private boolean tagFlagKey = true;
 
         /**
-         * Static tags applied to every openflags metric. Useful for environment, region,
+         * Static tags applied to every openflags metric. Useful for environment,
+         * region,
          * or service identification.
          */
         private Map<String, String> tags = new LinkedHashMap<>();
@@ -653,8 +683,10 @@ public class OpenFlagsProperties {
         /**
          * Whether to set {@code openflags.flag_key} and {@code openflags.targeting_key}
          * in SLF4J MDC during evaluation. Default: {@code false}.
-         * <p><b>Warning:</b> the targeting key may contain PII; review your logging
-         * pipeline before enabling.</p>
+         * <p>
+         * <b>Warning:</b> the targeting key may contain PII; review your logging
+         * pipeline before enabling.
+         * </p>
          */
         private boolean mdcEnabled = false;
 
