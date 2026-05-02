@@ -14,8 +14,13 @@ import java.util.Objects;
  *
  * @param flagKey       requested flag key, never {@code null}
  * @param type          requested java type (Boolean.class, String.class, ...)
- * @param defaultValue  caller-supplied default, may be {@code null}
- * @param resolvedValue actual value returned to the caller, may be {@code null}
+ * @param defaultValue  caller-supplied default, may be {@code null}; runtime
+ *                      type matches {@code type} — one of {@link Boolean},
+ *                      {@link String}, {@link Double}, {@link Long}, or
+ *                      {@code Map<String, Object>} for object-typed flags
+ * @param resolvedValue actual value returned to the caller, may be
+ *                      {@code null}; same runtime-type contract as
+ *                      {@code defaultValue}
  * @param reason        outcome classification, never {@code null}
  * @param variant       matched variant identifier when a multi-variant rule
  *                      was selected, otherwise {@code null}
