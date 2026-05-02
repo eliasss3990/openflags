@@ -29,20 +29,50 @@ import java.nio.file.Path;
 /**
  * Spring Boot auto-configuration for openflags.
  * <p>
- * Creates an {@link OpenFlagsClient} bean backed by the provider configured via
- * {@link OpenFlagsProperties}. Conditional on {@link OpenFlagsClient} being on
+ * Creates an {@link OpenFlagsClient} bean backed by the provider selected via
+ * {@code openflags.provider}. Conditional on {@link OpenFlagsClient} being on
  * the classpath.
  * </p>
  *
+ * <h2>Provider selection</h2>
+ * <p>
+ * The provider is chosen by {@code openflags.provider} (default {@code file}):
+ * </p>
+ * <ul>
+ * <li>{@code file} — local YAML/JSON file. Requires {@code openflags.file.path};
+ * supports {@code classpath:} and {@code file:} prefixes. See "Classpath
+ * resources and file watching" below.</li>
+ * <li>{@code remote} — HTTP polling against a flag service. Requires
+ * {@code openflags.remote.base-url}. Polling, cache TTL, request timeout and
+ * the circuit breaker (failure threshold, max backoff) are all configurable
+ * under {@code openflags.remote.*}.</li>
+ * <li>{@code hybrid} — remote with a local file fallback. Reuses
+ * {@code openflags.remote.*} for the remote half and {@code openflags.hybrid.*}
+ * for the snapshot file (path, format, watch, debounce, fail-if-no-fallback).</li>
+ * </ul>
+ *
  * <h2>Classpath resources and file watching</h2>
  * <p>
- * When the configured path uses the {@code classpath:} prefix, the
- * auto-configuration
- * resolves it to a filesystem {@link Path}. If the resource lives inside a JAR
- * (i.e., cannot be resolved to a real filesystem path), file watching is
- * automatically
- * disabled with an INFO log message. This is a known limitation of
- * {@link java.nio.file.WatchService}.
+ * When the configured path uses the {@code classpath:} prefix the
+ * auto-configuration resolves it to a filesystem {@link Path}. If the resource
+ * lives inside a JAR (i.e., cannot be resolved to a real filesystem path) the
+ * provider bean fails to initialize with a descriptive error (Spring wraps it
+ * in a {@code BeanCreationException} at startup) so that the deployment is not
+ * silently degraded. Use a {@code file:} path or extract the flag file to a
+ * configurable filesystem location for production deployments. This restriction
+ * stems from {@link java.nio.file.WatchService} not supporting paths inside
+ * JARs.
+ * </p>
+ *
+ * <h2>Observability</h2>
+ * <p>
+ * When Micrometer is on the classpath the starter wires the provider with a
+ * {@link com.openflags.core.metrics.MetricsRecorder} backed by the application's
+ * {@code MeterRegistry}. The {@link OpenFlagsHealthIndicator} bean is published
+ * automatically when Spring Boot Actuator is present; it surfaces
+ * {@code provider.type}, {@code provider.state} and any provider-specific
+ * diagnostics exposed via
+ * {@link com.openflags.core.provider.ProviderDiagnostics}.
  * </p>
  */
 @AutoConfiguration
