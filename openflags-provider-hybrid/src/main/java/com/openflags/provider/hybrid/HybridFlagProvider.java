@@ -341,8 +341,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         for (FlagChangeListener listener : publicListeners) {
             try {
                 listener.onFlagChange(event);
-            } catch (Throwable t) {
-                log.warn("FlagChangeListener threw an exception", t);
+            } catch (Exception e) {
+                log.warn("FlagChangeListener threw an exception", e);
             }
         }
     }
@@ -363,8 +363,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             for (FlagChangeListener listener : publicListeners) {
                 try {
                     listener.onFlagChange(event);
-                } catch (Throwable t) {
-                    log.warn("FlagChangeListener threw an exception", t);
+                } catch (Exception e) {
+                    log.warn("FlagChangeListener threw an exception", e);
                 }
             }
         } else {
