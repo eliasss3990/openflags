@@ -84,8 +84,9 @@ public record RemoteProviderConfig(
      * {@link #DEFAULT_MAX_BACKOFF} or {@code pollInterval} as defaults.
      *
      * @deprecated Prefer {@link RemoteFlagProviderBuilder} (obtained via
-     *             {@link RemoteFlagProvider#builder()}), which evolves
-     *             gracefully when new optional fields are added to the record.
+     *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
+     *             evolves gracefully when new optional fields are added to
+     *             the record.
      */
     @Deprecated
     public RemoteProviderConfig(
