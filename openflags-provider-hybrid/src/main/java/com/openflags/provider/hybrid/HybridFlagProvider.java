@@ -214,10 +214,6 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         boolean remoteOk = false;
         boolean fileOk = false;
 
-        // register internal listeners before starting so no events are missed
-        remote.addChangeListener(this::onRemoteChange);
-        file.addChangeListener(this::onFileChange);
-
         try {
             remote.init();
             remoteOk = true;
@@ -247,6 +243,18 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                     + "starting in degraded state (failIfNoFallback=false). "
                     + "getFlag() will return Optional.empty() until a source recovers.");
         }
+
+        // Register internal listeners only after init() so that the initial
+        // load (which surfaces every flag as CREATED on remote's first poll
+        // and may also fire a self-write event on file) is not forwarded to
+        // public listeners as if it were a runtime change.
+        remote.addChangeListener(this::onRemoteChange);
+        file.addChangeListener(this::onFileChange);
+        // If a synchronous first poll already triggered writeSafe before the
+        // file listener was registered, expectingSelfWrite may still be true
+        // with no consumer. Disarm it so the next legitimate file event is
+        // not silenced; lastSnapshotWriteAt still guards the debounce window.
+        expectingSelfWrite.set(false);
 
         initialized = true;
         log.info("HybridFlagProvider initialized (remote={}, file={})", remoteOk, fileOk);
