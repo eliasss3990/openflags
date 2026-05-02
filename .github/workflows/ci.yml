@@ -75,7 +75,6 @@ jobs:
   release-dry-run:
     name: Release dry-run (sign without publishing)
     runs-on: ubuntu-latest
-    if: ${{ secrets.MAVEN_GPG_PRIVATE_KEY != '' }}
 
     steps:
       - name: Checkout
