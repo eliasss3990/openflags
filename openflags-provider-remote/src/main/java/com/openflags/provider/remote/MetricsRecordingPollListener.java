@@ -36,5 +36,10 @@ public final class MetricsRecordingPollListener implements RemotePollListener {
     @Override
     public void onPollOutcome(String outcome, long durationNanos) {
         metrics.recordPoll(outcome, durationNanos);
+        if ("success".equals(outcome)) {
+            metrics.recordHybridPollSuccess(durationNanos);
+        } else if ("failure".equals(outcome)) {
+            metrics.recordHybridPollFailure(durationNanos);
+        }
     }
 }

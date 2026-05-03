@@ -140,12 +140,61 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
     }
 
     @Override
+    public void recordHybridPollSuccess(long durationNanos) {
+        counter(OpenFlagsMetrics.Names.POLL_SUCCESS, Tags.empty()).increment();
+        timer(OpenFlagsMetrics.Names.POLL_LATENCY,
+                Tags.of(OpenFlagsMetrics.Tags.OUTCOME, "success"))
+                .record(Duration.ofNanos(durationNanos));
+    }
+
+    @Override
+    public void recordHybridPollFailure(long durationNanos) {
+        counter(OpenFlagsMetrics.Names.POLL_FAILURE, Tags.empty()).increment();
+        timer(OpenFlagsMetrics.Names.POLL_LATENCY,
+                Tags.of(OpenFlagsMetrics.Tags.OUTCOME, "failure"))
+                .record(Duration.ofNanos(durationNanos));
+    }
+
+    @Override
+    public void recordHybridFallbackActivation(String cause) {
+        Objects.requireNonNull(cause, "cause must not be null");
+        counter(OpenFlagsMetrics.Names.HYBRID_FALLBACK_ACTIVATIONS,
+                Tags.of(OpenFlagsMetrics.Tags.CAUSE, cause)).increment();
+    }
+
+    @Override
+    public void recordHybridFallbackDeactivation(long fallbackDurationNanos) {
+        counter(OpenFlagsMetrics.Names.HYBRID_FALLBACK_DEACTIVATIONS, Tags.empty()).increment();
+        timer(OpenFlagsMetrics.Names.HYBRID_FALLBACK_DURATION, Tags.empty())
+                .record(Duration.ofNanos(fallbackDurationNanos));
+    }
+
+    @Override
+    public void recordHybridEvaluationLatency(String source, long durationNanos) {
+        Objects.requireNonNull(source, "source must not be null");
+        timer(OpenFlagsMetrics.Names.HYBRID_EVALUATION_LATENCY,
+                Tags.of(OpenFlagsMetrics.Tags.SOURCE, source))
+                .record(Duration.ofNanos(durationNanos));
+    }
+
+    @Override
+    public void recordHybridStateTransition(String from, String to) {
+        Objects.requireNonNull(from, "from must not be null");
+        Objects.requireNonNull(to, "to must not be null");
+        counter(OpenFlagsMetrics.Names.HYBRID_STATE_TRANSITIONS,
+                Tags.of(OpenFlagsMetrics.Tags.FROM, from, OpenFlagsMetrics.Tags.TO, to)).increment();
+    }
+
+    @Override
     public void registerGauge(String name, Iterable<Tag> tags, Supplier<Number> supplier) {
         Objects.requireNonNull(name, "name must not be null");
         Objects.requireNonNull(tags, "tags must not be null");
         Objects.requireNonNull(supplier, "supplier must not be null");
         Tags micrometerTags = toMicrometerTags(tags);
-        registry.gauge(name, micrometerTags, supplier, s -> s.get().doubleValue());
+        io.micrometer.core.instrument.Gauge.builder(name, supplier, s -> s.get().doubleValue())
+                .tags(micrometerTags)
+                .strongReference(true)
+                .register(registry);
     }
 
     /**

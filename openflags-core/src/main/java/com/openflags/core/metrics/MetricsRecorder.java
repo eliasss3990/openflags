@@ -83,6 +83,52 @@ public interface MetricsRecorder {
     default void recordUnexpectedProviderError(String flagKey) {}
 
     /**
+     * Records a successful remote poll cycle from the hybrid provider.
+     *
+     * @param durationNanos wall-clock duration of the poll; non-negative
+     */
+    default void recordHybridPollSuccess(long durationNanos) {}
+
+    /**
+     * Records a failed remote poll cycle from the hybrid provider.
+     *
+     * @param durationNanos wall-clock duration of the poll; non-negative
+     */
+    default void recordHybridPollFailure(long durationNanos) {}
+
+    /**
+     * Records that the hybrid provider entered fallback mode.
+     *
+     * @param cause bounded cause string; one of {@code primary_error},
+     *              {@code primary_timeout}, {@code primary_state_error},
+     *              {@code primary_not_ready}
+     */
+    default void recordHybridFallbackActivation(String cause) {}
+
+    /**
+     * Records that the hybrid provider exited fallback mode.
+     *
+     * @param fallbackDurationNanos time spent in fallback mode in nanoseconds
+     */
+    default void recordHybridFallbackDeactivation(long fallbackDurationNanos) {}
+
+    /**
+     * Records a flag evaluation latency from the hybrid provider.
+     *
+     * @param source        evaluation source; {@code "primary"} or {@code "fallback"}
+     * @param durationNanos wall-clock duration; non-negative
+     */
+    default void recordHybridEvaluationLatency(String source, long durationNanos) {}
+
+    /**
+     * Records a hybrid provider state transition.
+     *
+     * @param from previous {@link com.openflags.core.provider.ProviderState} name
+     * @param to   new {@link com.openflags.core.provider.ProviderState} name
+     */
+    default void recordHybridStateTransition(String from, String to) {}
+
+    /**
      * Registers a gauge whose value is read on demand from the supplier.
      * Each call replaces any previously registered gauge with the same
      * name and tags.

@@ -66,6 +66,61 @@ public final class OpenFlagsMetrics {
          * that bypassed the documented provider contract.
          */
         public static final String EVALUATIONS_UNEXPECTED_ERRORS_TOTAL = "openflags.evaluations.unexpected.errors.total";
+
+        // ---- Hybrid-specific metrics (added in 1.1) ----
+
+        /** Counter: successful remote polls emitted by the hybrid provider. */
+        public static final String POLL_SUCCESS = "openflags.poll.success";
+
+        /** Counter: failed remote polls emitted by the hybrid provider. */
+        public static final String POLL_FAILURE = "openflags.poll.failure";
+
+        /** Timer: per-poll latency emitted by the hybrid provider. */
+        public static final String POLL_LATENCY = "openflags.poll.latency";
+
+        /**
+         * Counter: number of times the hybrid provider activated fallback mode.
+         * Tagged with {@link Tags#CAUSE}.
+         */
+        public static final String HYBRID_FALLBACK_ACTIVATIONS = "openflags.hybrid.fallback.activations";
+
+        /** Counter: number of times the hybrid provider deactivated fallback mode. */
+        public static final String HYBRID_FALLBACK_DEACTIVATIONS = "openflags.hybrid.fallback.deactivations";
+
+        /**
+         * Gauge (0/1): whether the hybrid provider is currently in fallback mode
+         * (1 = active, 0 = not active).
+         */
+        public static final String HYBRID_FALLBACK_ACTIVE = "openflags.hybrid.fallback.active";
+
+        /**
+         * Timer: duration spent in fallback mode, recorded when fallback deactivates.
+         */
+        public static final String HYBRID_FALLBACK_DURATION = "openflags.hybrid.fallback.duration";
+
+        /**
+         * Timer: flag evaluation latency partitioned by source.
+         * Tagged with {@link Tags#SOURCE}.
+         */
+        public static final String HYBRID_EVALUATION_LATENCY = "openflags.hybrid.evaluation.latency";
+
+        /** Counter: cache hits on the hybrid provider's primary-side cache. */
+        public static final String HYBRID_PRIMARY_CACHE_HITS = "openflags.hybrid.primary.cache.hits";
+
+        /** Counter: cache misses on the hybrid provider's primary-side cache. */
+        public static final String HYBRID_PRIMARY_CACHE_MISSES = "openflags.hybrid.primary.cache.misses";
+
+        /**
+         * Counter: state transitions of the hybrid provider.
+         * Tagged with {@link Tags#FROM} and {@link Tags#TO}.
+         */
+        public static final String HYBRID_STATE_TRANSITIONS = "openflags.hybrid.state.transitions";
+
+        /**
+         * Gauge: current state of the hybrid provider encoded as a numeric code.
+         * Uses the same encoding as {@code MicrometerMetricsRecorder#providerStateCode}.
+         */
+        public static final String HYBRID_STATE_CURRENT = "openflags.hybrid.state.current";
     }
 
     /** Canonical tag keys attached to the meters listed in {@link Names}. */
@@ -109,5 +164,18 @@ public final class OpenFlagsMetrics {
 
         /** Tag: {@code Class.getSimpleName()} of the failing listener. */
         public static final String LISTENER = "listener";
+
+        /**
+         * Tag: cause of a fallback activation.
+         * Bounded set: {@code primary_error}, {@code primary_timeout},
+         * {@code primary_state_error}, {@code primary_not_ready}.
+         */
+        public static final String CAUSE = "cause";
+
+        /**
+         * Tag: evaluation source in a hybrid provider.
+         * Values: {@code primary}, {@code fallback}.
+         */
+        public static final String SOURCE = "source";
     }
 }

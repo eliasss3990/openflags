@@ -4,11 +4,13 @@ import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.metrics.MetricsRecorder;
+import com.openflags.core.metrics.OpenFlagsMetrics;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.core.provider.ProviderState;
 import com.openflags.provider.file.FileFlagProvider;
+import com.openflags.provider.remote.MetricsRecordingPollListener;
 import com.openflags.provider.remote.RemoteFlagProvider;
 import com.openflags.provider.remote.RemoteFlagProviderBuilder;
 import com.openflags.provider.remote.RemotePollListener;
@@ -133,6 +135,22 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * hybrid.fallback metric.
      */
     private final AtomicReference<String> routingTarget = new AtomicReference<>("remote");
+
+    /**
+     * Nanos at which the hybrid provider entered fallback mode; used to compute
+     * {@link com.openflags.core.metrics.OpenFlagsMetrics.Names#HYBRID_FALLBACK_DURATION}.
+     * Zero means fallback is not active.
+     */
+    private volatile long fallbackStartNanos = 0L;
+
+    /** Whether fallback is currently active; tracks state for the gauge. */
+    private final AtomicBoolean fallbackActive = new AtomicBoolean(false);
+
+    /**
+     * Last observed combined {@link ProviderState}; used to detect transitions and
+     * emit {@link com.openflags.core.metrics.OpenFlagsMetrics.Names#HYBRID_STATE_TRANSITIONS}.
+     */
+    private final AtomicReference<ProviderState> lastObservedState = new AtomicReference<>(ProviderState.NOT_READY);
 
     /**
      * Optional metrics recorder; defaults to NOOP. Wired by the Spring Boot
@@ -265,7 +283,22 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         Objects.requireNonNull(key, "key must not be null");
         requireInitialized();
         requireNotShutdown();
-        return resolveActiveProvider().getFlag(key);
+        FlagProvider active = resolveActiveProvider();
+        String source = (active == remote) ? "primary" : "fallback";
+        long start = System.nanoTime();
+        try {
+            return active.getFlag(key);
+        } finally {
+            recordEvaluationLatencySafely(source, System.nanoTime() - start);
+        }
+    }
+
+    private void recordEvaluationLatencySafely(String source, long durationNanos) {
+        try {
+            metricsRecorder.recordHybridEvaluationLatency(source, durationNanos);
+        } catch (Exception e) {
+            log.warn("MetricsRecorder.recordHybridEvaluationLatency threw", e);
+        }
     }
 
     @Override
@@ -418,7 +451,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
 
     /**
      * Resolves the active sub-provider for the current request, updates
-     * {@link #routingTarget}, and emits a {@code hybrid.fallback} metric on
+     * {@link #routingTarget}, and emits fallback and state-transition metrics on
      * every transition. <strong>Has side-effects</strong>: never call from
      * read-only getters like {@code getState()} or {@code flagCount()};
      * those must read {@code routingTarget} directly.
@@ -430,8 +463,9 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 : "file";
         String prev = routingTarget.getAndSet(target);
         if (!prev.equals(target)) {
-            recordHybridFallbackSafely(prev, target);
+            recordHybridFallbackSafely(prev, target, rs);
         }
+        recordStateTransitionSafely();
         return target.equals("remote") ? remote : file;
     }
 
@@ -443,22 +477,110 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         }
     }
 
-    private void recordHybridFallbackSafely(String from, String to) {
+    private void recordHybridFallbackSafely(String from, String to, ProviderState remoteState) {
         try {
             metricsRecorder.recordHybridFallback(from, to);
+            if ("file".equals(to)) {
+                // Transitioning to fallback: activation
+                String cause = fallbackCause(remoteState);
+                metricsRecorder.recordHybridFallbackActivation(cause);
+                fallbackActive.set(true);
+                fallbackStartNanos = System.nanoTime();
+            } else {
+                // Transitioning back to primary: deactivation
+                long durationNanos = fallbackStartNanos > 0 ? System.nanoTime() - fallbackStartNanos : 0L;
+                metricsRecorder.recordHybridFallbackDeactivation(durationNanos);
+                fallbackActive.set(false);
+                fallbackStartNanos = 0L;
+            }
         } catch (Exception e) {
-            log.warn("MetricsRecorder.recordHybridFallback threw", e);
+            log.warn("MetricsRecorder hybrid fallback recording threw", e);
+        }
+    }
+
+    private void recordStateTransitionSafely() {
+        try {
+            ProviderState current = getState();
+            ProviderState prev = lastObservedState.getAndSet(current);
+            if (prev != current) {
+                metricsRecorder.recordHybridStateTransition(prev.name(), current.name());
+            }
+        } catch (Exception e) {
+            log.warn("MetricsRecorder hybrid state transition recording threw", e);
         }
     }
 
     /**
-     * Wires a {@link MetricsRecorder} that receives {@code hybrid.fallback}
-     * events on every routing transition. Defaults to {@link MetricsRecorder#NOOP}.
+     * Maps the current remote {@link ProviderState} to a bounded cause string for
+     * the fallback-activation metric tag.
+     */
+    private static String fallbackCause(ProviderState remoteState) {
+        return switch (remoteState) {
+            case ERROR -> "primary_error";
+            case NOT_READY -> "primary_not_ready";
+            case STALE -> "primary_state_error";
+            default -> "primary_state_error";
+        };
+    }
+
+    /**
+     * Wires a {@link MetricsRecorder} that receives hybrid metrics on every
+     * routing transition, poll cycle, and state change.
+     * Defaults to {@link MetricsRecorder#NOOP}.
+     *
+     * <p>Composing a {@link MetricsRecordingPollListener} on top of the existing
+     * internal poll listener ensures that {@code openflags.poll.success} /
+     * {@code openflags.poll.failure} counters and {@code openflags.poll.latency}
+     * timers are emitted for hybrid providers in the same way they are for
+     * standalone remote providers.
      *
      * @param recorder the recorder; non-null
      */
     public void setMetricsRecorder(MetricsRecorder recorder) {
         this.metricsRecorder = Objects.requireNonNull(recorder, "recorder must not be null");
+
+        // Compose a MetricsRecordingPollListener on top of the existing internal
+        // poll listener so that openflags.poll.* meters are emitted for hybrid
+        // providers (parity with standalone remote provider wiring in the starter).
+        MetricsRecordingPollListener pollMetrics = new MetricsRecordingPollListener(recorder);
+        RemotePollListener existing = this::onPollComplete;
+        remote.setPollListener(new ComposedPollListener(existing, pollMetrics));
+
+        // Register gauges whose value is read on demand.
+        recorder.registerGauge(
+                OpenFlagsMetrics.Names.HYBRID_FALLBACK_ACTIVE,
+                Collections.emptyList(),
+                () -> fallbackActive.get() ? 1 : 0);
+        recorder.registerGauge(
+                OpenFlagsMetrics.Names.HYBRID_STATE_CURRENT,
+                Collections.emptyList(),
+                () -> providerStateCode(getState()));
+    }
+
+    /**
+     * Composes two {@link RemotePollListener}s; both are invoked in order.
+     * Exceptions from the first do not prevent the second from being called.
+     */
+    private static final class ComposedPollListener implements RemotePollListener {
+        private final RemotePollListener primary;
+        private final RemotePollListener secondary;
+
+        ComposedPollListener(RemotePollListener primary, RemotePollListener secondary) {
+            this.primary = primary;
+            this.secondary = secondary;
+        }
+
+        @Override
+        public void onPollComplete(Map<String, Flag> snapshot) {
+            primary.onPollComplete(snapshot);
+            secondary.onPollComplete(snapshot);
+        }
+
+        @Override
+        public void onPollOutcome(String outcome, long durationNanos) {
+            primary.onPollOutcome(outcome, durationNanos);
+            secondary.onPollOutcome(outcome, durationNanos);
+        }
     }
 
     @Override
@@ -526,5 +648,26 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         if (shutdown) {
             throw new IllegalStateException("HybridFlagProvider has been shut down");
         }
+    }
+
+    /**
+     * Stable, non-ordinal mapping of {@link ProviderState} to a numeric code
+     * suitable for a gauge. Mirrors
+     * {@code MicrometerMetricsRecorder#providerStateCode} without creating a
+     * compile-time dependency on Micrometer.
+     *
+     * @param state state to map; {@code null} maps to {@code -1}
+     * @return numeric code, or {@code -1} for unknown values
+     */
+    static int providerStateCode(ProviderState state) {
+        if (state == null) return -1;
+        return switch (state) {
+            case NOT_READY -> 0;
+            case READY -> 1;
+            case DEGRADED -> 2;
+            case ERROR -> 3;
+            case STALE -> 4;
+            case SHUTDOWN -> 5;
+        };
     }
 }
