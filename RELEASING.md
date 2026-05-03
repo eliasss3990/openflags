@@ -24,11 +24,6 @@ merge and the immediately following snapshot-bump merge.
 The signing public key must be published to `keys.openpgp.org` (or another
 key server reachable from Maven Central's verification step).
 
-SonarCloud analysis is run via the SonarCloud GitHub App (not a workflow),
-so no `SONAR_TOKEN` secret is required in GitHub. The token lives on
-SonarCloud's side; ensure the project is linked to this repo in
-sonarcloud.io.
-
 ### Branch protection (Settings → Branches → main)
 
 Configure `main` with:
@@ -42,14 +37,9 @@ Configure `main` with:
     - `No-Micrometer smoke (core)`
     - `Javadoc`
     - `All checks passed`
-    - `SonarCloud Code Analysis`
 - Require branches to be up to date before merging
 - Do not allow bypassing the above settings
 - Restrict pushes that create matching branches: only repo admin
-
-`SonarCloud Code Analysis` is reported via the SonarCloud GitHub App, not via
-a workflow file, so it must be added to required checks **after** at least one
-PR has surfaced it.
 
 ## Cutting a release
 
