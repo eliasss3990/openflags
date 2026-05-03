@@ -240,7 +240,7 @@ class RemoteFlagProviderIntegrationTest {
 
         List<ChangeType> changeTypes = events.stream().map(FlagChangeEvent::changeType).toList();
         assertThat(changeTypes).contains(ChangeType.CREATED); // flag-b added
-        assertThat(changeTypes).contains(ChangeType.UPDATED); // flag-a changed value
+        assertThat(changeTypes).contains(ChangeType.DISABLED); // flag-a boolean true -> false
 
         p.shutdown();
     }

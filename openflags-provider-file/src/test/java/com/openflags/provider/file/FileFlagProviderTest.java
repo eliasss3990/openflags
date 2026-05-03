@@ -118,7 +118,7 @@ class FileFlagProviderTest {
 
         assertThat(events).anySatisfy(e -> {
             assertThat(e.flagKey()).isEqualTo("toggle");
-            assertThat(e.changeType()).isEqualTo(ChangeType.UPDATED);
+            assertThat(e.changeType()).isEqualTo(ChangeType.ENABLED);
         });
         provider.shutdown();
     }
