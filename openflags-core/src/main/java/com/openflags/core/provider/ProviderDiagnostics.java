@@ -69,7 +69,7 @@ public interface ProviderDiagnostics {
      * <p>
      * Callers that need to distinguish "shut down" from "loaded empty"
      * should consult {@link #lastUpdate()} (null vs non-null) or
-     * {@link FlagProvider#health()}.
+     * {@link FlagProvider#getState()}.
      * </p>
      *
      * @return the flag count; never negative
