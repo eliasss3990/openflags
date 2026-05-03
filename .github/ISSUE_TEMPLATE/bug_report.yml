@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a defect in openflags
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Security vulnerabilities
+        must NOT be reported here — see SECURITY.md for the private disclosure flow.
+  - type: input
+    id: version
+    attributes:
+      label: openflags version
+      description: e.g. 1.0.0
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: java
+    attributes:
+      label: Java version
+      placeholder: 21.0.4 Temurin
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - openflags-core
+        - openflags-provider-file
+        - openflags-provider-remote
+        - openflags-provider-hybrid
+        - openflags-spring-boot-starter
+        - openflags-testing
+        - other / unsure
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Code snippet, configuration, and the steps to reproduce. Trim it to the smallest example that still shows the bug.
+      render: java
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / stack traces
+      render: shell
