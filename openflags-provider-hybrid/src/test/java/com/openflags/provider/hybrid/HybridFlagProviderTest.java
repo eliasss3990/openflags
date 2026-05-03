@@ -301,7 +301,7 @@ class HybridFlagProviderTest {
 
                 FlagChangeEvent event = new FlagChangeEvent("flag-x", FlagType.BOOLEAN,
                                 Optional.of(FlagValue.of(false, FlagType.BOOLEAN)),
-                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.UPDATED);
+                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.ENABLED);
                 internalRemoteListener.onFlagChange(event);
 
                 verify(publicListener).onFlagChange(event);
@@ -332,7 +332,7 @@ class HybridFlagProviderTest {
 
                 FlagChangeEvent event = new FlagChangeEvent("flag-x", FlagType.BOOLEAN,
                                 Optional.of(FlagValue.of(false, FlagType.BOOLEAN)),
-                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.UPDATED);
+                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.ENABLED);
                 assertThatNoException().isThrownBy(() -> listenerCaptor.getValue().onFlagChange(event));
 
                 verify(goodListener).onFlagChange(event);
@@ -371,7 +371,7 @@ class HybridFlagProviderTest {
                 // Immediately fire a file event (within debounce)
                 FlagChangeEvent fileEvent = new FlagChangeEvent("flag-x", FlagType.BOOLEAN,
                                 Optional.of(FlagValue.of(false, FlagType.BOOLEAN)),
-                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.UPDATED);
+                                Optional.of(FlagValue.of(true, FlagType.BOOLEAN)), ChangeType.ENABLED);
                 fileListenerCaptor.getValue().onFlagChange(fileEvent);
 
                 verify(publicListener, never()).onFlagChange(fileEvent);

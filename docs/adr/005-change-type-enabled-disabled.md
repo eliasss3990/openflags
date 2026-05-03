@@ -30,22 +30,28 @@ review (findings T-02 and N-02 in
 `/data/proyectos/openflags/main/plan/code-review-arquitectura/06-adrs-pendientes.md`,
 ADR-5 source):
 
-1. **T-02 — silent enable/disable transitions.** When a flag flips its
-   `enabled` field from `true` to `false` (or vice versa) without changing
-   its typed value, `oldValue` and `newValue` are *equal*. Listeners that
-   compare them — the obvious thing to do — see no diff and silently drop
-   the event. Even listeners that do not compare them only get
-   `ChangeType.UPDATED`, with no indication that the change is specifically
-   an enable/disable toggle. The most operationally important transition in
-   a feature-flag system (turning a flag off in production) is the one
-   hardest to detect.
+1. **T-02 — boolean value transitions are not classified.** A
+   boolean-typed flag whose `value` flips between `true` and `false` is
+   the most operationally important transition in a feature-flag system
+   (turning a feature on or off in production), yet today it surfaces
+   indistinguishably from any other change as `ChangeType.UPDATED`.
+   Consumers that want to alert specifically on "feature turned off"
+   must inspect both `oldValue` and `newValue` and re-derive the
+   classification themselves on every event.
 2. **N-02 — UPDATED is overloaded.** Today `UPDATED` covers every
-   non-create / non-delete transition: value changed, default changed,
-   enabled flipped, metadata changed. Consumers that want to react
-   specifically to enable/disable have to inspect both `oldValue` and
-   `newValue` *and* know that the difference must be inferred from
-   somewhere else (the provider's snapshot of the flag), which they do not
-   have access to.
+   non-create / non-delete transition: value changed (boolean or other),
+   default changed, metadata changed, even toggles of the `enabled`
+   field. The boolean-value flip is the case worth promoting; the rest
+   stay grouped under `UPDATED` for 1.x and get finer classification in
+   2.0 via `FlagChangeEventV2` (ADR-7).
+
+> **Scope note.** The `enabled` field of the `Flag` model is *not* part
+> of `FlagValue` and is not visible to `resolveUpdate(FlagType, FlagValue,
+> FlagValue)`. Detecting flips of the `enabled` field as a distinct
+> change type is therefore out of scope for 1.x — it requires a
+> structural change to `FlagChangeEvent` and is deferred to ADR-7.
+> ENABLED/DISABLED here mean **boolean value transitions**, not
+> `enabled`-field toggles.
 
 The 1.x line of openflags is committed to source-compatible evolution. We
 cannot:
@@ -74,31 +80,32 @@ public enum ChangeType {
     UPDATED,
     /** The flag was removed from the provider. */
     DELETED,
-    /** The flag transitioned from disabled to enabled (boolean flip on the {@code enabled} field). */
+    /** A boolean flag's value transitioned from {@code false} to {@code true}. */
     ENABLED,
-    /** The flag transitioned from enabled to disabled (boolean flip on the {@code enabled} field). */
+    /** A boolean flag's value transitioned from {@code true} to {@code false}. */
     DISABLED
 }
 ```
 
 Semantics:
 
-- `ENABLED` is emitted when, between two consecutive snapshots of the same
-  flag key, the `enabled` field flips from `false` to `true`. The typed
-  value may or may not have changed; the `enabled` flip is the
-  classification anchor.
-- `DISABLED` is the symmetric case: `enabled` flips from `true` to `false`.
+- `ENABLED` is emitted when, between two consecutive snapshots of the
+  same flag key, the flag is `BOOLEAN`-typed and its `value` transitions
+  from `false` to `true`.
+- `DISABLED` is the symmetric case: a `BOOLEAN`-typed flag whose `value`
+  transitions from `true` to `false`.
 - `UPDATED` keeps its current meaning *and* remains the catch-all for
-  changes that do not fit any other category (typed value changed while
-  `enabled` did not, default value changed, metadata-only changes, etc.).
-  It is intentionally a generic bucket; consumers that need finer-grained
-  classification will get more `ChangeType` values in 2.0 via
-  `FlagChangeEventV2` (ADR-7).
+  any other transition (non-boolean value change, equal boolean values,
+  changes to the `enabled` field while `value` stays put, default value
+  changed, metadata-only changes, etc.). It is intentionally a generic
+  bucket; consumers that need finer-grained classification — including
+  flips of the `enabled` field — will get more change-type signal in
+  2.0 via `FlagChangeEventV2` (ADR-7).
 - `CREATED` and `DELETED` win over `ENABLED`/`DISABLED` when they apply.
-  A newly-created flag that happens to be `enabled=true` emits
-  `CREATED`, not `ENABLED`. Likewise for deletion. This preserves the
-  invariant that `oldValue` is empty iff `changeType == CREATED` and
-  `newValue` is empty iff `changeType == DELETED`.
+  A newly-created boolean flag with `value=true` emits `CREATED`, not
+  `ENABLED`. Likewise for deletion. This preserves the invariant that
+  `oldValue` is empty iff `changeType == CREATED` and `newValue` is
+  empty iff `changeType == DELETED`.
 
 Provider responsibilities:
 
@@ -107,11 +114,11 @@ Provider responsibilities:
   using the precedence above: `CREATED` > `DELETED` > `ENABLED`/`DISABLED`
   > `UPDATED`.
 - The `oldValue` / `newValue` slots are populated as today: the typed
-  values of the flag before and after the transition. For an `ENABLED` /
-  `DISABLED` event where the typed value did not change, both slots will
-  hold *equal* `FlagValue` instances — this is intentional and lets
-  consumers see the typed payload without having to query the provider
-  again.
+  values of the flag before and after the transition. For an `ENABLED`
+  event `oldValue` carries `FlagValue(false)` and `newValue` carries
+  `FlagValue(true)`; for `DISABLED` the inverse. Consumers can rely on
+  `oldValue` and `newValue` being non-equal whenever
+  `changeType == ENABLED || changeType == DISABLED`.
 
 This decision applies to the 1.x line. ADR-7 covers a structural redesign
 in 2.0 (`FlagChangeEventV2` exposing the full `Flag`, with `enabled` as a
@@ -141,11 +148,12 @@ first-class field).
   compiling with `-Werror` will see a hard build failure until they add
   the missing branches or a `default`. This is the unavoidable cost of
   widening an enum.
-- The semantics of "the typed value may or may not have changed during an
-  ENABLED/DISABLED event" require documentation. A consumer that assumes
-  `oldValue.equals(newValue)` is true for every `ENABLED` event will be
-  wrong in the case of a simultaneous toggle-and-value-change. The
-  Javadoc must call this out explicitly.
+- ENABLED/DISABLED do **not** capture flips of the `Flag.enabled` field
+  (the toggle that disables flag evaluation regardless of `value`).
+  Those transitions still emit `UPDATED` in 1.x and require inspecting
+  the provider's current snapshot to detect. Promoting them to a
+  first-class change type requires structural changes to
+  `FlagChangeEvent` and is deferred to ADR-7 (2.0).
 - Provider implementations that compute diffs in batch must adopt the
   precedence rule consistently. Divergent classification across
   providers (e.g. `RemoteFlagProvider` emitting `UPDATED` while
