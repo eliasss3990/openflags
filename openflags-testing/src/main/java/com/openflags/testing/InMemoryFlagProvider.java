@@ -157,17 +157,19 @@ public final class InMemoryFlagProvider implements FlagProvider {
      */
     public InMemoryFlagProvider setDisabled(String key) {
         requireNotShutdown();
-        Flag[] updated = {null};
+        Flag[] before = {null};
+        Flag[] after = {null};
         flags.computeIfPresent(key, (k, existing) -> {
+            before[0] = existing;
             Flag disabled = new Flag(k, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
-            updated[0] = disabled;
+            after[0] = disabled;
             return disabled;
         });
-        if (updated[0] == null) {
+        if (after[0] == null) {
             throw new IllegalArgumentException("Cannot disable unknown flag: '" + key + "'");
         }
-        emit(new FlagChangeEvent(key, updated[0].type(),
-                Optional.of(updated[0].value()), Optional.of(updated[0].value()), ChangeType.UPDATED));
+        emit(new FlagChangeEvent(key, after[0].type(),
+                Optional.of(before[0].value()), Optional.of(after[0].value()), ChangeType.UPDATED));
         return this;
     }
 
@@ -217,7 +219,9 @@ public final class InMemoryFlagProvider implements FlagProvider {
     private InMemoryFlagProvider putFlag(Flag newFlag) {
         requireNotShutdown();
         Flag oldFlag = flags.put(newFlag.key(), newFlag);
-        ChangeType changeType = (oldFlag == null) ? ChangeType.CREATED : ChangeType.UPDATED;
+        ChangeType changeType = (oldFlag == null)
+                ? ChangeType.CREATED
+                : ChangeType.resolveUpdate(newFlag.type(), oldFlag.value(), newFlag.value());
         emit(new FlagChangeEvent(
                 newFlag.key(), newFlag.type(),
                 Optional.ofNullable(oldFlag == null ? null : oldFlag.value()),

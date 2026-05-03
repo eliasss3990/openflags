@@ -204,8 +204,9 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
                 event = new FlagChangeEvent(key, oldFlag.type(),
                         Optional.of(oldFlag.value()), Optional.empty(), ChangeType.DELETED);
             } else if (!oldFlag.equals(newFlag)) {
+                ChangeType ct = ChangeType.resolveUpdate(newFlag.type(), oldFlag.value(), newFlag.value());
                 event = new FlagChangeEvent(key, newFlag.type(),
-                        Optional.of(oldFlag.value()), Optional.of(newFlag.value()), ChangeType.UPDATED);
+                        Optional.of(oldFlag.value()), Optional.of(newFlag.value()), ct);
             }
 
             if (event != null) {
