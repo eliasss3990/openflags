@@ -18,11 +18,11 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 @SuppressWarnings("deprecation")
 class RemoteProviderConfigTest {
 
-    private static final URI HTTP_URL  = URI.create("http://flags.example.com");
+    private static final URI HTTP_URL = URI.create("http://flags.example.com");
     private static final URI HTTPS_URL = URI.create("https://flags.example.com");
-    private static final Duration POS  = Duration.ofSeconds(5);
+    private static final Duration POS = Duration.ofSeconds(5);
     private static final Duration POLL = Duration.ofSeconds(5);
-    private static final Duration TTL  = Duration.ofSeconds(30);
+    private static final Duration TTL = Duration.ofSeconds(30);
 
     private RemoteProviderConfig valid() {
         return new RemoteProviderConfig(HTTPS_URL, "/flags", null, null, POS, POS, POLL, TTL, "agent");
@@ -174,6 +174,17 @@ class RemoteProviderConfigTest {
         assertThat(s).doesNotContain("Bearer");
         assertThat(s).contains("authHeaderValue=***");
         assertThat(s).contains("authHeaderName=Authorization");
+    }
+
+    @Test
+    void toString_redactsUserInfoInBaseUrl() {
+        RemoteProviderConfig c = new RemoteProviderConfig(
+                URI.create("https://alice:s3cret@flags.example.com"), "/flags",
+                null, null, POS, POS, POLL, TTL, "agent");
+        String s = c.toString();
+        assertThat(s).doesNotContain("alice");
+        assertThat(s).doesNotContain("s3cret");
+        assertThat(s).contains("***@flags.example.com");
     }
 
     @Test

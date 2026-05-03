@@ -1,5 +1,7 @@
 package com.openflags.provider.remote;
 
+import com.openflags.core.util.Urls;
+
 import java.net.URI;
 import java.time.Duration;
 import java.util.Objects;
@@ -111,6 +113,7 @@ public record RemoteProviderConfig(
      *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
      *             evolves gracefully when new optional fields are added to
      *             the record. Migration example:
+     * 
      *             <pre>{@code
      * // Before
      * RemoteProviderConfig cfg = new RemoteProviderConfig(
@@ -227,9 +230,9 @@ public record RemoteProviderConfig(
     public String toString() {
         String maskedValue = authHeaderValue == null ? "null"
                 : authHeaderValue.isBlank() ? "<blank>"
-                : "***";
+                        : "***";
         return "RemoteProviderConfig["
-                + "baseUrl=" + baseUrl
+                + "baseUrl=" + Urls.redact(baseUrl)
                 + ", flagsPath=" + flagsPath
                 + ", authHeaderName=" + authHeaderName
                 + ", authHeaderValue=" + maskedValue

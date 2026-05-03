@@ -54,6 +54,31 @@ class EvaluationContextTest {
     }
 
     @Test
+    void toString_redactsTargetingKeyAndAttributeValues() {
+        EvaluationContext ctx = EvaluationContext.builder()
+                .targetingKey("user-secret-123")
+                .attribute("email", "alice@example.com")
+                .attribute("ssn", "999-99-9999")
+                .build();
+        String repr = ctx.toString();
+        assertThat(repr).doesNotContain("user-secret-123");
+        assertThat(repr).doesNotContain("alice@example.com");
+        assertThat(repr).doesNotContain("999-99-9999");
+        assertThat(repr).doesNotContain("email");
+        assertThat(repr).doesNotContain("ssn");
+        assertThat(repr).contains("targetingKey=set");
+        assertThat(repr).contains("attributes=2");
+    }
+
+    @Test
+    void toString_marksMissingTargetingKeyAsNone() {
+        EvaluationContext ctx = EvaluationContext.empty();
+        assertThat(ctx.toString())
+                .contains("targetingKey=none")
+                .contains("attributes=0");
+    }
+
+    @Test
     void equalsAndHashCode_workCorrectly() {
         EvaluationContext c1 = EvaluationContext.of("u1");
         EvaluationContext c2 = EvaluationContext.of("u1");

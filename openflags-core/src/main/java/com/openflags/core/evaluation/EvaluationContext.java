@@ -91,7 +91,8 @@ public final class EvaluationContext {
 
     @Override
     public String toString() {
-        return "EvaluationContext[targetingKey=" + targetingKey + ", attributes=" + attributes + "]";
+        String tk = (targetingKey == null) ? "none" : "set";
+        return "EvaluationContext[targetingKey=" + tk + ", attributes=" + attributes.size() + "]";
     }
 
     /**
