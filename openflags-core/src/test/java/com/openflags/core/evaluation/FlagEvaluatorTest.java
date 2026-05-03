@@ -1,10 +1,12 @@
 package com.openflags.core.evaluation;
 
 import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.MultiVariantRule;
 import com.openflags.core.evaluation.rule.Operator;
 import com.openflags.core.evaluation.rule.SplitRule;
 import com.openflags.core.evaluation.rule.TargetingRule;
 import com.openflags.core.evaluation.rule.RuleEngine;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.metrics.Tag;
@@ -239,6 +241,90 @@ class FlagEvaluatorTest {
 
         assertThat(result.value()).isFalse();
         assertThat(result.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
+    }
+
+    // ── F9: variant and matchedRuleId propagation ──────────────────────────
+
+    @Test
+    void evaluate_withTargetingRule_populatesMatchedRuleId() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("vip-override",
+                List.of(new Condition("plan", Operator.EQ, "vip")), ruleValue);
+        Flag flag = new Flag("feature-x", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("feature-x")).thenReturn(Optional.of(flag));
+
+        EvaluationContext matchCtx = EvaluationContext.builder().attribute("plan", "vip").build();
+        EvaluationResult<Boolean> result = evaluator.evaluate(provider, "feature-x", Boolean.class, false, matchCtx);
+
+        assertThat(result.reason()).isEqualTo(EvaluationReason.TARGETING_MATCH);
+        assertThat(result.matchedRuleId()).isEqualTo("vip-override");
+        assertThat(result.variant()).isNull();
+    }
+
+    @Test
+    void evaluate_withSplitRule_populatesMatchedRuleId() {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        SplitRule rule = new SplitRule("rollout-100", 100, ruleValue);
+        Flag flag = new Flag("new-ui", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+        when(provider.getFlag("new-ui")).thenReturn(Optional.of(flag));
+
+        EvaluationResult<Boolean> result = evaluator.evaluate(
+                provider, "new-ui", Boolean.class, false, EvaluationContext.of("user-1"));
+
+        assertThat(result.reason()).isEqualTo(EvaluationReason.SPLIT);
+        assertThat(result.matchedRuleId()).isEqualTo("rollout-100");
+        assertThat(result.variant()).isNull();
+    }
+
+    @Test
+    void evaluate_withMultiVariantRule_string_populatesVariantAndMatchedRuleId() {
+        FlagValue control   = FlagValue.of("control",   FlagType.STRING);
+        FlagValue treatment = FlagValue.of("treatment",  FlagType.STRING);
+        MultiVariantRule rule = new MultiVariantRule("ab-test", List.of(
+                new WeightedVariant(control,   50),
+                new WeightedVariant(treatment, 50)));
+        Flag flag = new Flag("experiment", FlagType.STRING,
+                FlagValue.of("default", FlagType.STRING), true, null, List.of(rule));
+        when(provider.getFlag("experiment")).thenReturn(Optional.of(flag));
+
+        EvaluationResult<String> result = evaluator.evaluate(
+                provider, "experiment", String.class, "default", EvaluationContext.of("user-xyz"));
+
+        assertThat(result.reason()).isEqualTo(EvaluationReason.VARIANT);
+        assertThat(result.matchedRuleId()).isEqualTo("ab-test");
+        assertThat(result.variant()).isIn("control", "treatment");
+        assertThat(result.variant()).isEqualTo(result.value());
+    }
+
+    @Test
+    void evaluate_errorPaths_haveNullVariantAndMatchedRuleId() {
+        when(provider.getFlag("missing")).thenReturn(Optional.empty());
+        EvaluationResult<Boolean> notFound = evaluator.evaluate(
+                provider, "missing", Boolean.class, false, ctx);
+        assertThat(notFound.variant()).isNull();
+        assertThat(notFound.matchedRuleId()).isNull();
+
+        Flag disabled = new Flag("off", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), false, null);
+        when(provider.getFlag("off")).thenReturn(Optional.of(disabled));
+        EvaluationResult<Boolean> disabledResult = evaluator.evaluate(
+                provider, "off", Boolean.class, false, ctx);
+        assertThat(disabledResult.variant()).isNull();
+        assertThat(disabledResult.matchedRuleId()).isNull();
+    }
+
+    @Test
+    void evaluate_noRulesFlag_hasNullVariantAndMatchedRuleId() {
+        Flag flag = new Flag("simple", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), true, null);
+        when(provider.getFlag("simple")).thenReturn(Optional.of(flag));
+
+        EvaluationResult<Boolean> result = evaluator.evaluate(
+                provider, "simple", Boolean.class, false, ctx);
+
+        assertThat(result.reason()).isEqualTo(EvaluationReason.RESOLVED);
+        assertThat(result.variant()).isNull();
+        assertThat(result.matchedRuleId()).isNull();
     }
 
     @Test

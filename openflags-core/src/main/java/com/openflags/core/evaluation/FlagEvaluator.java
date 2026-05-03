@@ -90,35 +90,36 @@ public final class FlagEvaluator {
             flagOpt = provider.getFlag(key);
         } catch (ProviderException e) {
             log.warn("Provider error evaluating flag '{}': {}", key, e.getMessage());
-            return new EvaluationResult<>(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
+            return EvaluationResult.of(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
         } catch (Exception e) {
             // Reuse PROVIDER_ERROR to keep the public reason enum stable; the
             // separate `unexpected.errors.total` counter lets operators alert on
             // provider contract violations without splitting reason values.
             log.warn("Unexpected error evaluating flag '{}'", key, e);
             metrics.recordUnexpectedProviderError(key);
-            return new EvaluationResult<>(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
+            return EvaluationResult.of(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
         }
 
         if (flagOpt.isEmpty()) {
-            return new EvaluationResult<>(defaultValue, EvaluationReason.FLAG_NOT_FOUND, key);
+            return EvaluationResult.of(defaultValue, EvaluationReason.FLAG_NOT_FOUND, key);
         }
 
         Flag flag = flagOpt.get();
 
         if (!flag.enabled()) {
-            return new EvaluationResult<>(defaultValue, EvaluationReason.FLAG_DISABLED, key);
+            return EvaluationResult.of(defaultValue, EvaluationReason.FLAG_DISABLED, key);
         }
 
         FlagType expectedFlagType = toFlagType(expectedType);
         if (expectedFlagType == null || flag.type() != expectedFlagType) {
             log.debug("Type mismatch for flag '{}': expected {}, got {}", key, expectedFlagType, flag.type());
-            return new EvaluationResult<>(defaultValue, EvaluationReason.TYPE_MISMATCH, key);
+            return EvaluationResult.of(defaultValue, EvaluationReason.TYPE_MISMATCH, key);
         }
 
         RuleEngine.Resolution resolution = ruleEngine.resolve(flag, context);
         T resolvedValue = extractTypedValue(resolution.value(), expectedType);
-        return new EvaluationResult<>(resolvedValue, resolution.reason(), key);
+        return new EvaluationResult<>(resolvedValue, resolution.reason(), key,
+                resolution.variant(), resolution.matchedRuleId());
     }
 
     private static FlagType toFlagType(Class<?> javaType) {
