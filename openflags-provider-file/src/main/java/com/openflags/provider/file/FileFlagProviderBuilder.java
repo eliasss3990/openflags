@@ -1,5 +1,6 @@
 package com.openflags.provider.file;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
@@ -88,6 +89,10 @@ public final class FileFlagProviderBuilder {
     public FileFlagProvider build() {
         if (path == null) {
             throw new IllegalStateException("A file path must be set before building the provider");
+        }
+        if (Files.isDirectory(path)) {
+            throw new IllegalArgumentException(
+                    "path must point to a file, not a directory: " + path);
         }
         return new FileFlagProvider(path, watchEnabled);
     }

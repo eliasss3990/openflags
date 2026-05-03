@@ -13,7 +13,9 @@ import java.util.Objects;
  * @param remoteConfig    configuration for the inner {@link com.openflags.provider.remote.RemoteFlagProvider};
  *                        non-null
  * @param snapshotPath    filesystem path where the snapshot is read at startup and written on each
- *                        successful remote change; non-null; parent directory must exist
+ *                        successful remote change; non-null; must not be a directory itself.
+ *                        The parent directory is created automatically during
+ *                        {@link HybridFlagProvider#init()} if it does not exist yet
  * @param snapshotFormat  serialization format for the snapshot; non-null; default {@link SnapshotFormat#JSON}
  * @param watchSnapshot   whether to enable filesystem watching on the snapshot path so that manual
  *                        edits trigger reload while the remote is in {@code ERROR}/{@code NOT_READY};
@@ -43,9 +45,9 @@ public record HybridProviderConfig(
      * Compact constructor that validates the fields and applies defaults.
      *
      * @throws NullPointerException     if any required field is null
-     * @throws IllegalArgumentException if {@code snapshotPath} is a directory or its parent
-     *                                  directory does not exist; or if {@code snapshotDebounce}
-     *                                  is non-positive or {@code > remoteConfig.pollInterval() / 2}
+     * @throws IllegalArgumentException if {@code snapshotPath} is itself a directory; or if
+     *                                  {@code snapshotDebounce} is non-positive or
+     *                                  {@code > remoteConfig.pollInterval() / 2}
      */
     public HybridProviderConfig {
         Objects.requireNonNull(remoteConfig, "remoteConfig must not be null");
@@ -53,11 +55,6 @@ public record HybridProviderConfig(
         if (Files.isDirectory(snapshotPath)) {
             throw new IllegalArgumentException(
                     "snapshotPath must not be a directory: " + snapshotPath);
-        }
-        Path parent = snapshotPath.toAbsolutePath().getParent();
-        if (parent == null || !Files.isDirectory(parent)) {
-            throw new IllegalArgumentException(
-                    "snapshotPath parent directory must exist: " + parent);
         }
         if (snapshotFormat == null) {
             snapshotFormat = SnapshotFormat.JSON;

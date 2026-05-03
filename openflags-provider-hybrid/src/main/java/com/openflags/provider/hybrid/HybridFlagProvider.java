@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -228,6 +230,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         requireNotShutdown();
         if (initialized)
             return;
+
+        ensureSnapshotParentExists(config.snapshotPath());
 
         boolean remoteOk = false;
         boolean fileOk = false;
@@ -647,6 +651,25 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     private void requireNotShutdown() {
         if (shutdown) {
             throw new IllegalStateException("HybridFlagProvider has been shut down");
+        }
+    }
+
+    private static void ensureSnapshotParentExists(Path snapshotPath) {
+        Path parent = snapshotPath.toAbsolutePath().getParent();
+        if (parent == null) {
+            return;
+        }
+        if (!Files.exists(parent)) {
+            try {
+                Files.createDirectories(parent);
+                log.info("HybridFlagProvider: created snapshot parent directory: {}", parent);
+            } catch (IOException e) {
+                throw new ProviderException(
+                        "Cannot create snapshot parent directory '" + parent + "': " + e.getMessage(), e);
+            }
+        } else if (!Files.isDirectory(parent)) {
+            throw new ProviderException(
+                    "Snapshot parent path exists but is not a directory: " + parent);
         }
     }
 
