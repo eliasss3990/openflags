@@ -32,7 +32,14 @@ final class EvaluationListenerRegistry {
     private static final Logger log = LoggerFactory.getLogger(EvaluationListenerRegistry.class);
 
     private final List<EvaluationListener> listeners = new CopyOnWriteArrayList<>();
-    private final ConcurrentHashMap<String, AtomicLong> failureCounters = new ConcurrentHashMap<>();
+    /**
+     * Per-listener-instance failure counters. Keyed by the listener reference
+     * itself so that two distinct registrations of equivalent lambdas track
+     * independent counts; entries are removed in
+     * {@link #remove(EvaluationListener)}
+     * to prevent unbounded growth across the registry's lifetime.
+     */
+    private final ConcurrentHashMap<EvaluationListener, AtomicLong> failureCounters = new ConcurrentHashMap<>();
     private final MetricsRecorder metrics;
 
     EvaluationListenerRegistry(MetricsRecorder metrics) {
@@ -48,7 +55,16 @@ final class EvaluationListenerRegistry {
         if (listener == null) {
             return false;
         }
-        return listeners.remove(listener);
+        boolean removed = listeners.remove(listener);
+        if (removed) {
+            // Residual race: a concurrent dispatch() may re-insert the counter
+            // via computeIfAbsent after this remove. Acceptable: the entry is
+            // bounded (single AtomicLong) and would only persist until the next
+            // remove() of the same instance. Locking the whole registry just to
+            // close this window is not worth it.
+            failureCounters.remove(listener);
+        }
+        return removed;
     }
 
     int size() {
@@ -79,7 +95,7 @@ final class EvaluationListenerRegistry {
             log.debug("openflags: metrics.recordListenerError threw", metricsFailure);
         }
         long count = failureCounters
-                .computeIfAbsent(name, k -> new AtomicLong())
+                .computeIfAbsent(listener, k -> new AtomicLong())
                 .incrementAndGet();
         if (Long.bitCount(count) == 1) {
             log.warn("openflags: EvaluationListener {} threw {} times (rate-limited)",
