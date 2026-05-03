@@ -67,8 +67,8 @@ etc. Omit the scope for repo-wide changes.
 - Unit tests live alongside the code they test (`src/test/java`).
 - Tests should fail when the path they exercise is broken. If a correct test
   passes against a buggy implementation, the test is wrong — fix it.
-- Coverage is reported by JaCoCo to SonarCloud. We do not enforce a fixed
-  coverage gate, but the trend should not regress.
+- Coverage is reported by JaCoCo. We do not enforce a fixed coverage gate,
+  but the trend should not regress.
 
 ## Releases
 
