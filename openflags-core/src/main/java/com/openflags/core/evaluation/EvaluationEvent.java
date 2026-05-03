@@ -22,13 +22,19 @@ import java.util.Objects;
  *                      {@code null}; same runtime-type contract as
  *                      {@code defaultValue}
  * @param reason        outcome classification, never {@code null}
- * @param variant       matched variant identifier when a multi-variant rule
- *                      was selected, otherwise {@code null}. The string is
- *                      the raw {@code name} declared in the flag definition,
- *                      not normalized — listeners should compare against the
- *                      same names defined in their flag config.
- * @param matchedRuleId identifier of the rule that matched, or {@code null}
- *                      when no rule matched or the engine does not expose it
+ * @param variant       label derived from the selected variant's value when a
+ *                      {@link com.openflags.core.evaluation.rule.MultiVariantRule} matched,
+ *                      otherwise {@code null}. For {@code STRING} flags this is the raw
+ *                      string value; for {@code BOOLEAN}/{@code NUMBER} flags it is the
+ *                      stringified primitive (whole numbers without decimal part, e.g.
+ *                      {@code "50"} not {@code "50.0"}); for {@code OBJECT} flags it is
+ *                      {@code null} (no compact label is meaningful).
+ * @param matchedRuleId {@link com.openflags.core.evaluation.rule.Rule#name()} of the rule
+ *                      that produced this result when a {@code TargetingRule},
+ *                      {@code SplitRule}, or {@code MultiVariantRule} matched;
+ *                      {@code null} when no rule matched (reasons {@code RESOLVED},
+ *                      {@code NO_RULE_MATCHED}, {@code FLAG_NOT_FOUND}, {@code FLAG_DISABLED},
+ *                      {@code TYPE_MISMATCH}, {@code PROVIDER_ERROR})
  * @param context       evaluation context used for resolution, never
  *                      {@code null}
  * @param timestamp     instant the evaluation completed, never {@code null}

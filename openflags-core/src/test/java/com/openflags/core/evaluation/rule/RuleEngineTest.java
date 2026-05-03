@@ -160,6 +160,123 @@ class RuleEngineTest {
         assertThat(r.value()).isEqualTo(RULE_VALUE);
     }
 
+    // ── F9: variant and matchedRuleId on Resolution ────────────────────────
+
+    @Test
+    void targetingRule_match_populatesMatchedRuleId_andNullVariant() {
+        Condition c = new Condition("country", Operator.EQ, "AR");
+        TargetingRule rule = new TargetingRule("ar-rule", List.of(c), RULE_VALUE);
+        EvaluationContext ctx = EvaluationContext.builder().attribute("country", "AR").build();
+
+        RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
+
+        assertThat(r.matchedRuleId()).isEqualTo("ar-rule");
+        assertThat(r.variant()).isNull();
+    }
+
+    @Test
+    void splitRule_match_populatesMatchedRuleId_andNullVariant() {
+        SplitRule rule = new SplitRule("full-rollout", 100, RULE_VALUE);
+        EvaluationContext ctx = EvaluationContext.of("user-1");
+
+        RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.SPLIT);
+        assertThat(r.matchedRuleId()).isEqualTo("full-rollout");
+        assertThat(r.variant()).isNull();
+    }
+
+    @Test
+    void multiVariantRule_string_populatesVariantLabel_andMatchedRuleId() {
+        FlagValue varA = FlagValue.of("control",   FlagType.STRING);
+        FlagValue varB = FlagValue.of("treatment", FlagType.STRING);
+        MultiVariantRule rule = new MultiVariantRule("ab-experiment", List.of(
+                new WeightedVariant(varA, 50),
+                new WeightedVariant(varB, 50)));
+        Flag flag = new Flag("str-flag", FlagType.STRING,
+                FlagValue.of("default", FlagType.STRING), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-abc"));
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.VARIANT);
+        assertThat(r.matchedRuleId()).isEqualTo("ab-experiment");
+        assertThat(r.variant()).isIn("control", "treatment");
+    }
+
+    @Test
+    void multiVariantRule_boolean_variantIsStringifiedBoolean() {
+        FlagValue falseVal = FlagValue.of(false, FlagType.BOOLEAN);
+        FlagValue trueVal  = FlagValue.of(true,  FlagType.BOOLEAN);
+        MultiVariantRule rule = new MultiVariantRule("bool-exp", List.of(
+                new WeightedVariant(falseVal, 50),
+                new WeightedVariant(trueVal,  50)));
+        Flag flag = new Flag("bool-flag", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-x"));
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.VARIANT);
+        assertThat(r.variant()).isIn("true", "false");
+    }
+
+    @Test
+    void multiVariantRule_wholeNumber_variantOmitsDecimalPart() {
+        FlagValue fifty = FlagValue.of(50.0, FlagType.NUMBER);
+        MultiVariantRule rule = new MultiVariantRule("num-exp", List.of(
+                new WeightedVariant(fifty, 100)));
+        Flag flag = new Flag("num-flag", FlagType.NUMBER,
+                FlagValue.of(0.0, FlagType.NUMBER), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-x"));
+
+        assertThat(r.variant()).isEqualTo("50");
+    }
+
+    @Test
+    void multiVariantRule_nanValue_variantIsNull() {
+        FlagValue nanVal = FlagValue.of(Double.NaN, FlagType.NUMBER);
+        MultiVariantRule rule = new MultiVariantRule("nan-exp", List.of(new WeightedVariant(nanVal, 100)));
+        Flag flag = new Flag("num-flag", FlagType.NUMBER,
+                FlagValue.of(0.0, FlagType.NUMBER), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-x"));
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.VARIANT);
+        assertThat(r.variant()).isNull();
+    }
+
+    @Test
+    void multiVariantRule_infinityValue_variantIsNull() {
+        FlagValue infVal = FlagValue.of(Double.POSITIVE_INFINITY, FlagType.NUMBER);
+        MultiVariantRule rule = new MultiVariantRule("inf-exp", List.of(new WeightedVariant(infVal, 100)));
+        Flag flag = new Flag("num-flag", FlagType.NUMBER,
+                FlagValue.of(0.0, FlagType.NUMBER), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-x"));
+
+        assertThat(r.variant()).isNull();
+    }
+
+    @Test
+    void noRules_resolution_hasNullVariantAndMatchedRuleId() {
+        RuleEngine.Resolution r = engine.resolve(flagNoRules(), EvaluationContext.empty());
+        assertThat(r.variant()).isNull();
+        assertThat(r.matchedRuleId()).isNull();
+    }
+
+    @Test
+    void noRuleMatched_resolution_hasNullVariantAndMatchedRuleId() {
+        Condition c = new Condition("country", Operator.EQ, "AR");
+        TargetingRule rule = new TargetingRule("ar-rule", List.of(c), RULE_VALUE);
+        EvaluationContext ctx = EvaluationContext.builder().attribute("country", "BR").build();
+
+        RuleEngine.Resolution r = engine.resolve(flagWithRules(List.of(rule)), ctx);
+
+        assertThat(r.reason()).isEqualTo(EvaluationReason.NO_RULE_MATCHED);
+        assertThat(r.variant()).isNull();
+        assertThat(r.matchedRuleId()).isNull();
+    }
+
     @Test
     @Tag("statistical")
     void multiVariantRule_distributionWithinOnePct() {

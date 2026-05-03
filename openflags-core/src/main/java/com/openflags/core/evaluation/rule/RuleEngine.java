@@ -22,15 +22,17 @@ public final class RuleEngine {
     private static final Logger log = LoggerFactory.getLogger(RuleEngine.class);
 
     /**
-     * Outcome of a rule resolution: the value to use and the reason that explains it.
+     * Outcome of a rule resolution.
      *
-     * @param value  the resolved {@link FlagValue}
-     * @param reason the {@link EvaluationReason}: one of
-     *               {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
-     *               {@link EvaluationReason#SPLIT}, {@link EvaluationReason#VARIANT},
-     *               or {@link EvaluationReason#NO_RULE_MATCHED}
+     * @param value         the resolved {@link FlagValue}
+     * @param reason        the {@link EvaluationReason}: one of
+     *                      {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
+     *                      {@link EvaluationReason#SPLIT}, {@link EvaluationReason#VARIANT},
+     *                      or {@link EvaluationReason#NO_RULE_MATCHED}
+     * @param variant       the variant label when a {@code MultiVariantRule} matched, otherwise {@code null}
+     * @param matchedRuleId the {@link Rule#name()} of the rule that matched, or {@code null} when no rule matched
      */
-    public record Resolution(FlagValue value, EvaluationReason reason) {}
+    public record Resolution(FlagValue value, EvaluationReason reason, String variant, String matchedRuleId) {}
 
     /**
      * Resolves a flag's value using its rules and the provided context.
@@ -52,7 +54,7 @@ public final class RuleEngine {
         Objects.requireNonNull(context, "context must not be null");
 
         if (flag.rules().isEmpty()) {
-            return new Resolution(flag.value(), EvaluationReason.RESOLVED);
+            return new Resolution(flag.value(), EvaluationReason.RESOLVED, null, null);
         }
 
         for (Rule rule : flag.rules()) {
@@ -65,7 +67,7 @@ public final class RuleEngine {
         }
 
         log.debug("Flag '{}' has rules but none matched; using default value", flag.key());
-        return new Resolution(flag.value(), EvaluationReason.NO_RULE_MATCHED);
+        return new Resolution(flag.value(), EvaluationReason.NO_RULE_MATCHED, null, null);
     }
 
     private Optional<Resolution> evaluateRule(Rule rule, Flag flag, EvaluationContext context) {
@@ -81,7 +83,8 @@ public final class RuleEngine {
         return context.getTargetingKey().map(tk -> {
             int bucket = BucketAllocator.bucket(flagKey, tk);
             WeightedVariant chosen = VariantSelector.select(rule.variants(), bucket);
-            return new Resolution(chosen.value(), EvaluationReason.VARIANT);
+            return new Resolution(chosen.value(), EvaluationReason.VARIANT,
+                    toVariantLabel(chosen.value()), rule.name());
         });
     }
 
@@ -89,7 +92,7 @@ public final class RuleEngine {
         boolean allMatch = rule.conditions().stream()
                 .allMatch(c -> ConditionEvaluator.matches(c, context));
         return allMatch
-                ? Optional.of(new Resolution(rule.value(), EvaluationReason.TARGETING_MATCH))
+                ? Optional.of(new Resolution(rule.value(), EvaluationReason.TARGETING_MATCH, null, rule.name()))
                 : Optional.empty();
     }
 
@@ -98,8 +101,28 @@ public final class RuleEngine {
                 .flatMap(tk -> {
                     int bucket = BucketAllocator.bucket(flagKey, tk);
                     return bucket < rule.percentage()
-                            ? Optional.of(new Resolution(rule.value(), EvaluationReason.SPLIT))
+                            ? Optional.of(new Resolution(rule.value(), EvaluationReason.SPLIT, null, rule.name()))
                             : Optional.empty();
                 });
+    }
+
+    /**
+     * Converts a variant's {@link FlagValue} to a human-readable label for the
+     * {@code variant} field of {@link com.openflags.core.evaluation.EvaluationResult}.
+     * String flags return their natural value; numeric and boolean flags are stringified;
+     * object flags return {@code null} (no compact label is meaningful).
+     */
+    private static String toVariantLabel(FlagValue value) {
+        return switch (value.getType()) {
+            case STRING  -> value.asString();
+            case BOOLEAN -> String.valueOf(value.asBoolean());
+            case NUMBER  -> {
+                double d = value.asNumber();
+                if (!Double.isFinite(d)) yield null;
+                // Omit the decimal part for whole numbers (e.g., "50" instead of "50.0")
+                yield (d == Math.floor(d)) ? String.valueOf((long) d) : String.valueOf(d);
+            }
+            case OBJECT  -> null;
+        };
     }
 }

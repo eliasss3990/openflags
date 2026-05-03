@@ -1,8 +1,15 @@
 package com.openflags.core;
 
 import com.openflags.core.evaluation.EvaluationContext;
+import com.openflags.core.evaluation.EvaluationEvent;
+import com.openflags.core.evaluation.EvaluationListener;
 import com.openflags.core.evaluation.EvaluationReason;
 import com.openflags.core.evaluation.EvaluationResult;
+import com.openflags.core.evaluation.rule.MultiVariantRule;
+import com.openflags.core.evaluation.rule.TargetingRule;
+import com.openflags.core.evaluation.rule.Condition;
+import com.openflags.core.evaluation.rule.Operator;
+import com.openflags.core.evaluation.rule.WeightedVariant;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
@@ -209,5 +216,75 @@ class OpenFlagsClientTest {
 
         EvaluationContext ctx = EvaluationContext.of("user-123");
         assertThat(client.getBooleanValue("feature", false, ctx)).isTrue();
+    }
+
+    // ── F9: EvaluationEvent carries variant and matchedRuleId ──────────────
+
+    @Test
+    void getStringResult_multiVariantRule_eventCarriesVariantAndMatchedRuleId() throws InterruptedException {
+        FlagValue control   = FlagValue.of("control",   FlagType.STRING);
+        FlagValue treatment = FlagValue.of("treatment", FlagType.STRING);
+        MultiVariantRule rule = new MultiVariantRule("ab-experiment", java.util.List.of(
+                new WeightedVariant(control,   50),
+                new WeightedVariant(treatment, 50)));
+        Flag flag = new Flag("exp-flag", FlagType.STRING,
+                FlagValue.of("default", FlagType.STRING), true, null, java.util.List.of(rule));
+        when(provider.getFlag("exp-flag")).thenReturn(Optional.of(flag));
+
+        java.util.concurrent.atomic.AtomicReference<EvaluationEvent> captured =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        client.addEvaluationListener(event -> { captured.set(event); latch.countDown(); });
+
+        client.getStringResult("exp-flag", "default", EvaluationContext.of("user-xyz"));
+
+        assertThat(latch.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        EvaluationEvent event = captured.get();
+        assertThat(event.reason()).isEqualTo(EvaluationReason.VARIANT);
+        assertThat(event.matchedRuleId()).isEqualTo("ab-experiment");
+        assertThat(event.variant()).isIn("control", "treatment");
+    }
+
+    @Test
+    void getBooleanResult_targetingRule_eventCarriesMatchedRuleId() throws InterruptedException {
+        FlagValue ruleValue = FlagValue.of(true, FlagType.BOOLEAN);
+        TargetingRule rule = new TargetingRule("vip-rule",
+                java.util.List.of(new Condition("plan", Operator.EQ, "vip")), ruleValue);
+        Flag flag = new Flag("vip-feature", FlagType.BOOLEAN,
+                FlagValue.of(false, FlagType.BOOLEAN), true, null, java.util.List.of(rule));
+        when(provider.getFlag("vip-feature")).thenReturn(Optional.of(flag));
+
+        java.util.concurrent.atomic.AtomicReference<EvaluationEvent> captured =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        client.addEvaluationListener(event -> { captured.set(event); latch.countDown(); });
+
+        EvaluationContext ctx = EvaluationContext.builder().attribute("plan", "vip").build();
+        client.getBooleanResult("vip-feature", false, ctx);
+
+        assertThat(latch.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        EvaluationEvent event = captured.get();
+        assertThat(event.reason()).isEqualTo(EvaluationReason.TARGETING_MATCH);
+        assertThat(event.matchedRuleId()).isEqualTo("vip-rule");
+        assertThat(event.variant()).isNull();
+    }
+
+    @Test
+    void getBooleanResult_noRules_eventHasNullVariantAndMatchedRuleId() throws InterruptedException {
+        Flag flag = new Flag("simple", FlagType.BOOLEAN, FlagValue.of(true, FlagType.BOOLEAN), true, null);
+        when(provider.getFlag("simple")).thenReturn(Optional.of(flag));
+
+        java.util.concurrent.atomic.AtomicReference<EvaluationEvent> captured =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        client.addEvaluationListener(event -> { captured.set(event); latch.countDown(); });
+
+        client.getBooleanResult("simple", false, EvaluationContext.empty());
+
+        assertThat(latch.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        EvaluationEvent event = captured.get();
+        assertThat(event.reason()).isEqualTo(EvaluationReason.RESOLVED);
+        assertThat(event.variant()).isNull();
+        assertThat(event.matchedRuleId()).isNull();
     }
 }
