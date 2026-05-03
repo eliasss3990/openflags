@@ -17,6 +17,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   **Migration**: replace with `EvaluationResult.of(value, reason, flagKey)` (new factory added for this purpose).
   Code using the accessor methods (`result.value()`, `result.reason()`, `result.flagKey()`) is unaffected.
 
+### Changed (behavior)
+
+- `FlagProvider` now formalizes three lifecycle phases — `created`, `initialized`, `shutdown` — in its Javadoc (ADR-2). Implementations must not emit `FlagChangeEvent` instances during the `created` phase (before `init()`). Code that relied on observing events from listeners registered before `init()` on `InMemoryFlagProvider` must move the registration to after `init()` returns; pre-init mutations remain valid but are now silent.
+- `OpenFlagsClient.addChangeListener` is a no-op after `shutdown()` (it previously threw `IllegalStateException`), mirroring `removeChangeListener`.
+- `HybridFlagProvider` registers its remote poll listener and remote/file change listeners only after both sub-providers have completed `init()`. The defensive `expectingSelfWrite.set(false)` reset inside `init()` was removed; under the new ordering the synchronous first poll inside `remote.init()` cannot reach `onPollComplete`, so the workaround is no longer needed. A baseline snapshot write is performed at the end of `init()` when remote reached `READY` (ADR-2 §5).
+
 ### Deprecated
 
 - `ProviderState.STALE`: no built-in provider emits this state in 1.x; marked `@Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")` and scheduled for removal in 2.0. Callers must not add new logic dependent on this value. Existing passive consumers (health indicator → `OUT_OF_SERVICE`, Micrometer gauge code `4`) are retained unchanged until 2.0. See ADR-6.
