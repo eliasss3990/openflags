@@ -322,12 +322,16 @@ public final class OpenFlagsClient {
     /**
      * Registers a listener for flag change events emitted by the underlying
      * provider.
+     * <p>
+     * Safe to call after {@link #shutdown()}: behaves as a no-op so cleanup
+     * paths can run unconditionally, mirroring {@link #removeChangeListener}.
+     * </p>
      *
      * @param listener the listener to add; must not be null
-     * @throws IllegalStateException if the client has been shut down
      */
     public void addChangeListener(FlagChangeListener listener) {
-        requireNotShutdown();
+        if (shutdown.get())
+            return;
         provider.addChangeListener(listener);
     }
 
