@@ -9,6 +9,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Build: enforcer `requireJavaVersion` aligned with `<release>21</release>` (raised from `[17,)` to `[21,)`). Java 21 is now the explicit, enforced baseline at build time.
+- Docs: `docs/getting-started.md` prerequisites updated to Java 21+ / Maven 3.9+ to match the rest of the documentation.
+
 ### Added
 
 - `docs/observability.md` — full metric and MDC reference with dashboard queries.

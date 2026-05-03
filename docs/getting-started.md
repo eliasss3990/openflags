@@ -4,8 +4,8 @@ This guide walks through adding openflags to a new project, defining your first 
 
 ## Prerequisites
 
-- Java 17 or later
-- Maven 3.8+
+- Java 21 or later
+- Maven 3.9+
 
 ---
 
