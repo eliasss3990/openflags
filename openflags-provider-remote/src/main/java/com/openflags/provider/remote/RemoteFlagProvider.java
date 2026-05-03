@@ -374,8 +374,9 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
             } else {
                 Flag oldFlag = oldFlags.get(key);
                 if (!oldFlag.equals(newFlag)) {
+                    ChangeType ct = ChangeType.resolveUpdate(newFlag.type(), oldFlag.value(), newFlag.value());
                     notifyListeners(new FlagChangeEvent(key, newFlag.type(),
-                            Optional.of(oldFlag.value()), Optional.of(newFlag.value()), ChangeType.UPDATED));
+                            Optional.of(oldFlag.value()), Optional.of(newFlag.value()), ct));
                 }
             }
         }

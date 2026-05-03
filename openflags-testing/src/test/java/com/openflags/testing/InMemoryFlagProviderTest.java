@@ -135,7 +135,7 @@ class InMemoryFlagProviderTest {
         provider.addChangeListener(events::add);
         provider.setBoolean("f", true);
         assertThat(events).hasSize(1);
-        assertThat(events.get(0).changeType()).isEqualTo(ChangeType.UPDATED);
+        assertThat(events.get(0).changeType()).isEqualTo(ChangeType.ENABLED);
     }
 
     @Test
@@ -288,5 +288,58 @@ class InMemoryFlagProviderTest {
         } finally {
             client.shutdown();
         }
+    }
+
+    @Test
+    void changeListeners_falseToTrue_emitsEnabled() {
+        provider.setBoolean("toggle", false);
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.setBoolean("toggle", true);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).changeType()).isEqualTo(ChangeType.ENABLED);
+    }
+
+    @Test
+    void changeListeners_trueToFalse_emitsDisabled() {
+        provider.setBoolean("toggle", true);
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.setBoolean("toggle", false);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).changeType()).isEqualTo(ChangeType.DISABLED);
+    }
+
+    @Test
+    void changeListeners_numberUpdate_emitsUpdated() {
+        provider.setNumber("count", 0.0);
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.setNumber("count", 1.0);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).changeType()).isEqualTo(ChangeType.UPDATED);
+    }
+
+    @Test
+    void changeListeners_newBooleanTrueFlag_emitsCreatedNotEnabled() {
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.setBoolean("new-flag", true);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).changeType())
+                .as("CREATED takes precedence over ENABLED when flag is new")
+                .isEqualTo(ChangeType.CREATED);
+    }
+
+    @Test
+    void changeListeners_removeBooleanTrueFlag_emitsDeletedNotDisabled() {
+        provider.setBoolean("old-flag", true);
+        List<FlagChangeEvent> events = new CopyOnWriteArrayList<>();
+        provider.addChangeListener(events::add);
+        provider.remove("old-flag");
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).changeType())
+                .as("DELETED takes precedence over DISABLED when flag is removed")
+                .isEqualTo(ChangeType.DELETED);
     }
 }
