@@ -200,6 +200,10 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
 
     /**
      * Stops the polling thread and releases all resources. Idempotent.
+     * <p>
+     * The HTTP client is closed first to cancel in-flight requests, then the
+     * scheduler is drained up to {@link RemoteProviderConfig#shutdownTimeout()}.
+     * </p>
      */
     @Override
     public synchronized void shutdown() {
@@ -207,10 +211,13 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
             return;
         }
         snapshot = new CacheSnapshot(snapshot.flags(), snapshot.fetchedAt(), ProviderState.SHUTDOWN);
+        // Close the HTTP client first so that any in-flight request unblocks quickly.
+        httpClient.close();
         if (scheduler != null) {
             scheduler.shutdown();
+            long timeoutMs = config.shutdownTimeout().toMillis();
             try {
-                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                if (!scheduler.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
                     scheduler.shutdownNow();
                 }
             } catch (InterruptedException e) {
@@ -218,7 +225,6 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
                 Thread.currentThread().interrupt();
             }
         }
-        httpClient.close();
         listeners.clear();
         log.info("RemoteFlagProvider shut down for {}", config.baseUrl());
     }

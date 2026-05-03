@@ -20,6 +20,9 @@ public final class RemoteFlagProviderBuilder {
     private String userAgent;
     private int failureThreshold = RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD;
     private Duration maxBackoff = RemoteProviderConfig.DEFAULT_MAX_BACKOFF;
+    private long maxResponseBytes = RemoteProviderConfig.DEFAULT_MAX_RESPONSE_BYTES;
+    private Duration shutdownTimeout = RemoteProviderConfig.DEFAULT_SHUTDOWN_TIMEOUT;
+    private HttpVersion httpVersion = RemoteProviderConfig.DEFAULT_HTTP_VERSION;
 
     /**
      * Creates a builder for the given base URL.
@@ -163,6 +166,43 @@ public final class RemoteFlagProviderBuilder {
     }
 
     /**
+     * Sets the maximum number of bytes accepted in a single HTTP response body.
+     * Responses larger than this cap are rejected with
+     * {@link ResponseTooLargeException}.
+     *
+     * @param bytes the byte limit; must be positive
+     * @return this builder
+     */
+    public RemoteFlagProviderBuilder maxResponseBytes(long bytes) {
+        this.maxResponseBytes = bytes;
+        return this;
+    }
+
+    /**
+     * Sets the maximum time to wait for in-flight requests to complete when
+     * {@link RemoteFlagProvider#shutdown()} is called.
+     *
+     * @param d the shutdown timeout; must be positive
+     * @return this builder
+     */
+    public RemoteFlagProviderBuilder shutdownTimeout(Duration d) {
+        this.shutdownTimeout = d;
+        return this;
+    }
+
+    /**
+     * Sets the desired HTTP protocol version for the underlying
+     * {@link java.net.http.HttpClient}.
+     *
+     * @param version the version strategy; must not be null
+     * @return this builder
+     */
+    public RemoteFlagProviderBuilder httpVersion(HttpVersion version) {
+        this.httpVersion = version;
+        return this;
+    }
+
+    /**
      * Builds a configured but un-initialized {@link RemoteFlagProvider}.
      * Caller must invoke {@link RemoteFlagProvider#init()}.
      *
@@ -180,7 +220,10 @@ public final class RemoteFlagProviderBuilder {
                 cacheTtl,
                 userAgent,
                 failureThreshold,
-                maxBackoff);
+                maxBackoff,
+                maxResponseBytes,
+                shutdownTimeout,
+                httpVersion);
         return new RemoteFlagProvider(cfg);
     }
 }
