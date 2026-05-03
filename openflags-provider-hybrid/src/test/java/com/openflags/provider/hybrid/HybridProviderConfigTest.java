@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
@@ -85,13 +86,12 @@ class HybridProviderConfigTest {
     }
 
     @Test
-    void snapshotPathParentDoesNotExist_throws(@TempDir Path dir) {
+    void snapshotPathParentDoesNotExist_configBuildsSuccessfully(@TempDir Path dir) {
+        // Parent dir validation moved to HybridFlagProvider.init() where it can create the dir.
         Path nonExistentParent = dir.resolve("nonexistent").resolve("snap.json");
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> new HybridProviderConfig(
-                        REMOTE_CFG, nonExistentParent, SnapshotFormat.JSON, true,
-                        Duration.ofMillis(500), false))
-                .withMessageContaining("parent directory");
+        assertThatNoException().isThrownBy(() -> new HybridProviderConfig(
+                REMOTE_CFG, nonExistentParent, SnapshotFormat.JSON, true,
+                Duration.ofMillis(500), false));
     }
 
     @Test

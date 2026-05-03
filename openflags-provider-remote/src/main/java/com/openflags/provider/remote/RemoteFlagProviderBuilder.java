@@ -2,6 +2,7 @@ package com.openflags.provider.remote;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Objects;
 
 /**
  * Fluent builder for {@link RemoteFlagProvider}. Mirrors the style of
@@ -63,10 +64,17 @@ public final class RemoteFlagProviderBuilder {
      * Sets a Bearer token for authentication.
      * Shortcut for {@code apiKey("Authorization", "Bearer " + token)}.
      *
-     * @param token the bearer token value (without the "Bearer " prefix)
+     * @param token the bearer token value (without the {@code "Bearer "} prefix);
+     *              must not be null or blank
      * @return this builder
+     * @throws NullPointerException     if {@code token} is null
+     * @throws IllegalArgumentException if {@code token} is blank
      */
     public RemoteFlagProviderBuilder bearerToken(String token) {
+        Objects.requireNonNull(token, "bearerToken must not be null");
+        if (token.isBlank()) {
+            throw new IllegalArgumentException("bearerToken must not be blank");
+        }
         this.authHeaderName = "Authorization";
         this.authHeaderValue = "Bearer " + token;
         return this;
@@ -75,11 +83,21 @@ public final class RemoteFlagProviderBuilder {
     /**
      * Sets a custom authentication header.
      *
-     * @param headerName the header name (e.g. {@code "X-API-Key"})
-     * @param value      the header value
+     * @param headerName the header name (e.g. {@code "X-API-Key"}); must not be null or blank
+     * @param value      the header value; must not be null or blank
      * @return this builder
+     * @throws NullPointerException     if either argument is null
+     * @throws IllegalArgumentException if either argument is blank
      */
     public RemoteFlagProviderBuilder apiKey(String headerName, String value) {
+        Objects.requireNonNull(headerName, "headerName must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+        if (headerName.isBlank()) {
+            throw new IllegalArgumentException("headerName must not be blank");
+        }
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("apiKey value must not be blank");
+        }
         this.authHeaderName = headerName;
         this.authHeaderValue = value;
         return this;
