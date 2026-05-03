@@ -12,6 +12,7 @@ import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderDiagnostics;
 import com.openflags.core.provider.ProviderState;
 import com.openflags.core.parser.FlagFileParser;
+import com.openflags.core.util.Urls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -412,7 +413,7 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
     @Override
     public Map<String, Object> diagnostics() {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("remote.base_url", config.baseUrl().toString());
+        data.put("remote.base_url", Urls.redact(config.baseUrl()));
         data.put("remote.poll_interval_ms", config.pollInterval().toMillis());
         data.put("remote.cache_ttl_ms", config.cacheTtl().toMillis());
         data.put("remote.state", snapshot.state().name());
