@@ -72,6 +72,17 @@ public interface MetricsRecorder {
     void recordListenerError(String listenerSimpleName);
 
     /**
+     * Records that a {@link com.openflags.core.provider.FlagProvider} threw an
+     * unexpected (non-{@code ProviderException}) exception while resolving a flag.
+     * Implementations may use this to alert on programming errors that bypass
+     * the documented provider contract.
+     *
+     * @param flagKey key of the flag being evaluated; never {@code null}
+     * @since 1.2.0
+     */
+    default void recordUnexpectedProviderError(String flagKey) {}
+
+    /**
      * Registers a gauge whose value is read on demand from the supplier.
      * Each call replaces any previously registered gauge with the same
      * name and tags.

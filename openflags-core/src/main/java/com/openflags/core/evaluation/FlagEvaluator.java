@@ -2,6 +2,7 @@ package com.openflags.core.evaluation;
 
 import com.openflags.core.evaluation.rule.RuleEngine;
 import com.openflags.core.exception.ProviderException;
+import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
@@ -36,21 +37,34 @@ public final class FlagEvaluator {
     private static final Logger log = LoggerFactory.getLogger(FlagEvaluator.class);
 
     private final RuleEngine ruleEngine;
+    private final MetricsRecorder metrics;
 
     /**
-     * Default constructor; uses a fresh {@link RuleEngine}.
+     * Default constructor; uses a fresh {@link RuleEngine} and {@link MetricsRecorder#NOOP}.
      */
     public FlagEvaluator() {
-        this(new RuleEngine());
+        this(new RuleEngine(), MetricsRecorder.NOOP);
     }
 
     /**
-     * Test-friendly constructor that injects a {@link RuleEngine}.
+     * Test-friendly constructor that injects a {@link RuleEngine} with no metrics.
      *
      * @param ruleEngine the engine; must not be null
      */
     public FlagEvaluator(RuleEngine ruleEngine) {
+        this(ruleEngine, MetricsRecorder.NOOP);
+    }
+
+    /**
+     * Constructor that injects both a {@link RuleEngine} and a {@link MetricsRecorder}
+     * used to count unexpected provider errors.
+     *
+     * @param ruleEngine the engine; must not be null
+     * @param metrics    the metrics sink; must not be null
+     */
+    public FlagEvaluator(RuleEngine ruleEngine, MetricsRecorder metrics) {
         this.ruleEngine = Objects.requireNonNull(ruleEngine, "ruleEngine must not be null");
+        this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
     /**
@@ -78,7 +92,11 @@ public final class FlagEvaluator {
             log.warn("Provider error evaluating flag '{}': {}", key, e.getMessage());
             return new EvaluationResult<>(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
         } catch (Exception e) {
-            log.warn("Unexpected error evaluating flag '{}': {}", key, e.getMessage());
+            // Reuse PROVIDER_ERROR to keep the public reason enum stable; the
+            // separate `unexpected.errors.total` counter lets operators alert on
+            // provider contract violations without splitting reason values.
+            log.warn("Unexpected error evaluating flag '{}'", key, e);
+            metrics.recordUnexpectedProviderError(key);
             return new EvaluationResult<>(defaultValue, EvaluationReason.PROVIDER_ERROR, key);
         }
 

@@ -4,7 +4,10 @@ import com.openflags.core.evaluation.rule.Condition;
 import com.openflags.core.evaluation.rule.Operator;
 import com.openflags.core.evaluation.rule.SplitRule;
 import com.openflags.core.evaluation.rule.TargetingRule;
+import com.openflags.core.evaluation.rule.RuleEngine;
 import com.openflags.core.exception.ProviderException;
+import com.openflags.core.metrics.MetricsRecorder;
+import com.openflags.core.metrics.Tag;
 import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
@@ -100,6 +103,42 @@ class FlagEvaluatorTest {
 
         assertThat(result.value()).isFalse();
         assertThat(result.reason()).isEqualTo(EvaluationReason.PROVIDER_ERROR);
+    }
+
+    @Test
+    void evaluate_recordsUnexpectedProviderError_metric() {
+        RecordingMetricsRecorder recorder = new RecordingMetricsRecorder();
+        FlagEvaluator instrumented = new FlagEvaluator(new RuleEngine(), recorder);
+        when(provider.getFlag("my-flag")).thenThrow(new IllegalStateException("boom"));
+
+        EvaluationResult<Boolean> result = instrumented.evaluate(provider, "my-flag", Boolean.class, false, ctx);
+
+        assertThat(result.reason()).isEqualTo(EvaluationReason.PROVIDER_ERROR);
+        assertThat(recorder.unexpectedErrors).containsExactly("my-flag");
+    }
+
+    @Test
+    void evaluate_doesNotRecordUnexpected_onProviderException() {
+        RecordingMetricsRecorder recorder = new RecordingMetricsRecorder();
+        FlagEvaluator instrumented = new FlagEvaluator(new RuleEngine(), recorder);
+        when(provider.getFlag("my-flag")).thenThrow(new ProviderException("expected"));
+
+        instrumented.evaluate(provider, "my-flag", Boolean.class, false, ctx);
+
+        assertThat(recorder.unexpectedErrors).isEmpty();
+    }
+
+    private static final class RecordingMetricsRecorder implements MetricsRecorder {
+        final java.util.List<String> unexpectedErrors = new java.util.ArrayList<>();
+
+        @Override public void recordEvaluation(EvaluationEvent event) {}
+        @Override public void recordPoll(String outcome, long durationNanos) {}
+        @Override public void recordSnapshotWrite(String outcome, long durationNanos) {}
+        @Override public void recordFlagChange(com.openflags.core.event.ChangeType type) {}
+        @Override public void recordHybridFallback(String from, String to) {}
+        @Override public void recordListenerError(String listenerSimpleName) {}
+        @Override public void recordUnexpectedProviderError(String flagKey) { unexpectedErrors.add(flagKey); }
+        @Override public void registerGauge(String name, Iterable<Tag> tags, java.util.function.Supplier<Number> supplier) {}
     }
 
     @Test
