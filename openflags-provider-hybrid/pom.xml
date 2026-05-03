@@ -43,6 +43,13 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!-- Optional: only used when the consumer wires a MeterRegistry. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -76,4 +83,53 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <surefire.groups></surefire.groups>
+        <surefire.excludedGroups>no-micrometer</surefire.excludedGroups>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <groups>${surefire.groups}</groups>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Runs tests tagged "no-micrometer" with Micrometer excluded from the
+             test classpath. Validates that HybridFlagProvider remains fully
+             functional when Micrometer is absent. -->
+        <profile>
+            <id>no-micrometer</id>
+            <properties>
+                <surefire.groups>no-micrometer</surefire.groups>
+                <surefire.excludedGroups></surefire.excludedGroups>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/HybridFlagProviderMetricsTest.java</exclude>
+                            </excludes>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>io.micrometer:micrometer-core</classpathDependencyExclude>
+                                <classpathDependencyExclude>io.micrometer:micrometer-commons</classpathDependencyExclude>
+                                <classpathDependencyExclude>io.micrometer:micrometer-observation</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
