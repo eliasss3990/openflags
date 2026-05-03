@@ -76,11 +76,13 @@ class HybridSnapshotParentDirTest {
                 .snapshotPath(snapshot)
                 .build();
 
-        assertThatExceptionOfType(ProviderException.class)
-                .isThrownBy(provider::init)
-                .withMessageContaining("not a directory")
-                .withMessageContaining(parentAsFile.toString());
-
-        provider.shutdown();
+        try {
+            assertThatExceptionOfType(ProviderException.class)
+                    .isThrownBy(provider::init)
+                    .withMessageContaining("not a directory")
+                    .withMessageContaining(parentAsFile.toString());
+        } finally {
+            provider.shutdown();
+        }
     }
 }

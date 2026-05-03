@@ -258,6 +258,21 @@ class RuleEngineTest {
     }
 
     @Test
+    void multiVariantRule_doubleOutsideLongRange_variantUsesScientificNotation() {
+        // 1e19 > Long.MAX_VALUE; (long) cast saturates silently — must use String.valueOf(d) instead
+        double bigVal = 1e19;
+        FlagValue val = FlagValue.of(bigVal, FlagType.NUMBER);
+        MultiVariantRule rule = new MultiVariantRule("big-exp", List.of(new WeightedVariant(val, 100)));
+        Flag flag = new Flag("num-flag", FlagType.NUMBER,
+                FlagValue.of(0.0, FlagType.NUMBER), true, null, List.of(rule));
+
+        RuleEngine.Resolution r = engine.resolve(flag, EvaluationContext.of("user-x"));
+
+        assertThat(r.variant()).isEqualTo(String.valueOf(bigVal));
+        assertThat(r.variant()).doesNotContain("9223372036854775807");
+    }
+
+    @Test
     void noRules_resolution_hasNullVariantAndMatchedRuleId() {
         RuleEngine.Resolution r = engine.resolve(flagNoRules(), EvaluationContext.empty());
         assertThat(r.variant()).isNull();
