@@ -1,12 +1,24 @@
 # openflags
 
 [![CI](https://github.com/eliasss3990/openflags/actions/workflows/ci.yml/badge.svg)](https://github.com/eliasss3990/openflags/actions/workflows/ci.yml)
-[![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
+[![Java](https://img.shields.io/badge/Java-21%2B-blue)](https://adoptium.net/)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.eliasss3990/openflags-core.svg?label=Maven%20Central)](https://central.sonatype.com/namespace/io.github.eliasss3990)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 Lightweight, SDK-first feature flag library for Java and Spring Boot.
 
 Evaluate boolean, string, number, and object flags from a local YAML or JSON file, an HTTP backend, or a hybrid setup that combines remote sync with a local fallback. Hot reload detects file changes at runtime without restarting the application, and the provider model is extensible — implement `FlagProvider` to plug in any backend.
+
+## Documentation
+
+- [Getting started](docs/getting-started.md) — end-to-end walk-through
+- [Observability](docs/observability.md) — metrics catalog, MDC keys, dashboard queries
+- [Upgrade guide](docs/upgrade-guide.md) — versioning policy and migration steps
+- [Examples](examples/) — runnable Spring Boot quickstart
+- [Benchmarks](openflags-benchmarks/) — JMH harness for the evaluation hot path
+- [Contributing](CONTRIBUTING.md) — how to set up, branch, and submit PRs
+- [Security](SECURITY.md) — private vulnerability disclosure
+- [Releasing](RELEASING.md) — maintainer-only release procedure
 
 ---
 

@@ -9,6 +9,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `docs/observability.md` — full metric and MDC reference with dashboard queries.
+- `docs/upgrade-guide.md` — versioning policy and migration template.
+- `examples/spring-boot-quickstart` — runnable Spring Boot 3 example with file provider, targeting rule, MDC, and Prometheus.
+- `openflags-benchmarks` — standalone JMH module for the evaluation hot path.
+- README badge for Maven Central and a Documentation index.
+
 ## [1.0.0] - 2026-05-02
 
 First stable release. Public API frozen; subsequent releases follow Semantic Versioning.
