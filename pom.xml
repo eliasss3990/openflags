@@ -11,14 +11,14 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>openflags</name>
     <description>SDK-first Feature Flags library for Java</description>
-    <url>https://github.com/openflags/openflags</url>
+    <url>https://github.com/eliasss3990/openflags</url>
 
     <licenses>
         <license>
@@ -29,9 +29,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:https://github.com/openflags/openflags.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/openflags/openflags.git</developerConnection>
-        <url>https://github.com/openflags/openflags</url>
+        <connection>scm:git:https://github.com/eliasss3990/openflags.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/eliasss3990/openflags.git</developerConnection>
+        <url>https://github.com/eliasss3990/openflags</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -46,7 +46,7 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/openflags/openflags/issues</url>
+        <url>https://github.com/eliasss3990/openflags/issues</url>
     </issueManagement>
 
     <modules>
