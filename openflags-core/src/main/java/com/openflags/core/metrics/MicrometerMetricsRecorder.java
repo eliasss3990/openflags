@@ -124,6 +124,15 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
     }
 
     @Override
+    public void recordUnexpectedProviderError(String flagKey) {
+        Objects.requireNonNull(flagKey, "flagKey must not be null");
+        Tags tags = tagFlagKey
+                ? Tags.of(OpenFlagsMetrics.Tags.FLAG, flagKey)
+                : Tags.empty();
+        counter(OpenFlagsMetrics.Names.EVALUATIONS_UNEXPECTED_ERRORS_TOTAL, tags).increment();
+    }
+
+    @Override
     public void recordListenerError(String listenerSimpleName) {
         Objects.requireNonNull(listenerSimpleName, "listenerSimpleName must not be null");
         counter(OpenFlagsMetrics.Names.EVALUATIONS_LISTENER_ERRORS_TOTAL,

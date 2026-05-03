@@ -2,6 +2,7 @@ package com.openflags.core;
 
 import com.openflags.core.evaluation.EvaluationListener;
 import com.openflags.core.evaluation.FlagEvaluator;
+import com.openflags.core.evaluation.rule.RuleEngine;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.provider.FlagProvider;
@@ -195,7 +196,7 @@ public final class OpenFlagsClientBuilder {
         }
         return new OpenFlagsClient(
                 provider,
-                new FlagEvaluator(),
+                new FlagEvaluator(new RuleEngine(), recorder),
                 recorder,
                 registry,
                 providerType,

@@ -59,6 +59,13 @@ public final class OpenFlagsMetrics {
 
         /** Counter: exceptions thrown by user-provided {@code EvaluationListener}s. */
         public static final String EVALUATIONS_LISTENER_ERRORS_TOTAL = "openflags.evaluations.listener.errors.total";
+
+        /**
+         * Counter: unexpected (non-{@code ProviderException}) exceptions thrown by a
+         * {@code FlagProvider} while resolving a flag. Indicates a programming error
+         * that bypassed the documented provider contract.
+         */
+        public static final String EVALUATIONS_UNEXPECTED_ERRORS_TOTAL = "openflags.evaluations.unexpected.errors.total";
     }
 
     /** Canonical tag keys attached to the meters listed in {@link Names}. */
