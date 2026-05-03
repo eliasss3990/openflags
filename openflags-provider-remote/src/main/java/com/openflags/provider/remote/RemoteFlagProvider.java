@@ -349,9 +349,14 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
         }
     }
 
-    private void checkStaleness() {
+    void checkStaleness() {
         CacheSnapshot current = snapshot;
         if (current.state() == ProviderState.SHUTDOWN) {
+            return;
+        }
+        // Skip if no successful fetch has happened yet (fetchedAt is EPOCH sentinel).
+        // Age would be ~55 years, always exceeding cacheTtl and producing a spurious ERROR.
+        if (current.fetchedAt().equals(Instant.EPOCH)) {
             return;
         }
         long ageMillis = Instant.now().toEpochMilli() - current.fetchedAt().toEpochMilli();
