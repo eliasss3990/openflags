@@ -2,7 +2,10 @@ name: CodeQL
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'ci/**'
+      - 'wip/**'
   pull_request:
     branches: [main]
   schedule:
