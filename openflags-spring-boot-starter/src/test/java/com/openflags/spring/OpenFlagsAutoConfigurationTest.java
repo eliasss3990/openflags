@@ -2,6 +2,8 @@ package com.openflags.spring;
 
 import com.openflags.core.OpenFlagsClient;
 import com.openflags.core.provider.FlagProvider;
+import com.openflags.provider.hybrid.HybridFlagProvider;
+import com.openflags.provider.remote.RemoteFlagProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -120,6 +122,34 @@ class OpenFlagsAutoConfigurationTest {
                     assertThat(ctx).hasNotFailed();
                     assertThat(ctx).hasSingleBean(OpenFlagsClient.class);
                     assertThat(ctx).doesNotHaveBean(OpenFlagsHealthIndicator.class);
+                });
+    }
+
+    @Test
+    void contextStarts_whenRemoteProviderClassesAreFilteredOut() {
+        // Simulates a deployment that excludes the optional openflags-provider-remote
+        // jar. The class-level @ConditionalOnClass on RemoteProviderConfiguration must
+        // keep the whole configuration off the context (no NoClassDefFoundError on
+        // method signatures), and the file provider must still come up.
+        contextRunner
+                .withClassLoader(new FilteredClassLoader(RemoteFlagProvider.class))
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).hasSingleBean(OpenFlagsClient.class);
+                    assertThat(ctx).hasSingleBean(FlagProvider.class);
+                });
+    }
+
+    @Test
+    void contextStarts_whenHybridProviderClassesAreFilteredOut() {
+        // Symmetric to the remote case: filtering out the optional hybrid module
+        // must not prevent the file provider and client from coming up.
+        contextRunner
+                .withClassLoader(new FilteredClassLoader(HybridFlagProvider.class))
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).hasSingleBean(OpenFlagsClient.class);
+                    assertThat(ctx).hasSingleBean(FlagProvider.class);
                 });
     }
 

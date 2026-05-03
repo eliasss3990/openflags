@@ -103,99 +103,6 @@ public class OpenFlagsAutoConfiguration {
     }
 
     /**
-     * Creates a {@link RemoteFlagProvider} bean.
-     * Activated when {@code openflags.provider=remote}.
-     *
-     * @param properties the openflags properties
-     * @return a configured and initialized remote provider
-     */
-    @Bean(initMethod = "init", destroyMethod = "shutdown")
-    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "remote")
-    @ConditionalOnMissingBean(FlagProvider.class)
-    @ConditionalOnClass(name = "com.openflags.provider.remote.RemoteFlagProvider")
-    public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties,
-            ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
-        OpenFlagsProperties.RemoteProperties r = properties.getRemote();
-        if (r.getBaseUrl() == null) {
-            throw new IllegalStateException(
-                    "openflags.remote.base-url is required when openflags.provider=remote");
-        }
-        RemoteFlagProviderBuilder builder = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
-                .flagsPath(r.getFlagsPath())
-                .connectTimeout(r.getConnectTimeout())
-                .requestTimeout(r.getRequestTimeout())
-                .pollInterval(r.getPollInterval())
-                .cacheTtl(r.getCacheTtl())
-                .userAgent(r.getUserAgent())
-                .failureThreshold(r.getFailureThreshold())
-                .maxBackoff(r.getMaxBackoff());
-        if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
-            builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderSecret());
-        }
-        RemoteFlagProvider provider = builder.build();
-        MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
-        if (recorder != null) {
-            provider.setPollListener(new MetricsRecordingPollListener(recorder));
-        }
-        return provider;
-    }
-
-    /**
-     * Creates a {@link HybridFlagProvider} bean.
-     * Activated when {@code openflags.provider=hybrid}.
-     * Reuses {@code openflags.remote.*} for the remote config and
-     * {@code openflags.hybrid.*} for the snapshot settings.
-     *
-     * @param props the openflags properties
-     * @return a configured and initialized hybrid provider
-     */
-    @Bean(initMethod = "init", destroyMethod = "shutdown")
-    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
-    @ConditionalOnMissingBean(FlagProvider.class)
-    @ConditionalOnClass(name = "com.openflags.provider.hybrid.HybridFlagProvider")
-    public HybridFlagProvider hybridFlagProvider(OpenFlagsProperties props,
-            ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
-        OpenFlagsProperties.RemoteProperties r = props.getRemote();
-        OpenFlagsProperties.HybridProperties h = props.getHybrid();
-
-        if (r.getBaseUrl() == null) {
-            throw new IllegalStateException(
-                    "openflags.remote.base-url must be set when openflags.provider=hybrid");
-        }
-        if (h.getSnapshotPath() == null || h.getSnapshotPath().isBlank()) {
-            throw new IllegalStateException(
-                    "openflags.hybrid.snapshot-path must be set when openflags.provider=hybrid");
-        }
-
-        RemoteProviderConfig rc = new RemoteProviderConfig(
-                r.getBaseUrl(),
-                r.getFlagsPath(),
-                r.getAuthHeaderName(),
-                r.getAuthHeaderSecret(),
-                r.getConnectTimeout(),
-                r.getRequestTimeout(),
-                r.getPollInterval(),
-                r.getCacheTtl(),
-                r.getUserAgent(),
-                r.getFailureThreshold(),
-                r.getMaxBackoff());
-
-        HybridFlagProvider provider = HybridFlagProvider.builder()
-                .remoteConfig(rc)
-                .snapshotPath(h.getSnapshotPath())
-                .snapshotFormat(h.getSnapshotFormat())
-                .watchSnapshot(h.isWatchSnapshot())
-                .snapshotDebounce(h.getSnapshotDebounce())
-                .failIfNoFallback(h.isFailIfNoFallback())
-                .build();
-        MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
-        if (recorder != null) {
-            provider.setMetricsRecorder(recorder);
-        }
-        return provider;
-    }
-
-    /**
      * Creates a {@link FlagProvider} bean backed by a local file.
      * Activated when {@code openflags.provider=file} (the default).
      * Skipped if a custom {@link FlagProvider} bean is already defined.
@@ -306,6 +213,108 @@ public class OpenFlagsAutoConfiguration {
         OpenFlagsClientCustomizer evaluationListenersCustomizer(
                 ObjectProvider<EvaluationListener> listeners) {
             return builder -> listeners.orderedStream().forEach(builder::addEvaluationListener);
+        }
+    }
+
+    /**
+     * Auto-configuration for the {@link RemoteFlagProvider}.
+     * <p>
+     * Class-level {@link ConditionalOnClass} on {@link RemoteFlagProvider} keeps the entire
+     * configuration off the context (and skips bean post-processing of its method signatures)
+     * when the {@code openflags-provider-remote} module is absent — the dependency is declared
+     * {@code <optional>true</optional>} in the starter POM.
+     * </p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(RemoteFlagProvider.class)
+    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "remote")
+    static class RemoteProviderConfiguration {
+
+        @Bean(initMethod = "init", destroyMethod = "shutdown")
+        @ConditionalOnMissingBean(FlagProvider.class)
+        public RemoteFlagProvider remoteFlagProvider(OpenFlagsProperties properties,
+                ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
+            OpenFlagsProperties.RemoteProperties r = properties.getRemote();
+            if (r.getBaseUrl() == null) {
+                throw new IllegalStateException(
+                        "openflags.remote.base-url is required when openflags.provider=remote");
+            }
+            RemoteFlagProviderBuilder builder = RemoteFlagProviderBuilder.forUrl(r.getBaseUrl())
+                    .flagsPath(r.getFlagsPath())
+                    .connectTimeout(r.getConnectTimeout())
+                    .requestTimeout(r.getRequestTimeout())
+                    .pollInterval(r.getPollInterval())
+                    .cacheTtl(r.getCacheTtl())
+                    .userAgent(r.getUserAgent())
+                    .failureThreshold(r.getFailureThreshold())
+                    .maxBackoff(r.getMaxBackoff());
+            if (r.getAuthHeaderName() != null && !r.getAuthHeaderName().isBlank()) {
+                builder.apiKey(r.getAuthHeaderName(), r.getAuthHeaderSecret());
+            }
+            RemoteFlagProvider provider = builder.build();
+            MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
+            if (recorder != null) {
+                provider.setPollListener(new MetricsRecordingPollListener(recorder));
+            }
+            return provider;
+        }
+    }
+
+    /**
+     * Auto-configuration for the {@link HybridFlagProvider}.
+     * <p>
+     * Class-level {@link ConditionalOnClass} on {@link HybridFlagProvider} keeps the entire
+     * configuration off the context when the {@code openflags-provider-hybrid} module is
+     * absent — the dependency is declared {@code <optional>true</optional>} in the starter POM.
+     * </p>
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(HybridFlagProvider.class)
+    @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
+    static class HybridProviderConfiguration {
+
+        @Bean(initMethod = "init", destroyMethod = "shutdown")
+        @ConditionalOnMissingBean(FlagProvider.class)
+        public HybridFlagProvider hybridFlagProvider(OpenFlagsProperties props,
+                ObjectProvider<MetricsRecorder> metricsRecorderProvider) {
+            OpenFlagsProperties.RemoteProperties r = props.getRemote();
+            OpenFlagsProperties.HybridProperties h = props.getHybrid();
+
+            if (r.getBaseUrl() == null) {
+                throw new IllegalStateException(
+                        "openflags.remote.base-url must be set when openflags.provider=hybrid");
+            }
+            if (h.getSnapshotPath() == null || h.getSnapshotPath().isBlank()) {
+                throw new IllegalStateException(
+                        "openflags.hybrid.snapshot-path must be set when openflags.provider=hybrid");
+            }
+
+            RemoteProviderConfig rc = new RemoteProviderConfig(
+                    r.getBaseUrl(),
+                    r.getFlagsPath(),
+                    r.getAuthHeaderName(),
+                    r.getAuthHeaderSecret(),
+                    r.getConnectTimeout(),
+                    r.getRequestTimeout(),
+                    r.getPollInterval(),
+                    r.getCacheTtl(),
+                    r.getUserAgent(),
+                    r.getFailureThreshold(),
+                    r.getMaxBackoff());
+
+            HybridFlagProvider provider = HybridFlagProvider.builder()
+                    .remoteConfig(rc)
+                    .snapshotPath(h.getSnapshotPath())
+                    .snapshotFormat(h.getSnapshotFormat())
+                    .watchSnapshot(h.isWatchSnapshot())
+                    .snapshotDebounce(h.getSnapshotDebounce())
+                    .failIfNoFallback(h.isFailIfNoFallback())
+                    .build();
+            MetricsRecorder recorder = metricsRecorderProvider.getIfAvailable();
+            if (recorder != null) {
+                provider.setMetricsRecorder(recorder);
+            }
+            return provider;
         }
     }
 
