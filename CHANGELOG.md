@@ -9,6 +9,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **`EvaluationResult` canonical constructor changed** (binary + source incompatibility).
+  The record gained two new fields (`variant`, `matchedRuleId`) so the 3-arg canonical constructor
+  `new EvaluationResult<>(value, reason, flagKey)` no longer compiles.
+  **Migration**: replace with `EvaluationResult.of(value, reason, flagKey)` (new factory added for this purpose).
+  Code using the accessor methods (`result.value()`, `result.reason()`, `result.flagKey()`) is unaffected.
+
 ### Deprecated
 
 - `ProviderState.STALE`: no built-in provider emits this state in 1.x; marked `@Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")` and scheduled for removal in 2.0. Callers must not add new logic dependent on this value. Existing passive consumers (health indicator → `OUT_OF_SERVICE`, Micrometer gauge code `4`) are retained unchanged until 2.0. See ADR-6.
@@ -17,9 +25,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Build: enforcer `requireJavaVersion` aligned with `<release>21</release>` (raised from `[17,)` to `[21,)`). Java 21 is now the explicit, enforced baseline at build time.
 - Docs: `docs/getting-started.md` prerequisites updated to Java 21+ / Maven 3.9+ to match the rest of the documentation.
+- `HybridFlagProvider.init()` now creates the snapshot parent directory automatically via `Files.createDirectories` if it does not exist, instead of requiring the directory to pre-exist at config-construction time. If the parent path exists but is not a directory, `init()` throws `ProviderException`.
+- `RemoteFlagProviderBuilder.bearerToken(token)` and `apiKey(headerName, value)` now validate their arguments eagerly: `null` throws `NullPointerException`, blank throws `IllegalArgumentException`.
+- `FileFlagProviderBuilder.build()` now throws `IllegalArgumentException` if the configured path is a directory.
 
 ### Added
 
+- `EvaluationResult.variant` — label derived from the selected variant value when a `MultiVariantRule` matched; `null` otherwise. String flags return the raw value; boolean/number flags return the stringified primitive (whole numbers without decimal, e.g. `"50"` not `"50.0"`); object flags return `null`.
+- `EvaluationResult.matchedRuleId` — `Rule.name()` of the rule that produced the result for reasons `TARGETING_MATCH`, `SPLIT`, and `VARIANT`; `null` for all other reasons.
+- `EvaluationResult.of(value, reason, flagKey)` — convenience factory for results without variant or rule information (error and short-circuit paths).
+- `EvaluationEvent.variant` and `EvaluationEvent.matchedRuleId` are now populated from the evaluation result (previously always `null`).
 - `docs/observability.md` — full metric and MDC reference with dashboard queries.
 - `docs/upgrade-guide.md` — versioning policy and migration template.
 - `examples/spring-boot-quickstart` — runnable Spring Boot 3 example with file provider, targeting rule, MDC, and Prometheus.

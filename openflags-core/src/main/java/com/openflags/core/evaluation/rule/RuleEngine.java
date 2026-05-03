@@ -119,8 +119,12 @@ public final class RuleEngine {
             case NUMBER  -> {
                 double d = value.asNumber();
                 if (!Double.isFinite(d)) yield null;
-                // Omit the decimal part for whole numbers (e.g., "50" instead of "50.0")
-                yield (d == Math.floor(d)) ? String.valueOf((long) d) : String.valueOf(d);
+                // Omit the decimal part for whole numbers (e.g., "50" instead of "50.0").
+                // Guard against doubles outside long range: (long) cast saturates silently.
+                if (d == Math.floor(d) && d >= Long.MIN_VALUE && d < Long.MAX_VALUE) {
+                    yield String.valueOf((long) d);
+                }
+                yield String.valueOf(d);
             }
             case OBJECT  -> null;
         };

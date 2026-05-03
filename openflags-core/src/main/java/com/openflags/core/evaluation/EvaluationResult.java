@@ -1,5 +1,7 @@
 package com.openflags.core.evaluation;
 
+import java.util.Objects;
+
 /**
  * The result of evaluating a feature flag.
  * <p>
@@ -35,8 +37,10 @@ package com.openflags.core.evaluation;
  *                      (e.g. {@code "control"}, {@code "treatment-a"}); for boolean/number
  *                      flags it is the stringified primitive; for object flags it is {@code null}.
  * @param matchedRuleId the {@code name} of the rule that produced this result when a rule
- *                      matched, otherwise {@code null} (e.g. when reason is {@code RESOLVED},
- *                      {@code FLAG_NOT_FOUND}, {@code FLAG_DISABLED}, or {@code TYPE_MISMATCH}).
+ *                      matched (reasons {@code TARGETING_MATCH}, {@code SPLIT}, {@code VARIANT}),
+ *                      otherwise {@code null}.
+ * @since 1.0.0 ({@code value}, {@code reason}, {@code flagKey});
+ *        {@code variant} and {@code matchedRuleId} added in 1.1.0
  */
 public record EvaluationResult<T>(
         T value,
@@ -46,16 +50,23 @@ public record EvaluationResult<T>(
         String matchedRuleId
 ) {
 
+    public EvaluationResult {
+        Objects.requireNonNull(reason, "reason must not be null");
+        Objects.requireNonNull(flagKey, "flagKey must not be null");
+    }
+
     /**
      * Convenience factory for results that carry no variant or rule information.
      * Use this instead of the canonical 5-arg constructor for error and short-circuit
      * paths ({@code FLAG_NOT_FOUND}, {@code FLAG_DISABLED}, {@code PROVIDER_ERROR}, etc.).
+     * Both {@code variant} and {@code matchedRuleId} will be {@code null} in the returned result.
      *
      * @param <T>      the value type
      * @param value    the resolved (or default) value
      * @param reason   the evaluation reason; never null
      * @param flagKey  the flag key; never null
      * @return a result with {@code variant = null} and {@code matchedRuleId = null}
+     * @since 1.1.0
      */
     public static <T> EvaluationResult<T> of(T value, EvaluationReason reason, String flagKey) {
         return new EvaluationResult<>(value, reason, flagKey, null, null);
