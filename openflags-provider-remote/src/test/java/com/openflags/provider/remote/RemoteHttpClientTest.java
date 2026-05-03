@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
+import java.util.Arrays;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -197,5 +198,124 @@ class RemoteHttpClientTest {
 
         assertThat(response.statusCode()).isEqualTo(200);
         wireMock.verify(getRequestedFor(urlEqualTo("/api/flags")));
+    }
+
+    // ── body limit tests ────────────────────────────────────────────────────
+
+    @Test
+    void fetch_bodyExceedsLimit_throwsResponseTooLargeException() {
+        // Cap is set to 10 bytes; response body is 20 bytes.
+        byte[] body = new byte[20];
+        Arrays.fill(body, (byte) 'x');
+
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(200).withBody(body)));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port()),
+                "/flags",
+                null, null,
+                TIMEOUT, TIMEOUT,
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0",
+                RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD,
+                RemoteProviderConfig.DEFAULT_MAX_BACKOFF,
+                10L,                                       // maxResponseBytes = 10
+                RemoteProviderConfig.DEFAULT_SHUTDOWN_TIMEOUT,
+                HttpVersion.AUTO);
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+
+        assertThatThrownBy(client::fetch)
+                .isInstanceOf(ResponseTooLargeException.class)
+                .satisfies(e -> {
+                    ResponseTooLargeException ex = (ResponseTooLargeException) e;
+                    assertThat(ex.limit()).isEqualTo(10L);
+                    assertThat(ex.seen()).isGreaterThan(10L);
+                    assertThat(ex.getMessage()).contains("10").contains("limit");
+                });
+    }
+
+    @Test
+    void fetch_bodyAtExactLimit_succeeds() throws Exception {
+        // Body is exactly at the cap — must not throw.
+        byte[] body = "{\"flags\":{}}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        long cap = body.length;
+
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(200).withBody(body)));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port()),
+                "/flags",
+                null, null,
+                TIMEOUT, TIMEOUT,
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0",
+                RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD,
+                RemoteProviderConfig.DEFAULT_MAX_BACKOFF,
+                cap,
+                RemoteProviderConfig.DEFAULT_SHUTDOWN_TIMEOUT,
+                HttpVersion.AUTO);
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+
+        HttpResponse<String> response = client.fetch();
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo("{\"flags\":{}}");
+    }
+
+    // ── HTTP version tests ───────────────────────────────────────────────────
+
+    @Test
+    void fetch_httpVersionHttp11_forcesHttp1() throws Exception {
+        // WireMock operates over plain HTTP/1.1; forcing HTTP_1_1 must succeed.
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"flags\":{}}")));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port()),
+                "/flags",
+                null, null,
+                TIMEOUT, TIMEOUT,
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0",
+                RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD,
+                RemoteProviderConfig.DEFAULT_MAX_BACKOFF,
+                RemoteProviderConfig.DEFAULT_MAX_RESPONSE_BYTES,
+                RemoteProviderConfig.DEFAULT_SHUTDOWN_TIMEOUT,
+                HttpVersion.HTTP_1_1);
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+
+        HttpResponse<String> response = client.fetch();
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.version()).isEqualTo(java.net.http.HttpClient.Version.HTTP_1_1);
+    }
+
+    @Test
+    void fetch_httpVersionAuto_httpScheme_usesHttp1() throws Exception {
+        // AUTO + http:// scheme → heuristic picks HTTP/1.1.
+        wireMock.stubFor(get(urlEqualTo("/flags"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"flags\":{}}")));
+
+        RemoteProviderConfig cfg = new RemoteProviderConfig(
+                URI.create("http://localhost:" + wireMock.port()),
+                "/flags",
+                null, null,
+                TIMEOUT, TIMEOUT,
+                Duration.ofSeconds(30),
+                Duration.ofMinutes(5),
+                "openflags-test/1.0",
+                RemoteProviderConfig.DEFAULT_FAILURE_THRESHOLD,
+                RemoteProviderConfig.DEFAULT_MAX_BACKOFF,
+                RemoteProviderConfig.DEFAULT_MAX_RESPONSE_BYTES,
+                RemoteProviderConfig.DEFAULT_SHUTDOWN_TIMEOUT,
+                HttpVersion.AUTO);
+        RemoteHttpClient client = new RemoteHttpClient(cfg);
+
+        HttpResponse<String> response = client.fetch();
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.version()).isEqualTo(java.net.http.HttpClient.Version.HTTP_1_1);
     }
 }

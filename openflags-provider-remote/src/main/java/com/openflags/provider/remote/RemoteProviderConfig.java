@@ -10,33 +10,44 @@ import java.util.Set;
 /**
  * Immutable configuration for a {@link RemoteFlagProvider}.
  *
- * @param baseUrl          the base URL of the backend (e.g.
- *                         {@code https://flags.example.com}); non-null,
- *                         scheme must be {@code http} or {@code https}
- * @param flagsPath        the path appended to {@code baseUrl} for fetching
- *                         flags; default {@code "/flags"}
- * @param authHeaderName   the HTTP header used for authentication (e.g.
- *                         {@code "Authorization"} or
- *                         {@code "X-API-Key"}); may be null to disable auth
- * @param authHeaderValue  the literal header value (e.g.
- *                         {@code "Bearer eyJ..."}); may be null
- *                         if {@code authHeaderName} is null. Never logged.
- * @param connectTimeout   HTTP connect timeout; must be positive
- * @param requestTimeout   HTTP request timeout (per request); must be positive
- * @param pollInterval     interval between polls; must be {@code >= 5s}
- * @param cacheTtl         cache TTL after which the provider transitions to
- *                         {@code ERROR} state
- *                         if no successful fetch happens; must be
- *                         {@code >= pollInterval}
- * @param userAgent        value of the {@code User-Agent} header; non-blank,
- *                         default
- *                         {@code "openflags-java"}
- * @param failureThreshold consecutive poll failures required before the circuit
- *                         breaker opens;
- *                         must be in {@code [1, 100]}; default {@code 5}
- * @param maxBackoff       maximum delay applied between polls when the circuit
- *                         breaker is open;
- *                         must be {@code >= pollInterval}; default {@code 5min}
+ * @param baseUrl           the base URL of the backend (e.g.
+ *                          {@code https://flags.example.com}); non-null,
+ *                          scheme must be {@code http} or {@code https}
+ * @param flagsPath         the path appended to {@code baseUrl} for fetching
+ *                          flags; default {@code "/flags"}
+ * @param authHeaderName    the HTTP header used for authentication (e.g.
+ *                          {@code "Authorization"} or
+ *                          {@code "X-API-Key"}); may be null to disable auth
+ * @param authHeaderValue   the literal header value (e.g.
+ *                          {@code "Bearer eyJ..."}); may be null
+ *                          if {@code authHeaderName} is null. Never logged.
+ * @param connectTimeout    HTTP connect timeout; must be positive
+ * @param requestTimeout    HTTP request timeout (per request); must be positive
+ * @param pollInterval      interval between polls; must be {@code >= 5s}
+ * @param cacheTtl          cache TTL after which the provider transitions to
+ *                          {@code ERROR} state
+ *                          if no successful fetch happens; must be
+ *                          {@code >= pollInterval}
+ * @param userAgent         value of the {@code User-Agent} header; non-blank,
+ *                          default
+ *                          {@code "openflags-java"}
+ * @param failureThreshold  consecutive poll failures required before the circuit
+ *                          breaker opens;
+ *                          must be in {@code [1, 100]}; default {@code 5}
+ * @param maxBackoff        maximum delay applied between polls when the circuit
+ *                          breaker is open;
+ *                          must be {@code >= pollInterval}; default {@code 5min}
+ * @param maxResponseBytes  maximum number of bytes accepted in a single HTTP
+ *                          response body; responses larger than this cap are
+ *                          rejected with {@link ResponseTooLargeException};
+ *                          default {@link #DEFAULT_MAX_RESPONSE_BYTES}
+ *                          (10&nbsp;MiB)
+ * @param shutdownTimeout   maximum time to wait for in-flight requests to
+ *                          complete when {@link RemoteFlagProvider#shutdown()}
+ *                          is called; default
+ *                          {@link #DEFAULT_SHUTDOWN_TIMEOUT} (5&nbsp;s)
+ * @param httpVersion       desired HTTP protocol version; default
+ *                          {@link HttpVersion#AUTO}
  */
 public record RemoteProviderConfig(
         URI baseUrl,
@@ -49,7 +60,10 @@ public record RemoteProviderConfig(
         Duration cacheTtl,
         String userAgent,
         int failureThreshold,
-        Duration maxBackoff) {
+        Duration maxBackoff,
+        long maxResponseBytes,
+        Duration shutdownTimeout,
+        HttpVersion httpVersion) {
 
     /** Sanity ceiling for {@code failureThreshold}. */
     public static final int MAX_FAILURE_THRESHOLD = 100;
@@ -80,6 +94,15 @@ public record RemoteProviderConfig(
     /** Default flags path appended to the base URL. */
     public static final String DEFAULT_FLAGS_PATH = "/flags";
 
+    /** Default maximum response body size: 10 MiB. */
+    public static final long DEFAULT_MAX_RESPONSE_BYTES = 10L * 1024 * 1024;
+
+    /** Default shutdown timeout when waiting for in-flight requests to finish. */
+    public static final Duration DEFAULT_SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
+
+    /** Default HTTP version negotiation strategy. */
+    public static final HttpVersion DEFAULT_HTTP_VERSION = HttpVersion.AUTO;
+
     /**
      * Returns a config with all defaults except the base URL. Useful for callers
      * that want a working remote setup with one line and to override specific
@@ -101,7 +124,39 @@ public record RemoteProviderConfig(
                 DEFAULT_CACHE_TTL,
                 DEFAULT_USER_AGENT,
                 DEFAULT_FAILURE_THRESHOLD,
-                DEFAULT_MAX_BACKOFF);
+                DEFAULT_MAX_BACKOFF,
+                DEFAULT_MAX_RESPONSE_BYTES,
+                DEFAULT_SHUTDOWN_TIMEOUT,
+                DEFAULT_HTTP_VERSION);
+    }
+
+    /**
+     * Convenience constructor that preserves source compatibility with existing
+     * 11-arg call sites. Applies {@link #DEFAULT_MAX_RESPONSE_BYTES},
+     * {@link #DEFAULT_SHUTDOWN_TIMEOUT} and {@link #DEFAULT_HTTP_VERSION} for
+     * the three new fields introduced in this version.
+     *
+     * <p>Prefer {@link RemoteFlagProviderBuilder} for new code so that future
+     * fields can be added without requiring call-site changes.
+     */
+    public RemoteProviderConfig(
+            URI baseUrl,
+            String flagsPath,
+            String authHeaderName,
+            String authHeaderValue,
+            Duration connectTimeout,
+            Duration requestTimeout,
+            Duration pollInterval,
+            Duration cacheTtl,
+            String userAgent,
+            int failureThreshold,
+            Duration maxBackoff) {
+        this(baseUrl, flagsPath, authHeaderName, authHeaderValue,
+                connectTimeout, requestTimeout, pollInterval, cacheTtl, userAgent,
+                failureThreshold, maxBackoff,
+                DEFAULT_MAX_RESPONSE_BYTES,
+                DEFAULT_SHUTDOWN_TIMEOUT,
+                DEFAULT_HTTP_VERSION);
     }
 
     /**
@@ -113,7 +168,7 @@ public record RemoteProviderConfig(
      *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
      *             evolves gracefully when new optional fields are added to
      *             the record. Migration example:
-     * 
+     *
      *             <pre>{@code
      * // Before
      * RemoteProviderConfig cfg = new RemoteProviderConfig(
@@ -218,6 +273,17 @@ public record RemoteProviderConfig(
             throw new IllegalArgumentException(
                     "maxBackoff must be greater than or equal to pollInterval");
         }
+        if (maxResponseBytes <= 0) {
+            throw new IllegalArgumentException(
+                    "maxResponseBytes must be positive, got " + maxResponseBytes);
+        }
+        Objects.requireNonNull(shutdownTimeout, "shutdownTimeout must not be null");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
+        if (httpVersion == null) {
+            httpVersion = DEFAULT_HTTP_VERSION;
+        }
     }
 
     /**
@@ -243,6 +309,9 @@ public record RemoteProviderConfig(
                 + ", userAgent=" + userAgent
                 + ", failureThreshold=" + failureThreshold
                 + ", maxBackoff=" + maxBackoff
+                + ", maxResponseBytes=" + maxResponseBytes
+                + ", shutdownTimeout=" + shutdownTimeout
+                + ", httpVersion=" + httpVersion
                 + "]";
     }
 }
