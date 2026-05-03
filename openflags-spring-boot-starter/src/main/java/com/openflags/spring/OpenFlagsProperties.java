@@ -5,8 +5,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Configuration properties for the openflags Spring Boot integration.
@@ -25,6 +29,13 @@ import java.util.Map;
  */
 @ConfigurationProperties(prefix = "openflags")
 public class OpenFlagsProperties {
+
+    /**
+     * Accepted values for {@code openflags.provider}, in stable iteration order
+     * so error messages remain deterministic across JVMs.
+     */
+    static final Set<String> SUPPORTED_PROVIDERS = Collections.unmodifiableSet(
+            new LinkedHashSet<>(List.of("file", "remote", "hybrid")));
 
     /**
      * The provider type to activate. Default: {@code "file"}.
@@ -141,6 +152,29 @@ public class OpenFlagsProperties {
      */
     public Audit getAudit() {
         return audit;
+    }
+
+    /**
+     * Validates the {@code openflags.provider} value, failing fast with an
+     * actionable
+     * message instead of cascading into a confusing "no FlagProvider bean" error
+     * when an unsupported value is configured.
+     *
+     * @throws IllegalStateException if the configured value is blank or not in
+     *                               {@link #SUPPORTED_PROVIDERS}
+     */
+    void validate() {
+        if (provider == null || provider.isBlank()) {
+            throw new IllegalStateException(
+                    "openflags.provider must not be blank; supported values: "
+                            + SUPPORTED_PROVIDERS);
+        }
+        if (!SUPPORTED_PROVIDERS.contains(provider)) {
+            throw new IllegalStateException(
+                    "openflags.provider='" + provider
+                            + "' is not supported (case-sensitive). Supported values: "
+                            + SUPPORTED_PROVIDERS);
+        }
     }
 
     /**

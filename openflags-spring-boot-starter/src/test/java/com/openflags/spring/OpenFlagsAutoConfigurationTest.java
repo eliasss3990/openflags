@@ -17,8 +17,7 @@ class OpenFlagsAutoConfigurationTest {
             .withPropertyValues(
                     "openflags.provider=file",
                     "openflags.file.path=classpath:flags-test.yml",
-                    "openflags.file.watch-enabled=false"
-            );
+                    "openflags.file.watch-enabled=false");
 
     @Test
     void autoConfigures_openFlagsClient() {
@@ -54,8 +53,7 @@ class OpenFlagsAutoConfigurationTest {
                 .withConfiguration(AutoConfigurations.of(OpenFlagsAutoConfiguration.class))
                 .withPropertyValues(
                         "openflags.file.path=classpath:does-not-exist.yml",
-                        "openflags.file.watch-enabled=false"
-                )
+                        "openflags.file.watch-enabled=false")
                 .run(ctx -> assertThat(ctx).hasFailed());
     }
 
@@ -73,6 +71,45 @@ class OpenFlagsAutoConfigurationTest {
             assertThat(indicator).isNotNull();
             assertThat(indicator.health()).isNotNull();
         });
+    }
+
+    @Test
+    void invalidProvider_failsStartupWithActionableMessage() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(OpenFlagsAutoConfiguration.class))
+                .withPropertyValues("openflags.provider=foo")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx).getFailure()
+                            .rootCause()
+                            .isInstanceOf(IllegalStateException.class)
+                            .hasMessageContaining("openflags.provider='foo'")
+                            .hasMessageContaining("file")
+                            .hasMessageContaining("remote")
+                            .hasMessageContaining("hybrid");
+                });
+    }
+
+    @Test
+    void blankProvider_failsStartupWithActionableMessage() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(OpenFlagsAutoConfiguration.class))
+                .withPropertyValues("openflags.provider= ")
+                .run(ctx -> {
+                    assertThat(ctx).hasFailed();
+                    assertThat(ctx).getFailure()
+                            .rootCause()
+                            .isInstanceOf(IllegalStateException.class)
+                            .hasMessageContaining("openflags.provider");
+                });
+    }
+
+    @Test
+    void uppercaseProvider_failsStartup_caseSensitive() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(OpenFlagsAutoConfiguration.class))
+                .withPropertyValues("openflags.provider=FILE")
+                .run(ctx -> assertThat(ctx).hasFailed());
     }
 
     @Test
