@@ -59,7 +59,7 @@ class HybridSnapshotWriteTest {
                 return new FlagChangeEvent("flag-x", FlagType.BOOLEAN,
                                 Optional.of(FlagValue.of(false, FlagType.BOOLEAN)),
                                 Optional.of(FlagValue.of(true, FlagType.BOOLEAN)),
-                                ChangeType.UPDATED);
+                                ChangeType.ENABLED);
         }
 
         @Test
