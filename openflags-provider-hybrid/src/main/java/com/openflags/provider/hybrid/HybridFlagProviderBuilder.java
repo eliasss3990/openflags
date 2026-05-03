@@ -2,6 +2,7 @@ package com.openflags.provider.hybrid;
 
 import com.openflags.provider.remote.RemoteProviderConfig;
 
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -39,6 +40,30 @@ public final class HybridFlagProviderBuilder {
     public HybridFlagProviderBuilder remoteConfig(RemoteProviderConfig remoteConfig) {
         this.remoteConfig = Objects.requireNonNull(remoteConfig, "remoteConfig must not be null");
         return this;
+    }
+
+    /**
+     * Convenience: builds a remote config with all defaults from the given base URL.
+     * Equivalent to {@code remoteConfig(RemoteProviderConfig.defaults(baseUrl))}.
+     *
+     * @param baseUrl the remote base URL; non-null, http or https
+     * @return this builder
+     * @since 1.1
+     */
+    public HybridFlagProviderBuilder remoteUrl(URI baseUrl) {
+        return remoteConfig(RemoteProviderConfig.defaults(baseUrl));
+    }
+
+    /**
+     * Convenience overload for {@link #remoteUrl(URI)} taking a string.
+     *
+     * @param baseUrl the remote base URL; non-null
+     * @return this builder
+     * @since 1.1
+     */
+    public HybridFlagProviderBuilder remoteUrl(String baseUrl) {
+        Objects.requireNonNull(baseUrl, "baseUrl must not be null");
+        return remoteUrl(URI.create(baseUrl));
     }
 
     /**

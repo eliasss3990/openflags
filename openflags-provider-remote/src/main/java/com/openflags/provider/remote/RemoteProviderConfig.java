@@ -79,6 +79,30 @@ public record RemoteProviderConfig(
     public static final String DEFAULT_FLAGS_PATH = "/flags";
 
     /**
+     * Returns a config with all defaults except the base URL. Useful for callers
+     * that want a working remote setup with one line and to override specific
+     * fields later via record copy semantics or
+     * {@link RemoteFlagProviderBuilder}.
+     *
+     * @param baseUrl the remote base URL; must use http or https; non-null
+     * @return a config populated with defaults
+     * @since 1.1
+     */
+    public static RemoteProviderConfig defaults(URI baseUrl) {
+        return new RemoteProviderConfig(
+                baseUrl,
+                DEFAULT_FLAGS_PATH,
+                null, null,
+                DEFAULT_CONNECT_TIMEOUT,
+                DEFAULT_REQUEST_TIMEOUT,
+                DEFAULT_POLL_INTERVAL,
+                DEFAULT_CACHE_TTL,
+                DEFAULT_USER_AGENT,
+                DEFAULT_FAILURE_THRESHOLD,
+                DEFAULT_MAX_BACKOFF);
+    }
+
+    /**
      * Convenience constructor preserving the pre-circuit-breaker signature.
      * Applies {@link #DEFAULT_FAILURE_THRESHOLD} and the larger of
      * {@link #DEFAULT_MAX_BACKOFF} or {@code pollInterval} as defaults.
@@ -86,7 +110,23 @@ public record RemoteProviderConfig(
      * @deprecated Prefer {@link RemoteFlagProviderBuilder} (obtained via
      *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
      *             evolves gracefully when new optional fields are added to
-     *             the record.
+     *             the record. Migration example:
+     *             <pre>{@code
+     * // Before
+     * RemoteProviderConfig cfg = new RemoteProviderConfig(
+     *         URI.create("https://flags.example.com"), "/flags",
+     *         null, null,
+     *         Duration.ofSeconds(5), Duration.ofSeconds(10),
+     *         Duration.ofSeconds(30), Duration.ofMinutes(5),
+     *         "my-app");
+     * RemoteFlagProvider provider = new RemoteFlagProvider(cfg);
+     *
+     * // After
+     * RemoteFlagProvider provider = RemoteFlagProviderBuilder
+     *         .forUrl("https://flags.example.com")
+     *         .userAgent("my-app")
+     *         .build();
+     * }</pre>
      */
     @Deprecated
     public RemoteProviderConfig(
