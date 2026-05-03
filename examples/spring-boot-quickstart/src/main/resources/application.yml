@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+
+openflags:
+  provider: file
+  file:
+    path: classpath:flags.yml
+    watch-enabled: true
+  metrics:
+    enabled: true
+  audit:
+    mdc-enabled: true
+
+logging:
+  pattern:
+    level: "%5p [flag=%X{openflags.flag_key:-} key=%X{openflags.targeting_key:-}]"

@@ -1,0 +1,20 @@
+flags:
+  new-checkout:
+    type: boolean
+    value: false
+    description: "New checkout flow"
+    rules:
+      - name: argentina-only
+        when:
+          country: AR
+        value: true
+
+  checkout-banner:
+    type: string
+    value: "Welcome"
+    description: "Banner shown on the checkout page"
+    rules:
+      - name: argentina-spanish
+        when:
+          country: AR
+        value: "Bienvenido"
