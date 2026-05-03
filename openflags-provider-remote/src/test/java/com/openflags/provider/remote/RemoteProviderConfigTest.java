@@ -9,6 +9,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
+/**
+ * Intentional use of the 9-arg {@code @Deprecated} convenience constructor across
+ * the suite: these tests guard the public surface of the deprecated API while it
+ * is still part of the contract. They are removed when the constructor is dropped
+ * (tracked under ADR-6 for {@link RemoteProviderConfig}).
+ */
+@SuppressWarnings("deprecation")
 class RemoteProviderConfigTest {
 
     private static final URI HTTP_URL  = URI.create("http://flags.example.com");
