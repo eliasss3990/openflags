@@ -15,12 +15,28 @@ import java.util.Optional;
  * </p>
  *
  * <h2>Lifecycle</h2>
+ * <p>
+ * Implementations follow three formal phases:
+ * </p>
  * <ol>
- *   <li>Create the provider (via builder or constructor).</li>
- *   <li>Call {@link #init()} to load initial flag data. This must be done before evaluation.</li>
- *   <li>Use {@link #getFlag(String)} and {@link #getAllFlags()} for flag evaluation.</li>
- *   <li>Call {@link #shutdown()} when the provider is no longer needed.</li>
+ *   <li><strong>created</strong> — the provider has been constructed but
+ *       {@link #init()} has not yet been invoked. Implementations
+ *       <strong>must not</strong> emit {@link com.openflags.core.event.FlagChangeEvent}
+ *       instances during this phase. Setters that mutate flag state are
+ *       permitted (their effects become visible after {@code init()} returns),
+ *       but no listener notification is allowed.</li>
+ *   <li><strong>initialized</strong> — {@link #init()} has completed
+ *       successfully. The provider honors evaluation calls, may emit change
+ *       events, and reports a meaningful {@link ProviderState}.</li>
+ *   <li><strong>shutdown</strong> — {@link #shutdown()} has been invoked.
+ *       Both {@link #addChangeListener(com.openflags.core.event.FlagChangeListener)}
+ *       and {@link #removeChangeListener(com.openflags.core.event.FlagChangeListener)}
+ *       behave as no-ops; evaluation calls follow each provider's documented
+ *       post-shutdown contract but must not throw {@code NullPointerException}
+ *       on internal state.</li>
  * </ol>
+ *
+ * <p>See ADR-2 for the rationale.</p>
  */
 public interface FlagProvider {
 
@@ -63,7 +79,10 @@ public interface FlagProvider {
      * Registers a listener to receive flag change events.
      * <p>
      * Listeners are notified synchronously when flags change. Implementations
-     * must not block on listener invocations.
+     * must not block on listener invocations. After {@link #shutdown()} this
+     * method is a no-op (mirrors {@link #removeChangeListener}); listeners
+     * registered before {@code init()} only observe events from the
+     * {@code initialized} phase onward.
      * </p>
      *
      * @param listener the listener to register; must not be null
@@ -73,7 +92,9 @@ public interface FlagProvider {
     /**
      * Removes a previously registered listener.
      * <p>
-     * If the listener was not registered, this method is a no-op.
+     * If the listener was not registered, this method is a no-op. After
+     * {@link #shutdown()} it is also a no-op so cleanup paths can run
+     * unconditionally.
      * </p>
      *
      * @param listener the listener to remove

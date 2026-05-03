@@ -231,6 +231,12 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     private void emit(FlagChangeEvent event) {
+        // Per FlagProvider lifecycle (ADR-2), no events may be emitted in the
+        // `created` phase. Mutations performed before init() still take effect
+        // on the flag map, but listeners only observe events post-init.
+        if (state != ProviderState.READY) {
+            return;
+        }
         listeners.forEach(l -> {
             try {
                 l.onFlagChange(event);

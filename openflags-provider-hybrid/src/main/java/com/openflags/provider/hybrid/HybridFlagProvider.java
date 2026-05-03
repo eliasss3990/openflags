@@ -188,7 +188,9 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                     config.remoteConfig().authHeaderValue());
         }
         this.remote = remoteBuilder.build();
-        this.remote.setPollListener(this::onPollComplete);
+        // Listener registration is deferred to init() (ADR-2): registering here
+        // would expose remote.init()'s synchronous first poll to onPollComplete
+        // and trigger a self-write before file.init() and the FileWatcher run.
         this.file = FileFlagProvider.builder()
                 .path(config.snapshotPath())
                 .watchEnabled(config.watchSnapshot())
@@ -205,7 +207,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             SnapshotWriter snapshotWriter) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.remote = Objects.requireNonNull(remote, "remote must not be null");
-        this.remote.setPollListener(this::onPollComplete);
+        // Listener registration deferred to init() (ADR-2).
         this.file = Objects.requireNonNull(file, "file must not be null");
         this.snapshotWriter = Objects.requireNonNull(snapshotWriter, "snapshotWriter must not be null");
     }
@@ -266,17 +268,23 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                     + "getFlag() will return Optional.empty() until a source recovers.");
         }
 
-        // Register internal listeners only after init() so that the initial
-        // load (which surfaces every flag as CREATED on remote's first poll
-        // and may also fire a self-write event on file) is not forwarded to
-        // public listeners as if it were a runtime change.
+        // Register internal listeners only after both sub-providers have
+        // completed init() (ADR-2). With late registration the synchronous
+        // first poll inside remote.init() cannot reach onPollComplete, so no
+        // spurious snapshot write or self-FileWatcher event can occur during
+        // initialization.
         remote.addChangeListener(this::onRemoteChange);
         file.addChangeListener(this::onFileChange);
-        // If a synchronous first poll already triggered writeSafe before the
-        // file listener was registered, expectingSelfWrite may still be true
-        // with no consumer. Disarm it so the next legitimate file event is
-        // not silenced; lastSnapshotWriteAt still guards the debounce window.
-        expectingSelfWrite.set(false);
+        installPollListener();
+
+        // Write a baseline snapshot now that the file watcher is up and the
+        // poll listener is registered. ADR-2 forbids listener-driven writes
+        // during sub-provider init() (race with FileWatcher), but at this
+        // point both providers have completed init() and any self-event will
+        // be consumed by the registered file listener via expectingSelfWrite.
+        if (remoteOk && remote.getState() == ProviderState.READY) {
+            writeSafe(remote.getAllFlags());
+        }
 
         initialized = true;
         log.info("HybridFlagProvider initialized (remote={}, file={})", remoteOk, fileOk);
@@ -543,12 +551,13 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     public void setMetricsRecorder(MetricsRecorder recorder) {
         this.metricsRecorder = Objects.requireNonNull(recorder, "recorder must not be null");
 
-        // Compose a MetricsRecordingPollListener on top of the existing internal
-        // poll listener so that openflags.poll.* meters are emitted for hybrid
-        // providers (parity with standalone remote provider wiring in the starter).
-        MetricsRecordingPollListener pollMetrics = new MetricsRecordingPollListener(recorder);
-        RemotePollListener existing = this::onPollComplete;
-        remote.setPollListener(new ComposedPollListener(existing, pollMetrics));
+        // Apply the composed poll listener only if init() has already wired the
+        // internal listener; otherwise install() during init() will pick up the
+        // recorder via the metricsRecorder field (ADR-2: no listener registration
+        // before init()).
+        if (initialized) {
+            installPollListener();
+        }
 
         // Register gauges whose value is read on demand.
         recorder.registerGauge(
@@ -559,6 +568,23 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 OpenFlagsMetrics.Names.HYBRID_STATE_CURRENT,
                 Collections.emptyList(),
                 () -> providerStateCode(getState()));
+    }
+
+    /**
+     * Wires the remote poll listener according to the current
+     * {@link #metricsRecorder}. With a NOOP recorder only the internal
+     * {@link #onPollComplete} runs; otherwise it is composed with a
+     * {@link MetricsRecordingPollListener} so that {@code openflags.poll.*}
+     * meters are emitted (parity with the standalone remote provider).
+     */
+    private void installPollListener() {
+        RemotePollListener internal = this::onPollComplete;
+        MetricsRecorder rec = this.metricsRecorder;
+        if (rec == MetricsRecorder.NOOP) {
+            remote.setPollListener(internal);
+        } else {
+            remote.setPollListener(new ComposedPollListener(internal, new MetricsRecordingPollListener(rec)));
+        }
     }
 
     /**
