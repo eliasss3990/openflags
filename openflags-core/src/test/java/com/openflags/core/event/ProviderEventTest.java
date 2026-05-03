@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 
+@SuppressWarnings("deprecation") // ProviderState.STALE referenced in toString test (ADR-6)
 class ProviderEventTest {
 
     @Test

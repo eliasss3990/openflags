@@ -110,4 +110,4 @@ When `spring-boot-starter-actuator` is on the classpath, the `/actuator/health` 
 |---|---|
 | `READY` | `UP` |
 | `NOT_READY`, `ERROR` | `DOWN` |
-| `STALE` | `OUT_OF_SERVICE` |
+| `STALE` _(deprecated, removal in 2.0)_ | `OUT_OF_SERVICE` |

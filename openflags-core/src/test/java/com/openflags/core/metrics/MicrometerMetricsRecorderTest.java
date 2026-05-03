@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@SuppressWarnings("deprecation") // ProviderState.STALE referenced in providerStateCode test (ADR-6)
 class MicrometerMetricsRecorderTest {
 
         private SimpleMeterRegistry registry;
