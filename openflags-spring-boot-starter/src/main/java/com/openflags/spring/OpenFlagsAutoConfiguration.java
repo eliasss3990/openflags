@@ -91,6 +91,18 @@ import java.util.Locale;
 public class OpenFlagsAutoConfiguration {
 
     /**
+     * Constructor injection of the bound properties so validation runs as part
+     * of auto-configuration instantiation, before any provider {@code @Bean}
+     * method is evaluated. Failing here surfaces an actionable error message
+     * instead of cascading into a confusing "no FlagProvider bean" error.
+     *
+     * @param properties the bound configuration properties
+     */
+    public OpenFlagsAutoConfiguration(OpenFlagsProperties properties) {
+        properties.validate();
+    }
+
+    /**
      * Creates a {@link RemoteFlagProvider} bean.
      * Activated when {@code openflags.provider=remote}.
      *
