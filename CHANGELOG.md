@@ -9,6 +9,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Deprecated
+
+- `ProviderState.STALE`: no built-in provider emits this state in 1.x; marked `@Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")` and scheduled for removal in 2.0. Callers must not add new logic dependent on this value. Existing passive consumers (health indicator → `OUT_OF_SERVICE`, Micrometer gauge code `4`) are retained unchanged until 2.0. See ADR-6.
+
 ### Changed
 
 - Build: enforcer `requireJavaVersion` aligned with `<release>21</release>` (raised from `[17,)` to `[21,)`). Java 21 is now the explicit, enforced baseline at build time.

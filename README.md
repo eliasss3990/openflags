@@ -526,7 +526,7 @@ EvaluationListener auditListener() {
 ### Health endpoint
 
 When Actuator is on the classpath the starter registers `OpenFlagsHealthIndicator`. The
-indicator reports `UP` for `READY`, `OUT_OF_SERVICE` for `DEGRADED`/`STALE` and `DOWN`
+indicator reports `UP` for `READY`, `OUT_OF_SERVICE` for `DEGRADED`/`STALE` (`STALE` is deprecated, removal in 2.0) and `DOWN`
 otherwise. The response always includes `provider.state`. When the active provider
 implements `ProviderDiagnostics`, the response is enriched with `provider.type` plus a
 provider-specific map:

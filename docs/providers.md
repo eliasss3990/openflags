@@ -76,7 +76,7 @@ public class MyCustomProvider implements FlagProvider {
 
     @Override
     public ProviderState getState() {
-        // NOT_READY, READY, ERROR, or STALE.
+        // NOT_READY, READY, ERROR, or STALE (deprecated, removal in 2.0).
     }
 
     @Override

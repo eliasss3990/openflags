@@ -156,6 +156,7 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
      * @param state state to map; {@code null} maps to {@code -1}
      * @return numeric code, or {@code -1} for unknown values
      */
+    @SuppressWarnings("deprecation") // STALE branch retained until 2.0 removal (ADR-6 / PR-12b)
     static int providerStateCode(ProviderState state) {
         if (state == null)
             return -1;

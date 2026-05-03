@@ -52,6 +52,7 @@ public class OpenFlagsHealthIndicator implements HealthIndicator {
     }
 
     @Override
+    @SuppressWarnings("deprecation") // STALE branch retained until 2.0 removal (ADR-6 / PR-12b)
     public Health health() {
         ProviderState state = client.getProviderState();
         Health.Builder builder = switch (state) {
