@@ -132,6 +132,20 @@ public final class OpenFlagsClient {
                 () -> evaluator.evaluate(provider, key, Boolean.class, defaultValue, context));
     }
 
+    /**
+     * Convenience overload for {@link #getBooleanResult(String, boolean, EvaluationContext)}
+     * with an empty evaluation context.
+     *
+     * @param key          the flag key
+     * @param defaultValue fallback value
+     * @return the evaluation result; never null
+     * @throws IllegalStateException if the client has been shut down
+     * @since 1.1
+     */
+    public EvaluationResult<Boolean> getBooleanResult(String key, boolean defaultValue) {
+        return getBooleanResult(key, defaultValue, EvaluationContext.empty());
+    }
+
     // --- String ---
 
     /**
@@ -174,6 +188,20 @@ public final class OpenFlagsClient {
                 () -> evaluator.evaluate(provider, key, String.class, defaultValue, context));
     }
 
+    /**
+     * Convenience overload for {@link #getStringResult(String, String, EvaluationContext)}
+     * with an empty evaluation context.
+     *
+     * @param key          the flag key
+     * @param defaultValue fallback value
+     * @return the evaluation result; never null
+     * @throws IllegalStateException if the client has been shut down
+     * @since 1.1
+     */
+    public EvaluationResult<String> getStringResult(String key, String defaultValue) {
+        return getStringResult(key, defaultValue, EvaluationContext.empty());
+    }
+
     // --- Number ---
 
     /**
@@ -214,6 +242,20 @@ public final class OpenFlagsClient {
     public EvaluationResult<Double> getNumberResult(String key, double defaultValue, EvaluationContext context) {
         return evaluateAndDispatch(key, Double.class, defaultValue, context,
                 () -> evaluator.evaluate(provider, key, Double.class, defaultValue, context));
+    }
+
+    /**
+     * Convenience overload for {@link #getNumberResult(String, double, EvaluationContext)}
+     * with an empty evaluation context.
+     *
+     * @param key          the flag key
+     * @param defaultValue fallback value
+     * @return the evaluation result; never null
+     * @throws IllegalStateException if the client has been shut down
+     * @since 1.1
+     */
+    public EvaluationResult<Double> getNumberResult(String key, double defaultValue) {
+        return getNumberResult(key, defaultValue, EvaluationContext.empty());
     }
 
     // --- Object ---
@@ -259,6 +301,20 @@ public final class OpenFlagsClient {
         return evaluateAndDispatch(key, Map.class, defaultValue, context,
                 () -> (EvaluationResult<Map<String, Object>>) (EvaluationResult<?>) evaluator.evaluate(provider, key,
                         Map.class, defaultValue, context));
+    }
+
+    /**
+     * Convenience overload for {@link #getObjectResult(String, Map, EvaluationContext)}
+     * with an empty evaluation context.
+     *
+     * @param key          the flag key
+     * @param defaultValue fallback value
+     * @return the evaluation result; never null
+     * @throws IllegalStateException if the client has been shut down
+     * @since 1.1
+     */
+    public EvaluationResult<Map<String, Object>> getObjectResult(String key, Map<String, Object> defaultValue) {
+        return getObjectResult(key, defaultValue, EvaluationContext.empty());
     }
 
     // --- Listeners ---

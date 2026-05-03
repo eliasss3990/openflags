@@ -40,15 +40,37 @@ public interface ProviderDiagnostics {
 
     /**
      * Timestamp of the most recent successful flag data refresh, or
-     * {@code null} if the provider has never loaded data successfully.
+     * {@code null} if the provider has never loaded data successfully
+     * (for example: before {@link FlagProvider#init()}, after a failed
+     * initial load, or after {@link FlagProvider#shutdown()} on
+     * implementations that clear state on shutdown).
      *
-     * @return the last update instant, or {@code null}
+     * <p>
+     * Returns {@code null} (not {@link java.util.Optional}) for binary
+     * compatibility with 1.x; consumers should null-check explicitly.
+     * A future major version may migrate to {@code Optional<Instant>}.
+     * </p>
+     *
+     * @return the last successful refresh instant, or {@code null} if
+     *         data has never been loaded
      */
     Instant lastUpdate();
 
     /**
-     * Number of flags currently held by the provider. Zero before
-     * {@link FlagProvider#init()} or after {@link FlagProvider#shutdown()}.
+     * Number of flags currently held by the provider.
+     *
+     * <p>Returns {@code 0} when:</p>
+     * <ul>
+     *   <li>called before {@link FlagProvider#init()};</li>
+     *   <li>called after {@link FlagProvider#shutdown()};</li>
+     *   <li>the provider successfully loaded an empty flag set.</li>
+     * </ul>
+     *
+     * <p>
+     * Callers that need to distinguish "shut down" from "loaded empty"
+     * should consult {@link #lastUpdate()} (null vs non-null) or
+     * {@link FlagProvider#health()}.
+     * </p>
      *
      * @return the flag count; never negative
      */

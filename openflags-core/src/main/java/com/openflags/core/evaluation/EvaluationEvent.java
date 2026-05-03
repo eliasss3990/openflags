@@ -23,7 +23,10 @@ import java.util.Objects;
  *                      {@code defaultValue}
  * @param reason        outcome classification, never {@code null}
  * @param variant       matched variant identifier when a multi-variant rule
- *                      was selected, otherwise {@code null}
+ *                      was selected, otherwise {@code null}. The string is
+ *                      the raw {@code name} declared in the flag definition,
+ *                      not normalized — listeners should compare against the
+ *                      same names defined in their flag config.
  * @param matchedRuleId identifier of the rule that matched, or {@code null}
  *                      when no rule matched or the engine does not expose it
  * @param context       evaluation context used for resolution, never
