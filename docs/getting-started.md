@@ -15,7 +15,7 @@ This guide walks through adding openflags to a new project, defining your first 
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-spring-boot-starter</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -67,7 +67,7 @@ That's it. The `OpenFlagsClient` bean is created automatically and the flag file
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-provider-file</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>

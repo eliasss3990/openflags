@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.openflags</groupId>
+        <groupId>io.github.eliasss3990</groupId>
         <artifactId>openflags</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -16,17 +16,17 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.openflags</groupId>
+            <groupId>io.github.eliasss3990</groupId>
             <artifactId>openflags-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.openflags</groupId>
+            <groupId>io.github.eliasss3990</groupId>
             <artifactId>openflags-provider-remote</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.openflags</groupId>
+            <groupId>io.github.eliasss3990</groupId>
             <artifactId>openflags-provider-file</artifactId>
             <version>${project.version}</version>
         </dependency>

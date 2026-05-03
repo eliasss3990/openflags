@@ -41,7 +41,7 @@ Evaluate boolean, string, number, and object flags from a local YAML or JSON fil
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-provider-file</artifactId>
     <version>0.5.0-SNAPSHOT</version>
 </dependency>
@@ -103,7 +103,7 @@ client.shutdown();
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-spring-boot-starter</artifactId>
     <version>0.5.0-SNAPSHOT</version>
 </dependency>
@@ -259,7 +259,7 @@ Add the testing module to your test scope:
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-testing</artifactId>
     <version>0.5.0-SNAPSHOT</version>
     <scope>test</scope>
@@ -348,7 +348,7 @@ Fetch flags from an HTTP backend with automatic polling and stale-while-error ca
 
 ```xml
 <dependency>
-    <groupId>com.openflags</groupId>
+    <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-provider-remote</artifactId>
     <version>0.5.0-SNAPSHOT</version>
 </dependency>
