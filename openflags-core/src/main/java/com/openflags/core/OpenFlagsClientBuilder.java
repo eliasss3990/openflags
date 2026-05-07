@@ -5,9 +5,9 @@ import com.openflags.core.evaluation.FlagEvaluator;
 import com.openflags.core.evaluation.rule.RuleEngine;
 import com.openflags.core.exception.ProviderException;
 import com.openflags.core.metrics.MetricsRecorder;
+import com.openflags.core.metrics.MicrometerMetricsRecorder;
 import com.openflags.core.provider.FlagProvider;
 
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -26,12 +26,9 @@ import java.util.Objects;
  */
 public final class OpenFlagsClientBuilder {
 
-    private static final String MICROMETER_REGISTRY_CLASS = "io.micrometer.core.instrument.MeterRegistry";
-    private static final String MICROMETER_RECORDER_CLASS = "com.openflags.core.metrics.MicrometerMetricsRecorder";
-
     private FlagProvider provider;
     private MetricsRecorder metricsRecorder;
-    private Object micrometerRegistry;
+    private Object pendingMicrometerRegistry;
     private boolean metricsTagFlagKey = true;
     private boolean auditMdcEnabled = false;
     private String providerType = "unknown";
@@ -41,10 +38,18 @@ public final class OpenFlagsClientBuilder {
     }
 
     /**
-     * Sets the {@link MetricsRecorder} directly. Use this when the caller
-     * already has a recorder bean (typical in Spring contexts) instead of the
-     * reflective {@link #metricsRegistry(Object)} path. When both are set,
-     * the explicitly provided recorder wins.
+     * Sets the {@link MetricsRecorder} directly. This is the canonical typed
+     * entry point for metrics integration; prefer it over the deprecated
+     * reflective {@link #metricsRegistry(Object)}. When both are set, the
+     * recorder set most recently wins.
+     *
+     * <p>For Micrometer users on a manual builder path:
+     * <pre>{@code
+     * OpenFlagsClient client = OpenFlagsClient.builder()
+     *         .provider(provider)
+     *         .metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))
+     *         .build();
+     * }</pre>
      *
      * @param recorder the recorder to use; must not be null
      * @return this builder
@@ -99,36 +104,48 @@ public final class OpenFlagsClientBuilder {
     }
 
     /**
-     * Provides a Micrometer {@code MeterRegistry} via reflection so that
-     * {@code openflags-core} keeps Micrometer as an optional dependency
-     * (ADR-501). The argument MUST be assignable to
-     * {@code io.micrometer.core.instrument.MeterRegistry}; otherwise
-     * {@link IllegalArgumentException} is thrown.
+     * Provides a Micrometer {@code MeterRegistry}. The argument must implement
+     * {@code io.micrometer.core.instrument.MeterRegistry}.
      *
      * @param registry a {@code MeterRegistry} instance; must not be null
      * @return this builder
      * @throws NullPointerException     if registry is null
      * @throws IllegalStateException    if Micrometer is not on the classpath
      * @throws IllegalArgumentException if registry is not a {@code MeterRegistry}
+     * @deprecated Use {@link #metricsRecorder(MetricsRecorder)} with a
+     *             {@code com.openflags.core.metrics.MicrometerMetricsRecorder}
+     *             instance. The reflective bridge will be removed in 2.0 (ADR-4).
+     *             <p>Migration:
+     *             <pre>{@code
+     * // Before
+     * OpenFlagsClient client = OpenFlagsClient.builder()
+     *         .provider(provider)
+     *         .metricsRegistry(meterRegistry)
+     *         .build();
+     *
+     * // After
+     * OpenFlagsClient client = OpenFlagsClient.builder()
+     *         .provider(provider)
+     *         .metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))
+     *         .build();
+     *             }</pre>
      */
+    @Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")
     public OpenFlagsClientBuilder metricsRegistry(Object registry) {
         Objects.requireNonNull(registry, "registry must not be null");
-        Class<?> meterRegistryClass;
+        // Eagerly validate the type so callers get the same fast-fail
+        // semantics as before: Micrometer-missing surfaces here, not at
+        // build(). Resolution to a recorder is still deferred so that a
+        // later metricsTagFlagKey(...) call is honored.
         try {
-            meterRegistryClass = Class.forName(MICROMETER_REGISTRY_CLASS,
-                    false, registry.getClass().getClassLoader());
-        } catch (ClassNotFoundException e) {
+            MicrometerMetricsRecorder.validateRegistryObject(registry);
+        } catch (LinkageError e) {
             throw new IllegalStateException(
                     "Micrometer is not on the classpath; add io.micrometer:micrometer-core "
-                            + "to use metricsRegistry(...)",
+                            + "or use metricsRecorder(MetricsRecorder) directly",
                     e);
         }
-        if (!meterRegistryClass.isInstance(registry)) {
-            throw new IllegalArgumentException(
-                    "registry must implement " + MICROMETER_REGISTRY_CLASS
-                            + " (got " + registry.getClass().getName() + ")");
-        }
-        this.micrometerRegistry = registry;
+        this.pendingMicrometerRegistry = registry;
         return this;
     }
 
@@ -189,7 +206,15 @@ public final class OpenFlagsClientBuilder {
             throw new IllegalStateException("A FlagProvider must be set before building the client");
         }
         provider.init();
-        MetricsRecorder recorder = resolveMetricsRecorder();
+        MetricsRecorder recorder;
+        if (metricsRecorder != null) {
+            recorder = metricsRecorder;
+        } else if (pendingMicrometerRegistry != null) {
+            recorder = MicrometerMetricsRecorder.fromRegistryObject(
+                    pendingMicrometerRegistry, metricsTagFlagKey);
+        } else {
+            recorder = MetricsRecorder.NOOP;
+        }
         EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
         for (EvaluationListener listener : evaluationListeners) {
             registry.add(listener);
@@ -203,30 +228,4 @@ public final class OpenFlagsClientBuilder {
                 auditMdcEnabled);
     }
 
-    private MetricsRecorder resolveMetricsRecorder() {
-        if (metricsRecorder != null) {
-            return metricsRecorder;
-        }
-        if (micrometerRegistry == null) {
-            return MetricsRecorder.NOOP;
-        }
-        try {
-            ClassLoader cl = micrometerRegistry.getClass().getClassLoader();
-            Class<?> meterRegistryClass = Class.forName(MICROMETER_REGISTRY_CLASS, false, cl);
-            Class<?> recorderClass = Class.forName(MICROMETER_RECORDER_CLASS, false,
-                    OpenFlagsClientBuilder.class.getClassLoader());
-            Constructor<?> ctor = recorderClass.getDeclaredConstructor(
-                    meterRegistryClass, boolean.class);
-            ctor.setAccessible(true);
-            return (MetricsRecorder) ctor.newInstance(micrometerRegistry, metricsTagFlagKey);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException(
-                    "Micrometer is not on the classpath; remove metricsRegistry(...) "
-                            + "or add io.micrometer:micrometer-core",
-                    e);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(
-                    "Failed to instantiate MicrometerMetricsRecorder reflectively", e);
-        }
-    }
 }
