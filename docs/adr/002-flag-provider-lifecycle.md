@@ -73,17 +73,24 @@ public void init() {
     remote.addChangeListener(this::onRemoteChange);
     file.addChangeListener(this::onFileChange);
     remote.setPollListener(this::onPollComplete);     // late registration
-    // expectingSelfWrite removed entirely
+    // expectingSelfWrite init-time reset removed
+
+    // Baseline snapshot write at end of init(), only after both sub-providers
+    // have completed init() and the FileWatcher is up.
+    if (remoteOk && remote.getState() == ProviderState.READY) {
+        writeSafe(remote.getAllFlags());
+    }
 }
 ```
 
 By construction, the first synchronous `pollOnce()` triggered by
 `remote.init()` cannot fire `onPollComplete`, because the listener does not
-exist yet. The snapshot is written for the first time only after the next
-poll cycle, by which point the `FileWatcher` is fully initialized and the
-write goes through the normal `expectingSelfWrite` discipline — except that
-discipline is no longer needed for the init path and the flag itself can be
-deleted.
+exist yet. The snapshot is then written once at the *end* of `init()` — after
+both `remote.init()` and `file.init()` have returned and the
+`FileWatcher` is fully initialized. This preserves the long-standing
+contract that a snapshot file exists on disk immediately after `init()`
+returns, while still keeping the listener-registered-too-early bug class
+out of the init path.
 
 ## Decision
 
@@ -115,22 +122,41 @@ The Javadoc of `FlagProvider` is updated to describe explicitly:
 `file.init()` have returned. The constructor performs wiring only (capturing
 references) but does not subscribe to any upstream component.
 
-### 3. Remove `expectingSelfWrite`
+### 3. Remove the init-time `expectingSelfWrite` reset
 
 With late registration in place, the first synchronous `pollOnce()` performed
 by `remote.init()` cannot reach `onPollComplete`. The defensive
 `expectingSelfWrite.set(false)` at line 257 becomes structurally unreachable
-and is removed together with the `AtomicBoolean` field. Subsequent self-write
-suppression (the case where Hybrid writes a snapshot and `FileWatcher` later
-notices it) continues to be handled by the existing `expectingSelfWrite`
-discipline around `writeSafe()` — that discipline is preserved; only the
-init-time reset is removed.
+and is removed. The `AtomicBoolean` field itself is preserved because it is
+still required for the existing self-write discipline around `writeSafe()`:
+both the new init-time baseline write (see §5) and subsequent poll-driven
+writes set it to true so that the next `FileWatcher` event is consumed as
+self-induced rather than re-emitted to public listeners.
 
 ### 4. Symmetric listener API around shutdown
 
 `OpenFlagsClient.addChangeListener` is changed to a no-op when invoked after
 `shutdown()`, matching the pre-existing behavior of `removeChangeListener`.
 The Javadoc of both methods documents the post-shutdown contract explicitly.
+
+### 5. Init-time baseline snapshot write
+
+After listener registration, `init()` performs a single baseline snapshot
+write when the remote provider reached `READY`:
+
+```java
+if (remoteOk && remote.getState() == ProviderState.READY) {
+    writeSafe(remote.getAllFlags());
+}
+```
+
+This preserves the contract — observed in tests and relied upon by
+downstream consumers — that a snapshot file exists on disk by the time
+`init()` returns, even if the next poll cycle is several seconds away. The
+write is safe at this point because both `remote.init()` and `file.init()`
+have already completed and the `FileWatcher` is up: any self-induced file
+event is consumed by the registered file listener via the
+`expectingSelfWrite` flag rather than re-emitted to public listeners.
 
 ## Consequences
 
