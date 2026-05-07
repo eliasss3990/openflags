@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -396,6 +397,10 @@ class HybridFlagProviderTest {
                 provider.init();
                 verify(mockRemote).setPollListener(pollListenerCaptor.capture());
                 verify(mockRemote).addChangeListener(remoteListenerCaptor.capture());
+
+                // Discard baseline write performed at end of init() so we verify only
+                // that the poll cycle itself triggers exactly one snapshot write.
+                clearInvocations(mockWriter);
 
                 // Simulate 5 individual flag-change events in one poll cycle
                 for (int i = 0; i < 5; i++) {
