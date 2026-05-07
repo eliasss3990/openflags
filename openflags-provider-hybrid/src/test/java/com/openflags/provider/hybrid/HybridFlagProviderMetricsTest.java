@@ -69,7 +69,7 @@ class HybridFlagProviderMetricsTest {
         HybridProviderConfig cfg = new HybridProviderConfig(
                 REMOTE_CFG, tempDir.resolve("snap.json"), SnapshotFormat.JSON, false,
                 Duration.ofMillis(200), false);
-        return new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter);
+        return new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter, Runnable::run);
     }
 
     // ---- Poll success ----

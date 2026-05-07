@@ -58,7 +58,7 @@ class HybridNoMicrometerTest {
                 REMOTE_CFG, tempDir.resolve("snap.json"), SnapshotFormat.JSON, false,
                 Duration.ofMillis(200), false);
 
-        HybridFlagProvider provider = new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter);
+        HybridFlagProvider provider = new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter, Runnable::run);
         // No setMetricsRecorder — NOOP must not crash
         provider.init();
 

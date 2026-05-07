@@ -55,7 +55,7 @@ class HybridSnapshotWriteTest {
                                 false,
                                 Duration.ofMillis(200),
                                 false);
-                return new HybridFlagProvider(cfg, remote, file, writer);
+                return new HybridFlagProvider(cfg, remote, file, writer, Runnable::run);
         }
 
         private static FlagChangeEvent sampleFileEvent() {

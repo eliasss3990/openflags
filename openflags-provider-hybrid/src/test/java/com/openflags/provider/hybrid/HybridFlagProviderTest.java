@@ -185,7 +185,7 @@ class HybridFlagProviderTest {
                                 REMOTE_CFG, dir.resolve("snap.json"), SnapshotFormat.JSON, false,
                                 Duration.ofMillis(200), false);
 
-                HybridFlagProvider provider = new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter);
+                HybridFlagProvider provider = new HybridFlagProvider(cfg, mockRemote, mockFile, mockWriter, Runnable::run);
                 provider.init();
                 provider.init(); // second call should be no-op
 
@@ -201,7 +201,7 @@ class HybridFlagProviderTest {
                 HybridProviderConfig cfg = new HybridProviderConfig(
                                 REMOTE_CFG, dir.resolve("snap.json"), SnapshotFormat.JSON, false,
                                 Duration.ofMillis(200), false);
-                return new HybridFlagProvider(cfg, remote, file, writer);
+                return new HybridFlagProvider(cfg, remote, file, writer, Runnable::run);
         }
 
         @Test

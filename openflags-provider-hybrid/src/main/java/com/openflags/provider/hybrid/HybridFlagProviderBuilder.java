@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
  * Fluent builder for {@link HybridFlagProvider}. Mirrors the style of
@@ -28,6 +29,7 @@ public final class HybridFlagProviderBuilder {
     private boolean watchSnapshot = true;
     private Duration snapshotDebounce = HybridProviderConfig.DEFAULT_SNAPSHOT_DEBOUNCE;
     private boolean failIfNoFallback = false;
+    private Executor snapshotExecutor;
 
     HybridFlagProviderBuilder() {}
 
@@ -134,6 +136,24 @@ public final class HybridFlagProviderBuilder {
     }
 
     /**
+     * Sets a user-supplied {@link Executor} on which snapshot writes are
+     * performed (ADR-3). When supplied, the caller owns the executor's
+     * lifecycle: the provider will not shut it down. When not supplied, the
+     * provider creates a single-threaded daemon executor named
+     * {@code openflags-snapshot-writer} and shuts it down on
+     * {@link HybridFlagProvider#shutdown()} with a bounded await.
+     *
+     * @param snapshotExecutor the executor; may be {@code null} to keep the
+     *                         default
+     * @return this builder
+     * @since 1.2
+     */
+    public HybridFlagProviderBuilder snapshotExecutor(Executor snapshotExecutor) {
+        this.snapshotExecutor = snapshotExecutor;
+        return this;
+    }
+
+    /**
      * Builds the provider.
      *
      * @return a configured but un-initialized {@link HybridFlagProvider}.
@@ -150,6 +170,6 @@ public final class HybridFlagProviderBuilder {
         HybridProviderConfig cfg = new HybridProviderConfig(
                 remoteConfig, snapshotPath, snapshotFormat,
                 watchSnapshot, snapshotDebounce, failIfNoFallback);
-        return new HybridFlagProvider(cfg);
+        return new HybridFlagProvider(cfg, snapshotExecutor);
     }
 }
