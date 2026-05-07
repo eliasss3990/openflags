@@ -29,6 +29,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -113,6 +118,26 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     private final SnapshotWriter snapshotWriter;
     private final List<FlagChangeListener> publicListeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Executor used to perform snapshot writes off the poller thread (ADR-3).
+     * When the user supplies an executor via the builder, {@link #ownsExecutor}
+     * is {@code false} and {@link #shutdown()} does not touch it; otherwise the
+     * provider owns a single-threaded daemon executor and shuts it down on
+     * provider shutdown.
+     */
+    private final Executor snapshotExecutor;
+
+    private final boolean ownsExecutor;
+
+    /**
+     * Latest snapshot pending for write. The poll-complete path
+     * {@code getAndSet}s a fresh snapshot and only enqueues a writer task when
+     * the previous value was {@code null}. The writer task drains via
+     * {@code getAndSet(null)} and re-arms if a newer value arrived during the
+     * write — see {@link #drainAndWriteSafe()} for the coalescing protocol.
+     */
+    private final AtomicReference<Map<String, Flag>> pendingSnapshot = new AtomicReference<>();
+
     /** Counts consecutive snapshot write failures for log throttling. */
     private final AtomicInteger consecutiveWriteFailures = new AtomicInteger(0);
 
@@ -172,6 +197,10 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * @param config the immutable configuration; non-null
      */
     HybridFlagProvider(HybridProviderConfig config) {
+        this(config, null);
+    }
+
+    HybridFlagProvider(HybridProviderConfig config, Executor userSnapshotExecutor) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         RemoteFlagProviderBuilder remoteBuilder = RemoteFlagProviderBuilder
                 .forUrl(config.remoteConfig().baseUrl())
@@ -196,6 +225,13 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
                 .watchEnabled(config.watchSnapshot())
                 .build();
         this.snapshotWriter = new SnapshotWriter(config.snapshotFormat());
+        if (userSnapshotExecutor != null) {
+            this.snapshotExecutor = userSnapshotExecutor;
+            this.ownsExecutor = false;
+        } else {
+            this.snapshotExecutor = defaultSnapshotExecutor();
+            this.ownsExecutor = true;
+        }
     }
 
     /**
@@ -205,11 +241,39 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             RemoteFlagProvider remote,
             FileFlagProvider file,
             SnapshotWriter snapshotWriter) {
+        this(config, remote, file, snapshotWriter, null);
+    }
+
+    /**
+     * Package-private constructor for testing; allows injecting mock providers
+     * and a custom snapshot executor (e.g. {@code Runnable::run} for synchronous
+     * tests or a controllable {@code TestExecutor}).
+     */
+    HybridFlagProvider(HybridProviderConfig config,
+            RemoteFlagProvider remote,
+            FileFlagProvider file,
+            SnapshotWriter snapshotWriter,
+            Executor userSnapshotExecutor) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.remote = Objects.requireNonNull(remote, "remote must not be null");
         // Listener registration deferred to init() (ADR-2).
         this.file = Objects.requireNonNull(file, "file must not be null");
         this.snapshotWriter = Objects.requireNonNull(snapshotWriter, "snapshotWriter must not be null");
+        if (userSnapshotExecutor != null) {
+            this.snapshotExecutor = userSnapshotExecutor;
+            this.ownsExecutor = false;
+        } else {
+            this.snapshotExecutor = defaultSnapshotExecutor();
+            this.ownsExecutor = true;
+        }
+    }
+
+    private static ExecutorService defaultSnapshotExecutor() {
+        return Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "openflags-snapshot-writer");
+            t.setDaemon(true);
+            return t;
+        });
     }
 
     /**
@@ -380,6 +444,32 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         } catch (Exception e) {
             log.warn("HybridFlagProvider: error shutting down file provider", e);
         }
+
+        // Best-effort final drain of any snapshot the poller produced after
+        // remote.shutdown() returned but before the executor stopped accepting
+        // tasks. Runs synchronously on the shutdown thread so we do not race
+        // executor termination.
+        Map<String, Flag> finalSnapshot = pendingSnapshot.getAndSet(null);
+        if (finalSnapshot != null) {
+            try {
+                writeSafe(finalSnapshot);
+            } catch (Exception e) {
+                log.warn("HybridFlagProvider: final snapshot drain failed", e);
+            }
+        }
+
+        if (ownsExecutor && snapshotExecutor instanceof ExecutorService es) {
+            es.shutdown();
+            try {
+                if (!es.awaitTermination(2, TimeUnit.SECONDS)) {
+                    es.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                es.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+
         publicListeners.clear();
         log.info("HybridFlagProvider shut down");
     }
@@ -387,7 +477,59 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     // ---- internal listeners ----
 
     private void onPollComplete(Map<String, Flag> flagSnapshot) {
-        writeSafe(flagSnapshot);
+        enqueueSnapshotWrite(flagSnapshot);
+    }
+
+    /**
+     * Coalescing enqueue (ADR-3). Stores {@code freshSnapshot} as the latest
+     * pending value and dispatches a writer task only if no task was already
+     * pending. Bursty polls collapse into a single write of the most recent
+     * snapshot — older intermediate values are intentionally dropped because
+     * cold-start consumers only need the latest state.
+     *
+     * <p>Runs on the poller thread; never blocks on disk I/O.
+     */
+    private void enqueueSnapshotWrite(Map<String, Flag> freshSnapshot) {
+        if (freshSnapshot == null) {
+            return;
+        }
+        Map<String, Flag> previous = pendingSnapshot.getAndSet(freshSnapshot);
+        if (previous != null) {
+            // A writer task is already in flight or queued; it will pick up the
+            // freshest value via getAndSet(null) when it runs.
+            return;
+        }
+        try {
+            snapshotExecutor.execute(this::drainAndWriteSafe);
+        } catch (RejectedExecutionException e) {
+            // Executor was shut down between getAndSet and execute (e.g. user
+            // closing the provider). Drop the pending snapshot so the next
+            // re-arm is consistent.
+            pendingSnapshot.set(null);
+            log.debug("HybridFlagProvider: snapshot executor rejected task (shutdown in progress)");
+        }
+    }
+
+    /**
+     * Drains the latest pending snapshot and writes it. If a newer snapshot
+     * arrived during the write, re-arms the executor so the latest state is
+     * eventually persisted. The {@code getAndSet(null)} is the linearization
+     * point: anything that arrives after it wins the next round.
+     */
+    private void drainAndWriteSafe() {
+        Map<String, Flag> snapshot = pendingSnapshot.getAndSet(null);
+        if (snapshot == null) {
+            return;
+        }
+        writeSafe(snapshot);
+        if (pendingSnapshot.get() != null) {
+            try {
+                snapshotExecutor.execute(this::drainAndWriteSafe);
+            } catch (RejectedExecutionException e) {
+                pendingSnapshot.set(null);
+                log.debug("HybridFlagProvider: snapshot executor rejected re-arm (shutdown in progress)");
+            }
+        }
     }
 
     private void onRemoteChange(FlagChangeEvent event) {
