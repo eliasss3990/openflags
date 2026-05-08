@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <openflags.version>1.0.0</openflags.version>
+        <openflags.version>1.1.0</openflags.version>
     </properties>
 
     <dependencies>

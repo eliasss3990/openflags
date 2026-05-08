@@ -119,7 +119,7 @@ public record RemoteProviderConfig(
      *
      * @param baseUrl the remote base URL; must use http or https; non-null
      * @return a config populated with defaults
-     * @since 1.1
+     * @since 1.1.0
      */
     public static RemoteProviderConfig defaults(URI baseUrl) {
         return new RemoteProviderConfig(

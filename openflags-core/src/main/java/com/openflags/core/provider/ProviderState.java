@@ -21,7 +21,8 @@ public enum ProviderState {
     /**
      * Provider data is known to be outdated (e.g., remote connection lost).
      *
-     * <p><b>Deprecated.</b> No built-in provider emits this state in 1.x.
+     * <p>
+     * <b>Deprecated.</b> No built-in provider emits this state in 1.x.
      * {@code STALE} is scheduled for removal in 2.0 (see ADR-6).
      * Callers <em>must not</em> add new {@code switch} branches or production
      * logic that depends on this value; existing passive consumers (e.g.,
@@ -30,7 +31,7 @@ public enum ProviderState {
      *
      * @deprecated No producer exists in 1.x; will be removed in 2.0. See ADR-6.
      */
-    @Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")
+    @Deprecated(forRemoval = true, since = "1.1.0")
     STALE,
     /** Provider has been shut down and is no longer serving flags. */
     SHUTDOWN

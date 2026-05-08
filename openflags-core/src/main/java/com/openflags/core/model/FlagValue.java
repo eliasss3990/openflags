@@ -37,7 +37,8 @@ public final class FlagValue {
      * @param rawValue the raw value; must match the expected type
      * @param type     the flag type
      * @return a new {@code FlagValue}
-     * @throws TypeMismatchException if {@code rawValue} is not compatible with {@code type}
+     * @throws TypeMismatchException if {@code rawValue} is not compatible with
+     *                               {@code type}
      * @throws NullPointerException  if {@code type} is null
      */
     public static FlagValue of(Object rawValue, FlagType type) {
@@ -54,7 +55,8 @@ public final class FlagValue {
      * Returns the value as a {@code boolean}.
      *
      * @return the boolean value
-     * @throws TypeMismatchException if this value is not of type {@link FlagType#BOOLEAN}
+     * @throws TypeMismatchException if this value is not of type
+     *                               {@link FlagType#BOOLEAN}
      */
     public boolean asBoolean() {
         requireType(FlagType.BOOLEAN);
@@ -65,7 +67,8 @@ public final class FlagValue {
      * Returns the value as a {@code String}.
      *
      * @return the string value
-     * @throws TypeMismatchException if this value is not of type {@link FlagType#STRING}
+     * @throws TypeMismatchException if this value is not of type
+     *                               {@link FlagType#STRING}
      */
     public String asString() {
         requireType(FlagType.STRING);
@@ -76,7 +79,8 @@ public final class FlagValue {
      * Returns the value as a {@code double}.
      *
      * @return the numeric value
-     * @throws TypeMismatchException if this value is not of type {@link FlagType#NUMBER}
+     * @throws TypeMismatchException if this value is not of type
+     *                               {@link FlagType#NUMBER}
      */
     public double asNumber() {
         requireType(FlagType.NUMBER);
@@ -91,7 +95,8 @@ public final class FlagValue {
      * </p>
      *
      * @return an unmodifiable map representing the object value
-     * @throws TypeMismatchException if this value is not of type {@link FlagType#OBJECT}
+     * @throws TypeMismatchException if this value is not of type
+     *                               {@link FlagType#OBJECT}
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> asObject() {
@@ -104,10 +109,11 @@ public final class FlagValue {
      *
      * @return the raw value
      * @deprecated since 0.1.0, will be removed in a future release.
-     *             Use the typed accessor methods ({@link #asBoolean()}, {@link #asString()},
+     *             Use the typed accessor methods ({@link #asBoolean()},
+     *             {@link #asString()},
      *             {@link #asNumber()}, {@link #asObject()}) instead.
      */
-    @Deprecated(forRemoval = true)
+    @Deprecated(forRemoval = true, since = "0.1.0")
     public Object getRawValue() {
         return rawValue;
     }
@@ -123,8 +129,10 @@ public final class FlagValue {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof FlagValue other)) return false;
+        if (this == obj)
+            return true;
+        if (!(obj instanceof FlagValue other))
+            return false;
         return type == other.type && Objects.equals(rawValue, other.rawValue);
     }
 
@@ -139,13 +147,14 @@ public final class FlagValue {
     }
 
     private static Map<String, Object> copyObjectMap(Map<String, Object> map) {
-        // Use explicit iteration instead of containsValue(null): some Map implementations
+        // Use explicit iteration instead of containsValue(null): some Map
+        // implementations
         // (e.g. Map.of()) throw NPE on containsValue(null) rather than returning false.
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             if (entry.getValue() == null) {
                 throw new IllegalArgumentException(
                         "OBJECT flag values must not contain null entries; "
-                        + "found null value for key '" + entry.getKey() + "'");
+                                + "found null value for key '" + entry.getKey() + "'");
             }
         }
         return Map.copyOf(map);
@@ -166,17 +175,21 @@ public final class FlagValue {
     private static boolean isCompatible(Object value, FlagType type) {
         return switch (type) {
             case BOOLEAN -> value instanceof Boolean;
-            case STRING  -> value instanceof String;
-            case NUMBER  -> value instanceof Number;
-            case OBJECT  -> value instanceof Map<?, ?>;
+            case STRING -> value instanceof String;
+            case NUMBER -> value instanceof Number;
+            case OBJECT -> value instanceof Map<?, ?>;
         };
     }
 
     private static FlagType inferType(Object value) {
-        if (value instanceof Boolean) return FlagType.BOOLEAN;
-        if (value instanceof String) return FlagType.STRING;
-        if (value instanceof Number) return FlagType.NUMBER;
-        if (value instanceof Map<?, ?>) return FlagType.OBJECT;
+        if (value instanceof Boolean)
+            return FlagType.BOOLEAN;
+        if (value instanceof String)
+            return FlagType.STRING;
+        if (value instanceof Number)
+            return FlagType.NUMBER;
+        if (value instanceof Map<?, ?>)
+            return FlagType.OBJECT;
         return null;
     }
 }

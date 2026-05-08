@@ -9,6 +9,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-08
+
 ### Breaking Changes
 
 - **`EvaluationResult` canonical constructor changed** (binary + source incompatibility).
@@ -26,8 +28,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Deprecated
 
-- `ProviderState.STALE`: no built-in provider emits this state in 1.x; marked `@Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")` and scheduled for removal in 2.0. Callers must not add new logic dependent on this value. Existing passive consumers (health indicator → `OUT_OF_SERVICE`, Micrometer gauge code `4`) are retained unchanged until 2.0. See ADR-6.
-- `OpenFlagsClientBuilder.metricsRegistry(Object)`: marked `@Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")` and scheduled for removal in 2.0 (ADR-4). The reflective `setAccessible` + classloader-walk implementation has been replaced with a direct, type-checked path via `MicrometerMetricsRecorder.fromRegistryObject(Object, boolean)` (still confined to that class to keep Micrometer optional). **Migration**: replace `.metricsRegistry(meterRegistry)` with `.metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))`. Spring Boot starter users are unaffected (the starter wires the recorder directly via `MicrometerBindings`).
+- `ProviderState.STALE`: no built-in provider emits this state in 1.x; marked `@Deprecated(forRemoval = true, since = "1.1.0")` and scheduled for removal in 2.0. Callers must not add new logic dependent on this value. Existing passive consumers (health indicator → `OUT_OF_SERVICE`, Micrometer gauge code `4`) are retained unchanged until 2.0. See ADR-6.
+- `OpenFlagsClientBuilder.metricsRegistry(Object)`: marked `@Deprecated(forRemoval = true, since = "1.1.0")` and scheduled for removal in 2.0 (ADR-4). The reflective `setAccessible` + classloader-walk implementation has been replaced with a direct, type-checked path via `MicrometerMetricsRecorder.fromRegistryObject(Object, boolean)` (still confined to that class to keep Micrometer optional). **Migration**: replace `.metricsRegistry(meterRegistry)` with `.metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))`. Spring Boot starter users are unaffected (the starter wires the recorder directly via `MicrometerBindings`).
 
 ### Changed
 

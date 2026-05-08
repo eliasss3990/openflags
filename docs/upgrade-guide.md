@@ -57,6 +57,98 @@ The Maven coordinates changed from `com.openflags` to
 Java package names (`com.openflags.*`) did **not** change — your imports stay
 the same.
 
+## From `1.0.0` to `1.1.0`
+
+### Breaking changes
+
+#### `EvaluationResult` canonical constructor removed
+
+The record gained two new fields (`variant`, `matchedRuleId`), making the
+previous 3-arg canonical constructor `new EvaluationResult<>(value, reason, flagKey)`
+a binary and source incompatibility.
+
+**Migration**: replace all call sites with the new factory method:
+
+```java
+// before
+new EvaluationResult<>(value, reason, flagKey)
+
+// after
+EvaluationResult.of(value, reason, flagKey)
+```
+
+Code using accessor methods (`result.value()`, `result.reason()`, `result.flagKey()`)
+is unaffected.
+
+---
+
+### Behavior changes
+
+#### `FlagProvider` lifecycle formalization (ADR-2)
+
+`FlagProvider` now formalizes three lifecycle phases: `created`, `initialized`,
+`shutdown`. Implementations must not emit `FlagChangeEvent` during the `created`
+phase (before `init()` returns).
+
+If your code registered a change listener on `InMemoryFlagProvider` before
+calling `init()` and expected to observe events from pre-init mutations, move the
+registration to after `init()` returns. Pre-init mutations are still valid but
+are now silent.
+
+#### `OpenFlagsClient.addChangeListener` after shutdown is a no-op
+
+`addChangeListener` called after `shutdown()` is now silently ignored
+(previously threw `IllegalStateException`), mirroring the existing behavior
+of `removeChangeListener`.
+
+#### `HybridFlagProvider` listener registration and snapshot writes (ADR-3)
+
+- Remote poll listener and remote/file change listeners are now registered
+  only after both sub-providers have completed `init()`.
+- Snapshot writes are performed on a dedicated daemon thread
+  (`openflags-snapshot-writer`) instead of the poller thread. A custom executor
+  can be supplied via `HybridFlagProviderBuilder.snapshotExecutor(Executor)`;
+  the caller owns its lifecycle in that case.
+- Bursty polls coalesce: only the latest snapshot is written per burst;
+  intermediate snapshots are intentionally dropped.
+- `shutdown()` drains any pending snapshot synchronously before stopping the
+  default executor (2-second bounded `awaitTermination`).
+
+---
+
+### Deprecations
+
+#### `ProviderState.STALE`
+
+`ProviderState.STALE` is deprecated (`@Deprecated(forRemoval = true, since = "1.1.0")`)
+and scheduled for removal in 2.0. No built-in provider emits this state in 1.x.
+Do not add new logic dependent on this value.
+
+Existing passive consumers (health indicator mapping to `OUT_OF_SERVICE`,
+Micrometer gauge code `4`) are retained unchanged until 2.0.
+
+#### `OpenFlagsClientBuilder.metricsRegistry(Object)`
+
+`OpenFlagsClientBuilder.metricsRegistry(Object)` is deprecated
+(`@Deprecated(forRemoval = true, since = "1.1.0")`) and scheduled for removal
+in 2.0. The reflective implementation has been replaced with a direct,
+type-checked path.
+
+**Migration**: replace the deprecated call with the new explicit API:
+
+```java
+// before
+builder.metricsRegistry(meterRegistry)
+
+// after
+builder.metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))
+```
+
+Spring Boot starter users are unaffected — the starter wires the recorder
+directly via `MicrometerBindings`.
+
+---
+
 ## Future releases
 
 When upgrading between published 1.x versions, follow this order:

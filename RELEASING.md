@@ -60,7 +60,7 @@ Configure `main` with:
 5. The `Release` workflow runs: signs, publishes to Central, and creates a
    GitHub Release with auto-generated notes.
 6. Verify the artifacts appear on Maven Central
-   (<https://repo1.maven.org/maven2/com/openflags/>) — propagation takes
+   (<https://repo1.maven.org/maven2/io/github/eliasss3990/>) — propagation takes
    30 min to 4 h.
 7. Open a follow-up PR bumping the POM to the next `-SNAPSHOT`
    (e.g. `x.y.(z+1)-SNAPSHOT`) and adding a fresh `[Unreleased]` section

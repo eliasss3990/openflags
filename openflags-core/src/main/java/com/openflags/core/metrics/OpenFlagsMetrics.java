@@ -67,7 +67,7 @@ public final class OpenFlagsMetrics {
          */
         public static final String EVALUATIONS_UNEXPECTED_ERRORS_TOTAL = "openflags.evaluations.unexpected.errors.total";
 
-        // ---- Hybrid-specific metrics (added in 1.1) ----
+        // ---- Hybrid-specific metrics (added in 1.1.0) ----
 
         /** Counter: successful remote polls emitted by the hybrid provider. */
         public static final String POLL_SUCCESS = "openflags.poll.success";
