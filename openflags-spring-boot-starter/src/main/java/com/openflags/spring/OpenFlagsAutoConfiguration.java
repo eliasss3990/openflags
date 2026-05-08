@@ -142,6 +142,8 @@ public class OpenFlagsAutoConfiguration {
      * {@code @Order} order before {@link OpenFlagsClientBuilder#build()}.
      *
      * @param provider    the configured flag provider
+     * @param properties  the bound openflags properties (used for audit/MDC
+     *                    settings)
      * @param customizers all client customizer beans, applied in order before build
      * @return a ready-to-use client
      */
@@ -225,9 +227,12 @@ public class OpenFlagsAutoConfiguration {
     /**
      * Auto-configuration for the {@link RemoteFlagProvider}.
      * <p>
-     * Class-level {@link ConditionalOnClass} on {@link RemoteFlagProvider} keeps the entire
-     * configuration off the context (and skips bean post-processing of its method signatures)
-     * when the {@code openflags-provider-remote} module is absent — the dependency is declared
+     * Class-level {@link ConditionalOnClass} on {@link RemoteFlagProvider} keeps
+     * the entire
+     * configuration off the context (and skips bean post-processing of its method
+     * signatures)
+     * when the {@code openflags-provider-remote} module is absent — the dependency
+     * is declared
      * {@code <optional>true</optional>} in the starter POM.
      * </p>
      */
@@ -269,9 +274,12 @@ public class OpenFlagsAutoConfiguration {
     /**
      * Auto-configuration for the {@link HybridFlagProvider}.
      * <p>
-     * Class-level {@link ConditionalOnClass} on {@link HybridFlagProvider} keeps the entire
-     * configuration off the context when the {@code openflags-provider-hybrid} module is
-     * absent — the dependency is declared {@code <optional>true</optional>} in the starter POM.
+     * Class-level {@link ConditionalOnClass} on {@link HybridFlagProvider} keeps
+     * the entire
+     * configuration off the context when the {@code openflags-provider-hybrid}
+     * module is
+     * absent — the dependency is declared {@code <optional>true</optional>} in the
+     * starter POM.
      * </p>
      */
     private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {

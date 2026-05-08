@@ -13,7 +13,8 @@ import java.util.Optional;
 /**
  * Resolves the value of a flag taking its rules into account.
  * <p>
- * Stateless and thread-safe. The resolution order follows the order of declaration
+ * Stateless and thread-safe. The resolution order follows the order of
+ * declaration
  * in {@link Flag#rules()} and is first-match-wins.
  * </p>
  */
@@ -21,27 +22,40 @@ public final class RuleEngine {
 
     private static final Logger log = LoggerFactory.getLogger(RuleEngine.class);
 
+    /** Creates a stateless rule engine. */
+    public RuleEngine() {
+        // No state to initialize.
+    }
+
     /**
      * Outcome of a rule resolution.
      *
      * @param value         the resolved {@link FlagValue}
      * @param reason        the {@link EvaluationReason}: one of
-     *                      {@link EvaluationReason#RESOLVED}, {@link EvaluationReason#TARGETING_MATCH},
-     *                      {@link EvaluationReason#SPLIT}, {@link EvaluationReason#VARIANT},
+     *                      {@link EvaluationReason#RESOLVED},
+     *                      {@link EvaluationReason#TARGETING_MATCH},
+     *                      {@link EvaluationReason#SPLIT},
+     *                      {@link EvaluationReason#VARIANT},
      *                      or {@link EvaluationReason#NO_RULE_MATCHED}
-     * @param variant       the variant label when a {@code MultiVariantRule} matched, otherwise {@code null}
-     * @param matchedRuleId the {@link Rule#name()} of the rule that matched, or {@code null} when no rule matched
+     * @param variant       the variant label when a {@code MultiVariantRule}
+     *                      matched, otherwise {@code null}
+     * @param matchedRuleId the {@link Rule#name()} of the rule that matched, or
+     *                      {@code null} when no rule matched
      */
-    public record Resolution(FlagValue value, EvaluationReason reason, String variant, String matchedRuleId) {}
+    public record Resolution(FlagValue value, EvaluationReason reason, String variant, String matchedRuleId) {
+    }
 
     /**
      * Resolves a flag's value using its rules and the provided context.
      * <ul>
-     *   <li>If the flag has no rules, returns the default value with reason {@code RESOLVED}
-     *       (preserves Phase 1 behavior).</li>
-     *   <li>If a rule matches, returns its value with reason {@code TARGETING_MATCH} or
-     *       {@code SPLIT}.</li>
-     *   <li>If no rule matches, returns the default value with reason {@code NO_RULE_MATCHED}.</li>
+     * <li>If the flag has no rules, returns the default value with reason
+     * {@code RESOLVED}
+     * (preserves Phase 1 behavior).</li>
+     * <li>If a rule matches, returns its value with reason {@code TARGETING_MATCH}
+     * or
+     * {@code SPLIT}.</li>
+     * <li>If no rule matches, returns the default value with reason
+     * {@code NO_RULE_MATCHED}.</li>
      * </ul>
      *
      * @param flag    the flag to resolve; must not be null
@@ -72,8 +86,8 @@ public final class RuleEngine {
 
     private Optional<Resolution> evaluateRule(Rule rule, Flag flag, EvaluationContext context) {
         return switch (rule) {
-            case TargetingRule tr     -> evaluateTargetingRule(tr, context);
-            case SplitRule sr         -> evaluateSplitRule(sr, flag.key(), context);
+            case TargetingRule tr -> evaluateTargetingRule(tr, context);
+            case SplitRule sr -> evaluateSplitRule(sr, flag.key(), context);
             case MultiVariantRule mvr -> evaluateMultiVariantRule(mvr, flag.key(), context);
         };
     }
@@ -108,17 +122,20 @@ public final class RuleEngine {
 
     /**
      * Converts a variant's {@link FlagValue} to a human-readable label for the
-     * {@code variant} field of {@link com.openflags.core.evaluation.EvaluationResult}.
-     * String flags return their natural value; numeric and boolean flags are stringified;
+     * {@code variant} field of
+     * {@link com.openflags.core.evaluation.EvaluationResult}.
+     * String flags return their natural value; numeric and boolean flags are
+     * stringified;
      * object flags return {@code null} (no compact label is meaningful).
      */
     private static String toVariantLabel(FlagValue value) {
         return switch (value.getType()) {
-            case STRING  -> value.asString();
+            case STRING -> value.asString();
             case BOOLEAN -> String.valueOf(value.asBoolean());
-            case NUMBER  -> {
+            case NUMBER -> {
                 double d = value.asNumber();
-                if (!Double.isFinite(d)) yield null;
+                if (!Double.isFinite(d))
+                    yield null;
                 // Omit the decimal part for whole numbers (e.g., "50" instead of "50.0").
                 // Guard against doubles outside long range: (long) cast saturates silently.
                 if (d == Math.floor(d) && d >= Long.MIN_VALUE && d < Long.MAX_VALUE) {
@@ -126,7 +143,7 @@ public final class RuleEngine {
                 }
                 yield String.valueOf(d);
             }
-            case OBJECT  -> null;
+            case OBJECT -> null;
         };
     }
 }

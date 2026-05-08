@@ -25,33 +25,48 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <h2>Lifecycle</h2>
  * <ul>
- *   <li>{@link #init()} is idempotent.</li>
- *   <li>{@link #shutdown()} is idempotent.</li>
+ * <li>{@link #init()} is idempotent.</li>
+ * <li>{@link #shutdown()} is idempotent.</li>
  * </ul>
  *
  * <h2>Concurrency model</h2>
  * <ul>
- *   <li>{@code state} — {@code volatile}: written under {@code synchronized} lifecycle methods,
- *       read without lock from {@link #getState()}.</li>
- *   <li>{@code shutdown} — {@code volatile}: written under {@code synchronized} lifecycle methods,
- *       read without lock from {@link #requireNotShutdown()} inside read paths.</li>
- *   <li>{@code flags} — {@link java.util.concurrent.ConcurrentHashMap}: individual put/get/remove
- *       are atomic; compound operations (e.g. {@link #setDisabled}) use {@code computeIfPresent}
- *       for atomicity.</li>
- *   <li>{@code listeners} — {@link java.util.concurrent.CopyOnWriteArrayList}: iteration is
- *       safe without locks; {@link #emit} runs <em>outside</em> any lock, so a listener may
- *       observe events slightly after the flag map has already been updated.</li>
+ * <li>{@code state} — {@code volatile}: written under {@code synchronized}
+ * lifecycle methods,
+ * read without lock from {@link #getState()}.</li>
+ * <li>{@code shutdown} — {@code volatile}: written under {@code synchronized}
+ * lifecycle methods,
+ * read without lock from {@link #requireNotShutdown()} inside read paths.</li>
+ * <li>{@code flags} — {@link java.util.concurrent.ConcurrentHashMap}:
+ * individual put/get/remove
+ * are atomic; compound operations (e.g. {@link #setDisabled}) use
+ * {@code computeIfPresent}
+ * for atomicity.</li>
+ * <li>{@code listeners} — {@link java.util.concurrent.CopyOnWriteArrayList}:
+ * iteration is
+ * safe without locks; {@link #emit} runs <em>outside</em> any lock, so a
+ * listener may
+ * observe events slightly after the flag map has already been updated.</li>
  * </ul>
  *
  * <pre>
  * OpenFlagsClient client = OpenFlagsClient.builder()
- *     .provider(new InMemoryFlagProvider()
- *         .setBoolean("dark-mode", true)
- *         .setString("theme", "dark"))
- *     .build();
+ *         .provider(new InMemoryFlagProvider()
+ *                 .setBoolean("dark-mode", true)
+ *                 .setString("theme", "dark"))
+ *         .build();
  * </pre>
  */
 public final class InMemoryFlagProvider implements FlagProvider {
+
+    /**
+     * Creates an empty provider. Use {@code setBoolean}/{@code setString}/etc.
+     * fluent setters to seed flags, then call {@link #init()} (or let the
+     * client builder do it).
+     */
+    public InMemoryFlagProvider() {
+        // Empty: flags are added via setters.
+    }
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryFlagProvider.class);
 
@@ -65,7 +80,8 @@ public final class InMemoryFlagProvider implements FlagProvider {
         if (shutdown) {
             throw new IllegalStateException("InMemoryFlagProvider has been shut down");
         }
-        if (state == ProviderState.READY) return;
+        if (state == ProviderState.READY)
+            return;
         state = ProviderState.READY;
     }
 
@@ -99,7 +115,8 @@ public final class InMemoryFlagProvider implements FlagProvider {
 
     @Override
     public synchronized void shutdown() {
-        if (shutdown) return;
+        if (shutdown)
+            return;
         shutdown = true;
         state = ProviderState.SHUTDOWN;
     }
@@ -149,7 +166,8 @@ public final class InMemoryFlagProvider implements FlagProvider {
     }
 
     /**
-     * Sets a flag as disabled. Evaluation of a disabled flag returns the caller's default value.
+     * Sets a flag as disabled. Evaluation of a disabled flag returns the caller's
+     * default value.
      *
      * @param key the flag key (must already be set)
      * @return this provider (for chaining)
@@ -157,11 +175,12 @@ public final class InMemoryFlagProvider implements FlagProvider {
      */
     public InMemoryFlagProvider setDisabled(String key) {
         requireNotShutdown();
-        Flag[] before = {null};
-        Flag[] after = {null};
+        Flag[] before = { null };
+        Flag[] after = { null };
         flags.computeIfPresent(key, (k, existing) -> {
             before[0] = existing;
-            Flag disabled = new Flag(k, existing.type(), existing.value(), false, existing.metadata(), existing.rules());
+            Flag disabled = new Flag(k, existing.type(), existing.value(), false, existing.metadata(),
+                    existing.rules());
             after[0] = disabled;
             return disabled;
         });
@@ -176,8 +195,10 @@ public final class InMemoryFlagProvider implements FlagProvider {
     /**
      * Registers a fully constructed {@link Flag}, including any rules.
      * <p>
-     * Use this method when the typed convenience setters ({@code setBoolean}, etc.) are not
-     * sufficient, for example when the flag carries Phase 2 targeting or split rules.
+     * Use this method when the typed convenience setters ({@code setBoolean}, etc.)
+     * are not
+     * sufficient, for example when the flag carries Phase 2 targeting or split
+     * rules.
      * </p>
      *
      * @param flag the flag to register; must not be null

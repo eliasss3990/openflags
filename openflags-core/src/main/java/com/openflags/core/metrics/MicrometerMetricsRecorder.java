@@ -65,6 +65,13 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
     private final AtomicInteger normalizedVariantsLoggedSize = new AtomicInteger();
     private final AtomicLong droppedNormalizedVariants = new AtomicLong();
 
+    /**
+     * Creates a recorder bound to the given Micrometer registry.
+     *
+     * @param registry   target meter registry; must not be null
+     * @param tagFlagKey whether to attach a {@code flag} tag to per-flag meters
+     * @throws NullPointerException if {@code registry} is null
+     */
     public MicrometerMetricsRecorder(MeterRegistry registry, boolean tagFlagKey) {
         this.registry = Objects.requireNonNull(registry, "registry must not be null");
         this.tagFlagKey = tagFlagKey;
@@ -77,6 +84,10 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
      * Micrometer dependency optional from the rest of {@code openflags-core}
      * (ADR-501): only loading this class triggers Micrometer linkage.
      *
+     * @param registry   a {@link MeterRegistry} passed as {@code Object} to
+     *                   keep the Micrometer dependency soft at the call site
+     * @param tagFlagKey whether to attach a {@code flag} tag to per-flag meters
+     * @return a recorder bound to {@code registry}
      * @throws IllegalArgumentException if {@code registry} is not a
      *                                  {@link MeterRegistry}
      */
@@ -99,6 +110,7 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
      * while deferring recorder construction until later configuration (e.g.
      * {@code metricsTagFlagKey(...)}) is final.
      *
+     * @param registry a {@link MeterRegistry} passed as {@code Object}
      * @throws NullPointerException     if {@code registry} is null
      * @throws IllegalArgumentException if {@code registry} is not a
      *                                  {@link MeterRegistry}

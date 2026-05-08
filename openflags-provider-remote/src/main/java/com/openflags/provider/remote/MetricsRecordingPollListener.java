@@ -24,13 +24,20 @@ public final class MetricsRecordingPollListener implements RemotePollListener {
 
     private final MetricsRecorder metrics;
 
+    /**
+     * Creates a listener that forwards poll outcomes to the given recorder.
+     *
+     * @param metrics destination recorder; must not be null
+     * @throws NullPointerException if {@code metrics} is null
+     */
     public MetricsRecordingPollListener(MetricsRecorder metrics) {
         this.metrics = Objects.requireNonNull(metrics, "metrics must not be null");
     }
 
     @Override
     public void onPollComplete(Map<String, Flag> snapshot) {
-        // Snapshot delivery is not a metric concern; counters are driven by onPollOutcome.
+        // Snapshot delivery is not a metric concern; counters are driven by
+        // onPollOutcome.
     }
 
     @Override

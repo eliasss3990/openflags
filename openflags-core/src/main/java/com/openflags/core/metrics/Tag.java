@@ -17,6 +17,7 @@ import java.util.Objects;
  */
 public record Tag(String key, String value) {
 
+    /** Compact constructor that rejects null {@code key} or {@code value}. */
     public Tag {
         Objects.requireNonNull(key, "key must not be null");
         Objects.requireNonNull(value, "value must not be null");

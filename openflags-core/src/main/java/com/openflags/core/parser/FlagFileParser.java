@@ -70,6 +70,14 @@ public final class FlagFileParser {
     private static final ObjectMapper TREE_MAPPER = JSON_MAPPER;
 
     /**
+     * Creates a parser with default YAML and JSON {@link ObjectMapper}s. Parsers
+     * are stateless; share one instance across providers.
+     */
+    public FlagFileParser() {
+        // Stateless: nothing to initialize per-instance.
+    }
+
+    /**
      * Maximum regex pattern length accepted at parse time (security: limits ReDoS
      * surface).
      */

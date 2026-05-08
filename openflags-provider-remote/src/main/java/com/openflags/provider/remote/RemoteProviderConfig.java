@@ -145,6 +145,19 @@ public record RemoteProviderConfig(
      * <p>
      * Prefer {@link RemoteFlagProviderBuilder} for new code so that future
      * fields can be added without requiring call-site changes.
+     *
+     * @param baseUrl          base URL of the remote backend
+     * @param flagsPath        path appended to {@code baseUrl} for fetching flags
+     * @param authHeaderName   optional auth header name
+     * @param authHeaderValue  optional auth header value
+     * @param connectTimeout   HTTP connect timeout
+     * @param requestTimeout   HTTP request timeout
+     * @param pollInterval     polling interval between fetches
+     * @param cacheTtl         cache TTL for fetched flags
+     * @param userAgent        HTTP User-Agent header value
+     * @param failureThreshold consecutive failures before opening the circuit
+     *                         breaker
+     * @param maxBackoff       upper bound on the exponential backoff delay
      */
     public RemoteProviderConfig(
             URI baseUrl,
@@ -192,6 +205,16 @@ public record RemoteProviderConfig(
      *         .userAgent("my-app")
      *         .build();
      * }</pre>
+     *
+     * @param baseUrl         base URL of the remote backend
+     * @param flagsPath       path appended to {@code baseUrl} for fetching flags
+     * @param authHeaderName  optional auth header name
+     * @param authHeaderValue optional auth header value
+     * @param connectTimeout  HTTP connect timeout
+     * @param requestTimeout  HTTP request timeout
+     * @param pollInterval    polling interval between fetches
+     * @param cacheTtl        cache TTL for fetched flags
+     * @param userAgent       HTTP User-Agent header value
      */
     @Deprecated
     public RemoteProviderConfig(
