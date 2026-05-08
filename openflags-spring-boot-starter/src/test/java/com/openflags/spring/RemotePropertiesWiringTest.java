@@ -77,9 +77,16 @@ class RemotePropertiesWiringTest {
                 });
     }
 
-    private static RemoteProviderConfig readConfig(RemoteFlagProvider provider) throws Exception {
-        Field f = RemoteFlagProvider.class.getDeclaredField("config");
-        f.setAccessible(true);
-        return (RemoteProviderConfig) f.get(provider);
+    private static RemoteProviderConfig readConfig(RemoteFlagProvider provider) {
+        try {
+            Field f = RemoteFlagProvider.class.getDeclaredField("config");
+            f.setAccessible(true);
+            return (RemoteProviderConfig) f.get(provider);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new AssertionError(
+                    "Could not read RemoteFlagProvider#config via reflection — has the"
+                            + " field been renamed or removed? Update the test or the"
+                            + " production field name to match.", e);
+        }
     }
 }
