@@ -157,7 +157,7 @@ public final class OpenFlagsClient {
      * @param defaultValue fallback value
      * @return the evaluation result; never null
      * @throws IllegalStateException if the client has been shut down
-     * @since 1.1
+     * @since 1.1.0
      */
     public EvaluationResult<Boolean> getBooleanResult(String key, boolean defaultValue) {
         return getBooleanResult(key, defaultValue, EvaluationContext.empty());
@@ -214,7 +214,7 @@ public final class OpenFlagsClient {
      * @param defaultValue fallback value
      * @return the evaluation result; never null
      * @throws IllegalStateException if the client has been shut down
-     * @since 1.1
+     * @since 1.1.0
      */
     public EvaluationResult<String> getStringResult(String key, String defaultValue) {
         return getStringResult(key, defaultValue, EvaluationContext.empty());
@@ -271,7 +271,7 @@ public final class OpenFlagsClient {
      * @param defaultValue fallback value
      * @return the evaluation result; never null
      * @throws IllegalStateException if the client has been shut down
-     * @since 1.1
+     * @since 1.1.0
      */
     public EvaluationResult<Double> getNumberResult(String key, double defaultValue) {
         return getNumberResult(key, defaultValue, EvaluationContext.empty());
@@ -331,7 +331,7 @@ public final class OpenFlagsClient {
      * @param defaultValue fallback value
      * @return the evaluation result; never null
      * @throws IllegalStateException if the client has been shut down
-     * @since 1.1
+     * @since 1.1.0
      */
     public EvaluationResult<Map<String, Object>> getObjectResult(String key, Map<String, Object> defaultValue) {
         return getObjectResult(key, defaultValue, EvaluationContext.empty());

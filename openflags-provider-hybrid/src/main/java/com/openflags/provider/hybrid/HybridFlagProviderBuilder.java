@@ -15,10 +15,10 @@ import java.util.concurrent.Executor;
  *
  * <pre>
  * HybridFlagProvider provider = HybridFlagProvider.builder()
- *     .remoteConfig(remoteConfig)
- *     .snapshotPath(Path.of("/var/lib/openflags/snapshot.json"))
- *     .snapshotFormat(SnapshotFormat.JSON)
- *     .build();
+ *         .remoteConfig(remoteConfig)
+ *         .snapshotPath(Path.of("/var/lib/openflags/snapshot.json"))
+ *         .snapshotFormat(SnapshotFormat.JSON)
+ *         .build();
  * </pre>
  */
 public final class HybridFlagProviderBuilder {
@@ -31,7 +31,8 @@ public final class HybridFlagProviderBuilder {
     private boolean failIfNoFallback = false;
     private Executor snapshotExecutor;
 
-    HybridFlagProviderBuilder() {}
+    HybridFlagProviderBuilder() {
+    }
 
     /**
      * Sets the remote provider configuration.
@@ -45,12 +46,13 @@ public final class HybridFlagProviderBuilder {
     }
 
     /**
-     * Convenience: builds a remote config with all defaults from the given base URL.
+     * Convenience: builds a remote config with all defaults from the given base
+     * URL.
      * Equivalent to {@code remoteConfig(RemoteProviderConfig.defaults(baseUrl))}.
      *
      * @param baseUrl the remote base URL; non-null, http or https
      * @return this builder
-     * @since 1.1
+     * @since 1.1.0
      */
     public HybridFlagProviderBuilder remoteUrl(URI baseUrl) {
         return remoteConfig(RemoteProviderConfig.defaults(baseUrl));
@@ -61,7 +63,7 @@ public final class HybridFlagProviderBuilder {
      *
      * @param baseUrl the remote base URL; non-null
      * @return this builder
-     * @since 1.1
+     * @since 1.1.0
      */
     public HybridFlagProviderBuilder remoteUrl(String baseUrl) {
         Objects.requireNonNull(baseUrl, "baseUrl must not be null");
@@ -125,7 +127,8 @@ public final class HybridFlagProviderBuilder {
     }
 
     /**
-     * Sets whether to fail initialization when neither remote nor snapshot can produce data.
+     * Sets whether to fail initialization when neither remote nor snapshot can
+     * produce data.
      *
      * @param failIfNoFallback {@code true} to fail strictly
      * @return this builder
@@ -146,7 +149,7 @@ public final class HybridFlagProviderBuilder {
      * @param snapshotExecutor the executor; may be {@code null} to keep the
      *                         default
      * @return this builder
-     * @since 1.2
+     * @since 1.1.0
      */
     public HybridFlagProviderBuilder snapshotExecutor(Executor snapshotExecutor) {
         this.snapshotExecutor = snapshotExecutor;
@@ -158,7 +161,8 @@ public final class HybridFlagProviderBuilder {
      *
      * @return a configured but un-initialized {@link HybridFlagProvider}.
      *         Caller must invoke {@link HybridFlagProvider#init()}.
-     * @throws IllegalStateException if {@code remoteConfig} or {@code snapshotPath} were not set
+     * @throws IllegalStateException if {@code remoteConfig} or {@code snapshotPath}
+     *                               were not set
      */
     public HybridFlagProvider build() {
         if (remoteConfig == null) {

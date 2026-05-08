@@ -55,7 +55,7 @@ Evaluate boolean, string, number, and object flags from a local YAML or JSON fil
 <dependency>
     <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-provider-file</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -117,7 +117,7 @@ client.shutdown();
 <dependency>
     <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-spring-boot-starter</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -273,7 +273,7 @@ Add the testing module to your test scope:
 <dependency>
     <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-testing</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>1.1.0</version>
     <scope>test</scope>
 </dependency>
 ```
@@ -337,6 +337,7 @@ flags:
 ```
 
 **Evaluation behavior:**
+
 - With `targetingKey`: always selects a variant deterministically → `EvaluationReason.VARIANT`
 - Without `targetingKey`: rule is skipped → `EvaluationReason.NO_RULE_MATCHED`
 
@@ -362,7 +363,7 @@ Fetch flags from an HTTP backend with automatic polling and stale-while-error ca
 <dependency>
     <groupId>io.github.eliasss3990</groupId>
     <artifactId>openflags-provider-remote</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
