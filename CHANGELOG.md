@@ -79,6 +79,12 @@ First stable release. Public API frozen; subsequent releases follow Semantic Ver
 
 ### Fixed
 
+- `openflags-provider-hybrid`: snapshot coalescing race in `enqueueSnapshotWrite` / `drainAndWriteSafe` — when the snapshot executor rejects the task during shutdown, the pending snapshot is now cleared via `compareAndSet` so a concurrent producer that just deposited a newer snapshot is not silently dropped.
+- `openflags-provider-hybrid`: `init()` now sets `initialized = true` before performing the baseline snapshot write, so a write-time failure cannot leave the provider in an inconsistent half-initialized state for subsequent `shutdown()` / `getState()` calls.
+- `openflags-provider-hybrid`: `ComposedPollListener` now isolates exceptions thrown by either delegate (`onPollComplete` / `onPollOutcome`) so a misbehaving user listener cannot prevent the internal listener from running.
+- `openflags-provider-file`: `reload()` now snapshots the previous flag map inside the same synchronized block that publishes the new one, preventing two concurrent reloads from emitting duplicate change events for the same transition.
+- CI: `release-dry-run` job now declares `needs: quality` so a GPG-enabled job is not consumed when the regular checks have already failed.
+
 - `openflags-provider-hybrid`: race between provider initialization and internal listener registration — `expectingSelfWrite` flag is now reset and listeners attached only after both providers complete `init()`
 - `openflags-provider-hybrid`: snapshot debounce timestamp now captured before atomic move to suppress self-induced WatchService events under concurrent writes
 - `openflags-provider-file`: `shutdown()` correctly transitions to `SHUTDOWN` state (was leaving the provider in `STALE` after race with reload)

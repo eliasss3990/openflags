@@ -151,7 +151,6 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
             log.debug("Ignoring reload() after shutdown for '{}'", filePath);
             return;
         }
-        Map<String, Flag> oldFlags = flags.get();
         Map<String, Flag> newFlags;
         try {
             newFlags = parseFile();
@@ -164,20 +163,21 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
             }
             return;
         }
-        boolean shouldEmit;
+        // Snapshot the previous map inside the same lock that publishes the
+        // new one so concurrent reloads can't both observe the same oldFlags
+        // and emit duplicate change events.
+        Map<String, Flag> oldFlags;
         synchronized (this) {
             if (shutdown) {
                 return;
             }
+            oldFlags = flags.get();
             flags.set(newFlags);
             lastReloadAt = Instant.now();
             state.set(ProviderState.READY);
-            shouldEmit = true;
         }
         log.debug("Reloaded flags from '{}': {} flags", filePath, newFlags.size());
-        if (shouldEmit) {
-            emitChangeEvents(oldFlags, newFlags);
-        }
+        emitChangeEvents(oldFlags, newFlags);
     }
 
     private Map<String, Flag> parseFile() {
