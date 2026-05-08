@@ -1,6 +1,7 @@
 package com.openflags.spring;
 
 import com.openflags.core.provider.RemoteDefaults;
+import com.openflags.provider.file.FileWatcher;
 import com.openflags.provider.hybrid.SnapshotFormat;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -176,6 +177,16 @@ public class OpenFlagsProperties {
                             + "' is not supported (case-sensitive). Supported values: "
                             + SUPPORTED_PROVIDERS);
         }
+        // Debounce is only consulted when watch is enabled; ignore otherwise so
+        // users can leave the property unset / blank when disabling the watcher.
+        if (file.isWatchEnabled()) {
+            Duration fileDebounce = file.getDebounce();
+            if (fileDebounce == null || fileDebounce.isZero() || fileDebounce.isNegative()) {
+                throw new IllegalStateException(
+                        "openflags.file.debounce must be a strictly positive duration when "
+                                + "openflags.file.watch-enabled=true; got " + fileDebounce);
+            }
+        }
     }
 
     /**
@@ -184,11 +195,17 @@ public class OpenFlagsProperties {
     public static class FileProperties {
 
         /**
+         * Default location of the flags definition file. Used when
+         * {@code openflags.file.path} is not set explicitly.
+         */
+        public static final String DEFAULT_FLAG_FILE_PATH = "classpath:flags.yml";
+
+        /**
          * Path to the flags definition file.
          * Supports {@code classpath:} and {@code file:} prefixes.
-         * Default: {@code "classpath:flags.yml"}.
+         * Default: {@link #DEFAULT_FLAG_FILE_PATH}.
          */
-        private String path = "classpath:flags.yml";
+        private String path = DEFAULT_FLAG_FILE_PATH;
 
         /**
          * Whether to enable hot reload via file watching.
@@ -196,6 +213,13 @@ public class OpenFlagsProperties {
          * Default: {@code true}.
          */
         private boolean watchEnabled = true;
+
+        /**
+         * Debounce window applied to filesystem change events. Default:
+         * {@link FileWatcher#DEFAULT_DEBOUNCE 200ms}. Must be strictly positive.
+         * Has no effect when {@code watchEnabled} is false.
+         */
+        private Duration debounce = FileWatcher.DEFAULT_DEBOUNCE;
 
         /**
          * Returns the path to the flag file.
@@ -231,6 +255,24 @@ public class OpenFlagsProperties {
          */
         public void setWatchEnabled(boolean watchEnabled) {
             this.watchEnabled = watchEnabled;
+        }
+
+        /**
+         * Returns the debounce window applied by the file watcher.
+         *
+         * @return the debounce duration
+         */
+        public Duration getDebounce() {
+            return debounce;
+        }
+
+        /**
+         * Sets the debounce window applied by the file watcher.
+         *
+         * @param debounce the debounce duration; must be strictly positive
+         */
+        public void setDebounce(Duration debounce) {
+            this.debounce = debounce;
         }
     }
 

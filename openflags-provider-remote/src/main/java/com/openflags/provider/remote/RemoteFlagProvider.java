@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.openflags.core.event.ChangeType;
+import com.openflags.core.parser.FlagSource;
 import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
@@ -311,7 +312,7 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
 
         if (status == 200) {
             JsonNode root = objectMapper.readTree(response.body());
-            Map<String, Flag> newFlags = parser.parseFlags(root, "remote:" + config.baseUrl());
+            Map<String, Flag> newFlags = parser.parseFlags(root, FlagSource.REMOTE.label(config.baseUrl().toString()));
             Map<String, Flag> oldFlags = snapshot.flags();
             snapshot = new CacheSnapshot(Map.copyOf(newFlags), Instant.now(), ProviderState.READY);
             emitDiff(oldFlags, snapshot.flags());

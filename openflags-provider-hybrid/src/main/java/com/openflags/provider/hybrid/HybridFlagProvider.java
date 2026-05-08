@@ -113,6 +113,14 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
 
     private static final Logger log = LoggerFactory.getLogger(HybridFlagProvider.class);
 
+    /**
+     * Maximum time {@link #shutdown()} waits for the snapshot executor to drain
+     * in-flight writes before forcing termination. See ADR-010 for the rationale
+     * — short enough to keep shutdown bounded, long enough to absorb transient
+     * I/O contention on a healthy filesystem.
+     */
+    static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(2);
+
     private final HybridProviderConfig config;
     private final RemoteFlagProvider remote;
     private final FileFlagProvider file;
@@ -476,7 +484,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         if (ownsExecutor && snapshotExecutor instanceof ExecutorService es) {
             es.shutdown();
             try {
-                if (!es.awaitTermination(2, TimeUnit.SECONDS)) {
+                if (!es.awaitTermination(SHUTDOWN_TIMEOUT.toSeconds(), TimeUnit.SECONDS)) {
                     es.shutdownNow();
                 }
             } catch (InterruptedException e) {

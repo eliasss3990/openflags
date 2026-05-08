@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -44,5 +45,23 @@ class FileFlagProviderBuilderValidationTest {
     void path_nullString_throwsNPE() {
         assertThatNullPointerException()
                 .isThrownBy(() -> FileFlagProvider.builder().path((String) null));
+    }
+
+    @Test
+    void watchDebounce_null_throwsNPE() {
+        assertThatNullPointerException()
+                .isThrownBy(() -> FileFlagProvider.builder().watchDebounce(null));
+    }
+
+    @Test
+    void watchDebounce_zero_throwsIAE() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> FileFlagProvider.builder().watchDebounce(Duration.ZERO));
+    }
+
+    @Test
+    void watchDebounce_negative_throwsIAE() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> FileFlagProvider.builder().watchDebounce(Duration.ofMillis(-1)));
     }
 }
