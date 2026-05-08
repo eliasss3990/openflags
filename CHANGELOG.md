@@ -36,6 +36,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `HybridFlagProvider.init()` now creates the snapshot parent directory automatically via `Files.createDirectories` if it does not exist, instead of requiring the directory to pre-exist at config-construction time. If the parent path exists but is not a directory, `init()` throws `ProviderException`.
 - `RemoteFlagProviderBuilder.bearerToken(token)` and `apiKey(headerName, value)` now validate their arguments eagerly: `null` throws `NullPointerException`, blank throws `IllegalArgumentException`.
 - `FileFlagProviderBuilder.build()` now throws `IllegalArgumentException` if the configured path is a directory.
+- `RemoteProviderConfig` now cross-validates `requestTimeout <= pollInterval` to prevent overlapping polls. Configurations with `requestTimeout > pollInterval` throw `IllegalArgumentException` with a message naming both values.
 
 ### Added
 

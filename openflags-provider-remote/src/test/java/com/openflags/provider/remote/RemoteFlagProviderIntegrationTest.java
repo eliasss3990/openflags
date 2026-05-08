@@ -99,6 +99,7 @@ class RemoteFlagProviderIntegrationTest {
         return RemoteFlagProviderBuilder
                 .forUrl(URI.create("http://localhost:" + wireMock.port()))
                 .pollInterval(POLL)
+                .requestTimeout(Duration.ofSeconds(2))
                 .cacheTtl(TTL)
                 .build();
     }
@@ -193,6 +194,7 @@ class RemoteFlagProviderIntegrationTest {
         RemoteFlagProvider p = RemoteFlagProviderBuilder
                 .forUrl(URI.create("http://localhost:" + wireMock.port()))
                 .pollInterval(POLL)
+                .requestTimeout(Duration.ofSeconds(2))
                 .cacheTtl(shortTtl)
                 .build();
         try {

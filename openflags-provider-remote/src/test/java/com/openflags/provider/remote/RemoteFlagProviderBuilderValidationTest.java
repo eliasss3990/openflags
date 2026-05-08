@@ -1,5 +1,7 @@
 package com.openflags.provider.remote;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
@@ -71,5 +73,37 @@ class RemoteFlagProviderBuilderValidationTest {
     void apiKey_valid_buildsSuccessfully() {
         assertThatNoException().isThrownBy(() ->
                 RemoteFlagProviderBuilder.forUrl(BASE_URL).apiKey("X-API-Key", "secret").build());
+    }
+
+    // ── cross-validation: requestTimeout vs pollInterval ───────────────────
+
+    @Test
+    void build_requestTimeoutGreaterThanPollInterval_throwsIAE() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> RemoteFlagProviderBuilder.forUrl(BASE_URL)
+                        .pollInterval(Duration.ofSeconds(5))
+                        .requestTimeout(Duration.ofSeconds(10))
+                        .cacheTtl(Duration.ofMinutes(1))
+                        .build())
+                .withMessageContaining("requestTimeout")
+                .withMessageContaining("pollInterval");
+    }
+
+    @Test
+    void build_requestTimeoutEqualToPollInterval_buildsSuccessfully() {
+        assertThatNoException().isThrownBy(() -> RemoteFlagProviderBuilder.forUrl(BASE_URL)
+                .pollInterval(Duration.ofSeconds(10))
+                .requestTimeout(Duration.ofSeconds(10))
+                .cacheTtl(Duration.ofMinutes(1))
+                .build());
+    }
+
+    @Test
+    void build_requestTimeoutLessThanPollInterval_buildsSuccessfully() {
+        assertThatNoException().isThrownBy(() -> RemoteFlagProviderBuilder.forUrl(BASE_URL)
+                .pollInterval(Duration.ofSeconds(30))
+                .requestTimeout(Duration.ofSeconds(5))
+                .cacheTtl(Duration.ofMinutes(1))
+                .build());
     }
 }

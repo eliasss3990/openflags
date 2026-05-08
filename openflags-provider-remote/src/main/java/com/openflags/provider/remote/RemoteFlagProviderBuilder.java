@@ -51,6 +51,7 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the path appended to the base URL for fetching flags.
+     * Default: {@link RemoteProviderConfig#DEFAULT_FLAGS_PATH}.
      *
      * @param path the flags path (e.g. {@code "/api/v1/flags"})
      * @return this builder
@@ -105,6 +106,7 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the HTTP connect timeout.
+     * Default: {@link RemoteProviderConfig#DEFAULT_CONNECT_TIMEOUT}.
      *
      * @param d the duration; must be positive
      * @return this builder
@@ -116,8 +118,9 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the HTTP request timeout per request.
+     * Default: {@link RemoteProviderConfig#DEFAULT_REQUEST_TIMEOUT}.
      *
-     * @param d the duration; must be positive
+     * @param d the duration; must be positive and {@code <= pollInterval}
      * @return this builder
      */
     public RemoteFlagProviderBuilder requestTimeout(Duration d) {
@@ -127,8 +130,10 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the polling interval.
+     * Default: {@link RemoteProviderConfig#DEFAULT_POLL_INTERVAL}.
      *
-     * @param d the duration; must be {@code >= 5s}
+     * @param d the duration; must be {@code >=} {@link RemoteProviderConfig#MIN_POLL_INTERVAL}
+     *          and {@code >= requestTimeout}
      * @return this builder
      */
     public RemoteFlagProviderBuilder pollInterval(Duration d) {
@@ -138,6 +143,7 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the cache TTL.
+     * Default: {@link RemoteProviderConfig#DEFAULT_CACHE_TTL}.
      *
      * @param d the duration; must be {@code >= pollInterval}
      * @return this builder
@@ -149,6 +155,7 @@ public final class RemoteFlagProviderBuilder {
 
     /**
      * Sets the User-Agent header value.
+     * Default: {@link RemoteProviderConfig#DEFAULT_USER_AGENT}.
      *
      * @param userAgent the user agent string
      * @return this builder
@@ -162,8 +169,10 @@ public final class RemoteFlagProviderBuilder {
      * Sets the number of consecutive poll failures required before the
      * circuit breaker opens and the poll interval starts growing
      * exponentially.
+     * Default: {@link RemoteProviderConfig#DEFAULT_FAILURE_THRESHOLD}.
      *
-     * @param threshold the failure threshold; must be in {@code [1, 100]}
+     * @param threshold the failure threshold; must be in
+     *                  {@code [1,} {@link RemoteProviderConfig#MAX_FAILURE_THRESHOLD} {@code ]}
      * @return this builder
      */
     public RemoteFlagProviderBuilder failureThreshold(int threshold) {
@@ -174,6 +183,7 @@ public final class RemoteFlagProviderBuilder {
     /**
      * Sets the maximum delay applied between polls when the circuit
      * breaker is open.
+     * Default: {@link RemoteProviderConfig#DEFAULT_MAX_BACKOFF}.
      *
      * @param d the maximum backoff; must be positive and {@code >= pollInterval}
      * @return this builder
@@ -187,6 +197,7 @@ public final class RemoteFlagProviderBuilder {
      * Sets the maximum number of bytes accepted in a single HTTP response body.
      * Responses larger than this cap are rejected with
      * {@link ResponseTooLargeException}.
+     * Default: {@link RemoteProviderConfig#DEFAULT_MAX_RESPONSE_BYTES}.
      *
      * @param bytes the byte limit; must be positive
      * @return this builder
@@ -199,6 +210,7 @@ public final class RemoteFlagProviderBuilder {
     /**
      * Sets the maximum time to wait for in-flight requests to complete when
      * {@link RemoteFlagProvider#shutdown()} is called.
+     * Default: {@link RemoteProviderConfig#DEFAULT_SHUTDOWN_TIMEOUT}.
      *
      * @param d the shutdown timeout; must be positive
      * @return this builder
@@ -211,6 +223,7 @@ public final class RemoteFlagProviderBuilder {
     /**
      * Sets the desired HTTP protocol version for the underlying
      * {@link java.net.http.HttpClient}.
+     * Default: {@link RemoteProviderConfig#DEFAULT_HTTP_VERSION}.
      *
      * @param version the version strategy; must not be null
      * @return this builder

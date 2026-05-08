@@ -61,6 +61,7 @@ class OpenFlagsHybridAutoConfigurationTest {
                         "openflags.provider=hybrid",
                         "openflags.remote.base-url=http://localhost:" + wiremock.port(),
                         "openflags.remote.poll-interval=5s",
+                        "openflags.remote.request-timeout=2s",
                         "openflags.remote.cache-ttl=60s",
                         "openflags.hybrid.snapshot-path=" + snapshot.toAbsolutePath(),
                         "openflags.hybrid.watch-snapshot=false"
