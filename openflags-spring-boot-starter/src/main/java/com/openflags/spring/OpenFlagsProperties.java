@@ -32,6 +32,11 @@ import java.util.Set;
 @ConfigurationProperties(prefix = "openflags")
 public class OpenFlagsProperties {
 
+    /** Default constructor; properties are populated by Spring binding. */
+    public OpenFlagsProperties() {
+        // Defaults are assigned in field initializers.
+    }
+
     /**
      * Accepted values for {@code openflags.provider}, in stable iteration order
      * so error messages remain deterministic across JVMs.
@@ -194,6 +199,11 @@ public class OpenFlagsProperties {
      */
     public static class FileProperties {
 
+        /** Default constructor; properties are populated by Spring binding. */
+        public FileProperties() {
+            // Defaults are assigned in field initializers.
+        }
+
         /**
          * Default location of the flags definition file. Used when
          * {@code openflags.file.path} is not set explicitly.
@@ -281,6 +291,11 @@ public class OpenFlagsProperties {
      * {@code provider=remote}.
      */
     public static class RemoteProperties {
+
+        /** Default constructor; properties are populated by Spring binding. */
+        public RemoteProperties() {
+            // Defaults are assigned in field initializers.
+        }
 
         /** Base URL of the remote flags backend. */
         private URI baseUrl;
@@ -543,6 +558,11 @@ public class OpenFlagsProperties {
      */
     public static class HybridProperties {
 
+        /** Default constructor; properties are populated by Spring binding. */
+        public HybridProperties() {
+            // Defaults are assigned in field initializers.
+        }
+
         /**
          * Filesystem path of the local snapshot file.
          * Required when {@code provider=hybrid}.
@@ -673,6 +693,11 @@ public class OpenFlagsProperties {
      */
     public static class Metrics {
 
+        /** Default constructor; properties are populated by Spring binding. */
+        public Metrics() {
+            // Defaults are assigned in field initializers.
+        }
+
         /**
          * Whether to enable Micrometer metrics. Default: {@code true}.
          * <p>
@@ -755,6 +780,11 @@ public class OpenFlagsProperties {
      * SLF4J MDC.
      */
     public static class Audit {
+
+        /** Default constructor; properties are populated by Spring binding. */
+        public Audit() {
+            // Defaults are assigned in field initializers.
+        }
 
         /**
          * Whether to set {@code openflags.flag_key} and {@code openflags.targeting_key}

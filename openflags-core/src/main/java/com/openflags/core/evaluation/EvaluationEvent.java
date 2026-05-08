@@ -23,17 +23,25 @@ import java.util.Objects;
  *                      {@code defaultValue}
  * @param reason        outcome classification, never {@code null}
  * @param variant       label derived from the selected variant's value when a
- *                      {@link com.openflags.core.evaluation.rule.MultiVariantRule} matched,
- *                      otherwise {@code null}. For {@code STRING} flags this is the raw
- *                      string value; for {@code BOOLEAN}/{@code NUMBER} flags it is the
- *                      stringified primitive (whole numbers without decimal part, e.g.
- *                      {@code "50"} not {@code "50.0"}); for {@code OBJECT} flags it is
+ *                      {@link com.openflags.core.evaluation.rule.MultiVariantRule}
+ *                      matched,
+ *                      otherwise {@code null}. For {@code STRING} flags this is
+ *                      the raw
+ *                      string value; for {@code BOOLEAN}/{@code NUMBER} flags
+ *                      it is the
+ *                      stringified primitive (whole numbers without decimal
+ *                      part, e.g.
+ *                      {@code "50"} not {@code "50.0"}); for {@code OBJECT}
+ *                      flags it is
  *                      {@code null} (no compact label is meaningful).
- * @param matchedRuleId {@link com.openflags.core.evaluation.rule.Rule#name()} of the rule
+ * @param matchedRuleId {@link com.openflags.core.evaluation.rule.Rule#name()}
+ *                      of the rule
  *                      that produced this result when a {@code TargetingRule},
  *                      {@code SplitRule}, or {@code MultiVariantRule} matched;
- *                      {@code null} when no rule matched (reasons {@code RESOLVED},
- *                      {@code NO_RULE_MATCHED}, {@code FLAG_NOT_FOUND}, {@code FLAG_DISABLED},
+ *                      {@code null} when no rule matched (reasons
+ *                      {@code RESOLVED},
+ *                      {@code NO_RULE_MATCHED}, {@code FLAG_NOT_FOUND},
+ *                      {@code FLAG_DISABLED},
  *                      {@code TYPE_MISMATCH}, {@code PROVIDER_ERROR})
  * @param context       evaluation context used for resolution, never
  *                      {@code null}
@@ -59,6 +67,11 @@ public record EvaluationEvent(
         long durationNanos,
         String providerType) {
 
+    /**
+     * Compact constructor that validates required fields and the
+     * {@code durationNanos} invariant. Nullable fields are documented at the
+     * record level above.
+     */
     public EvaluationEvent {
         Objects.requireNonNull(flagKey, "flagKey must not be null");
         Objects.requireNonNull(type, "type must not be null");

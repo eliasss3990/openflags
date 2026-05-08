@@ -5,6 +5,7 @@ package com.openflags.core.exception;
  */
 public class FlagNotFoundException extends OpenFlagsException {
 
+    /** The key that was not found. */
     private final String flagKey;
 
     /**

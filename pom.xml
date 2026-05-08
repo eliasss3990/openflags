@@ -108,7 +108,7 @@
                     <version>3.12.0</version>
                     <configuration>
                         <failOnWarnings>true</failOnWarnings>
-                        <doclint>all,-missing</doclint>
+                        <doclint>all</doclint>
                     </configuration>
                 </plugin>
 
