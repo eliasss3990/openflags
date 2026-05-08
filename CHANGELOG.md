@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - Build: enforcer `requireJavaVersion` aligned with `<release>21</release>` (raised from `[17,)` to `[21,)`). Java 21 is now the explicit, enforced baseline at build time.
+- Build: `maven-failsafe-plugin` now declares its `integration-test` and `verify` execution in the root `pluginManagement`. Modules that activate failsafe (currently `openflags-provider-file`) run their `*IT.java` tests during `mvn verify`, while `mvn test` keeps running only surefire unit tests.
 - Docs: `docs/getting-started.md` prerequisites updated to Java 21+ / Maven 3.9+ to match the rest of the documentation.
 - `HybridFlagProvider.init()` now creates the snapshot parent directory automatically via `Files.createDirectories` if it does not exist, instead of requiring the directory to pre-exist at config-construction time. If the parent path exists but is not a directory, `init()` throws `ProviderException`.
 - `RemoteFlagProviderBuilder.bearerToken(token)` and `apiKey(headerName, value)` now validate their arguments eagerly: `null` throws `NullPointerException`, blank throws `IllegalArgumentException`.
