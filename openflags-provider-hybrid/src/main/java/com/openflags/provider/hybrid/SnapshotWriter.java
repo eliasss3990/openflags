@@ -126,6 +126,9 @@ final class SnapshotWriter {
         Objects.requireNonNull(target, "target must not be null");
 
         Path parent = target.toAbsolutePath().getParent();
+        if (parent == null) {
+            throw new IOException("snapshot target has no parent directory: " + target);
+        }
         String tmpName = TMP_PREFIX + UUID.randomUUID() + TMP_SUFFIX;
         Path tmp = parent.resolve(tmpName);
 

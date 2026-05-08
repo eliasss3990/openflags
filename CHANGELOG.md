@@ -84,6 +84,9 @@ First stable release. Public API frozen; subsequent releases follow Semantic Ver
 - `openflags-provider-hybrid`: `ComposedPollListener` now isolates exceptions thrown by either delegate (`onPollComplete` / `onPollOutcome`) so a misbehaving user listener cannot prevent the internal listener from running.
 - `openflags-provider-file`: `reload()` now snapshots the previous flag map inside the same synchronized block that publishes the new one, preventing two concurrent reloads from emitting duplicate change events for the same transition.
 - CI: `release-dry-run` job now declares `needs: quality` so a GPG-enabled job is not consumed when the regular checks have already failed.
+- `openflags-provider-hybrid`: `setMetricsRecorder()` no longer re-installs the internal poll listener after `shutdown()` (added `!shutdown` guard alongside the existing `initialized` check).
+- `openflags-provider-hybrid`: `SnapshotWriter.write()` now throws `IOException` with a descriptive message when the target path has no parent directory (e.g. a filesystem root), instead of an opaque `NullPointerException`.
+- `openflags-provider-remote`: `RemoteHttpClient.readCapped()` initializes its `ByteArrayOutputStream` with `min(limit, 64 KiB)` to avoid repeated buffer growth on typical responses.
 
 - `openflags-provider-hybrid`: race between provider initialization and internal listener registration — `expectingSelfWrite` flag is now reset and listeners attached only after both providers complete `init()`
 - `openflags-provider-hybrid`: snapshot debounce timestamp now captured before atomic move to suppress self-induced WatchService events under concurrent writes
