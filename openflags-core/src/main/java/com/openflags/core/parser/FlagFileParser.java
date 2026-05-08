@@ -96,7 +96,7 @@ public final class FlagFileParser {
         } catch (IOException e) {
             throw new ProviderException("Failed to read flag file: " + path, e);
         }
-        return parseFlags(root, "file:" + path.getFileName());
+        return parseFlags(root, FlagSource.FILE.label(path.getFileName().toString()));
     }
 
     /**

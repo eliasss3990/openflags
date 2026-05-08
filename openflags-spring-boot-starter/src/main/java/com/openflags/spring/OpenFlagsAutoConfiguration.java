@@ -123,10 +123,16 @@ public class OpenFlagsAutoConfiguration {
 
         ResolvedFile resolved = resolveFile(pathStr, resourceLoader, watchRequested);
 
-        return FileFlagProvider.builder()
+        var builder = FileFlagProvider.builder()
                 .path(resolved.path())
-                .watchEnabled(resolved.watchEnabled())
-                .build();
+                .watchEnabled(resolved.watchEnabled());
+        if (resolved.watchEnabled()) {
+            // Only thread the debounce when the watcher will actually run, so
+            // misconfigurations that don't matter (watch disabled) can't trip
+            // the builder's strict validation.
+            builder.watchDebounce(properties.getFile().getDebounce());
+        }
+        return builder.build();
     }
 
     /**

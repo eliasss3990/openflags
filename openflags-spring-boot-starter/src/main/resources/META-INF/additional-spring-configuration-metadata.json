@@ -13,6 +13,12 @@
       "defaultValue": "classpath:flags.yml"
     },
     {
+      "name": "openflags.file.debounce",
+      "type": "java.time.Duration",
+      "description": "Debounce window applied to filesystem change events. Must be > 0. Default: 200ms.",
+      "defaultValue": "200ms"
+    },
+    {
       "name": "openflags.file.watch-enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to enable hot reload when the flag file changes. Automatically disabled for files inside JARs.",

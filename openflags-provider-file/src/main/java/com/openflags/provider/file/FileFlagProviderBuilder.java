@@ -3,6 +3,7 @@ package com.openflags.provider.file;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -22,6 +23,7 @@ public final class FileFlagProviderBuilder {
 
     private Path path;
     private boolean watchEnabled = true;
+    private Duration watchDebounce = FileWatcher.DEFAULT_DEBOUNCE;
 
     FileFlagProviderBuilder() {}
 
@@ -76,6 +78,25 @@ public final class FileFlagProviderBuilder {
     }
 
     /**
+     * Sets the debounce window applied by the underlying file watcher.
+     * Default: {@link FileWatcher#DEFAULT_DEBOUNCE}. Has no effect when
+     * watching is disabled.
+     *
+     * @param watchDebounce strictly positive debounce window
+     * @return this builder
+     * @throws NullPointerException     if {@code watchDebounce} is null
+     * @throws IllegalArgumentException if {@code watchDebounce} is zero or negative
+     */
+    public FileFlagProviderBuilder watchDebounce(Duration watchDebounce) {
+        Objects.requireNonNull(watchDebounce, "watchDebounce must not be null");
+        if (watchDebounce.isZero() || watchDebounce.isNegative()) {
+            throw new IllegalArgumentException("watchDebounce must be > 0, got " + watchDebounce);
+        }
+        this.watchDebounce = watchDebounce;
+        return this;
+    }
+
+    /**
      * Builds the {@link FileFlagProvider}.
      * <p>
      * Does <strong>not</strong> call {@code init()} — initialization happens when
@@ -94,6 +115,6 @@ public final class FileFlagProviderBuilder {
             throw new IllegalArgumentException(
                     "path must point to a file, not a directory: " + path);
         }
-        return new FileFlagProvider(path, watchEnabled);
+        return new FileFlagProvider(path, watchEnabled, watchDebounce);
     }
 }

@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -16,19 +18,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Watches a single file for modifications using {@link WatchService}.
  * <p>
  * Runs on a daemon thread and invokes the provided callback when the file
- * changes.
- * Implements a 200ms debounce window: multiple change notifications within the
- * window
+ * changes. Implements a configurable debounce window (see
+ * {@link #DEFAULT_DEBOUNCE}): multiple change notifications within the window
  * are collapsed into a single callback invocation at the end of the window.
  * </p>
  *
  * <h2>Mid-write retry</h2>
  * <p>
  * If the callback throws (e.g., because the file was captured mid-write and is
- * not yet
- * parseable), one retry is attempted after another 200ms. If the retry also
- * fails,
- * the error is logged as a warning and the watcher continues observing.
+ * not yet parseable), one retry is attempted after another debounce window. If
+ * the retry also fails, the error is logged as a warning and the watcher
+ * continues observing.
  * </p>
  *
  * <p>
@@ -44,11 +44,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class FileWatcher {
 
     private static final Logger log = LoggerFactory.getLogger(FileWatcher.class);
-    private static final long DEBOUNCE_MS = 200L;
+
+    /**
+     * Default debounce window: collapses rapid filesystem events (e.g. an editor
+     * writing in two flushes) into a single callback. 200ms is a conservative
+     * value that covers atomic-rename writers and short-burst editors without
+     * adding perceptible latency to single-write reloads.
+     */
+    public static final Duration DEFAULT_DEBOUNCE = Duration.ofMillis(200L);
+
     private static final long WATCH_POLL_INTERVAL_MS = 500L;
 
     private final Path filePath;
     private final Runnable callback;
+    private final long debounceMillis;
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     private volatile Thread watchThread;
@@ -56,14 +65,39 @@ public final class FileWatcher {
     private volatile ScheduledFuture<?> pendingCallback;
 
     /**
-     * Creates a watcher for the specified file.
+     * Creates a watcher with the {@link #DEFAULT_DEBOUNCE default debounce}.
      *
      * @param path     the file to watch; must be a real filesystem path
      * @param callback invoked when the file changes (after the debounce window)
+     * @see #FileWatcher(Path, Runnable, Duration)
      */
     public FileWatcher(Path path, Runnable callback) {
+        this(path, callback, DEFAULT_DEBOUNCE);
+    }
+
+    /**
+     * Creates a watcher with an explicit debounce window.
+     *
+     * @param path     the file to watch; must be a real filesystem path
+     * @param callback invoked when the file changes (after the debounce window)
+     * @param debounce debounce window; must be strictly positive
+     * @throws NullPointerException     if {@code debounce} is null
+     * @throws IllegalArgumentException if {@code debounce} is zero, negative, or
+     *                                  exceeds {@link Integer#MAX_VALUE}
+     *                                  milliseconds
+     */
+    public FileWatcher(Path path, Runnable callback, Duration debounce) {
+        Objects.requireNonNull(debounce, "debounce must not be null");
+        long ms = debounce.toMillis();
+        if (ms <= 0L) {
+            throw new IllegalArgumentException("debounce must be > 0ms, got " + debounce);
+        }
+        if (ms > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("debounce too large: " + debounce);
+        }
         this.filePath = path;
         this.callback = callback;
+        this.debounceMillis = ms;
     }
 
     /**
@@ -169,7 +203,7 @@ public final class FileWatcher {
             pendingCallback.cancel(false);
         }
         try {
-            pendingCallback = debounceScheduler.schedule(this::invokeWithRetry, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+            pendingCallback = debounceScheduler.schedule(this::invokeWithRetry, debounceMillis, TimeUnit.MILLISECONDS);
         } catch (java.util.concurrent.RejectedExecutionException e) {
             log.debug("FileWatcher: scheduler already shut down, ignoring debounce request for '{}'", filePath);
         }
@@ -180,10 +214,10 @@ public final class FileWatcher {
             callback.run();
         } catch (Exception firstAttemptEx) {
             log.debug("Callback failed on first attempt (possibly mid-write), retrying in {}ms: {}",
-                    DEBOUNCE_MS, firstAttemptEx.getMessage());
+                    debounceMillis, firstAttemptEx.getMessage());
             synchronized (this) {
                 try {
-                    pendingCallback = debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS,
+                    pendingCallback = debounceScheduler.schedule(this::invokeRetryAttempt, debounceMillis,
                             TimeUnit.MILLISECONDS);
                 } catch (java.util.concurrent.RejectedExecutionException e) {
                     log.debug("Retry not scheduled: scheduler shut down ({})", e.getMessage());

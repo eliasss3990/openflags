@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
@@ -55,6 +56,7 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
 
     private final Path filePath;
     private final boolean watchEnabled;
+    private final Duration watchDebounce;
     private final FlagFileParser parser;
     private final List<FlagChangeListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -69,9 +71,10 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
     // volatile: written inside synchronized init(), read inside synchronized shutdown()
     private volatile FileWatcher watcher;
 
-    FileFlagProvider(Path filePath, boolean watchEnabled) {
+    FileFlagProvider(Path filePath, boolean watchEnabled, Duration watchDebounce) {
         this.filePath = Objects.requireNonNull(filePath, "filePath must not be null");
         this.watchEnabled = watchEnabled;
+        this.watchDebounce = Objects.requireNonNull(watchDebounce, "watchDebounce must not be null");
         this.parser = new FlagFileParser();
     }
 
@@ -96,7 +99,7 @@ public final class FileFlagProvider implements FlagProvider, ProviderDiagnostics
         initialized = true;
 
         if (watchEnabled) {
-            watcher = new FileWatcher(filePath, this::reload);
+            watcher = new FileWatcher(filePath, this::reload, watchDebounce);
             watcher.start();
             log.info("FileFlagProvider watching '{}' for changes", filePath);
         }
