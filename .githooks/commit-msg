@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# commit-msg hook: enforces CHANGELOG.md updates for substantive commits.
+#
+# Skips automatically for:
+#   - merge / revert commits
+#   - amends / fixup / squash messages
+#   - commits that only touch docs/CI/meta files (see SKIP_PATTERNS below)
+#   - commits whose subject contains the literal tag [skip-changelog]
+#
+# Bypass manually by adding [skip-changelog] anywhere in the commit message,
+# e.g.: "fix(core): typo in log message [skip-changelog]"
+
+set -euo pipefail
+
+msg_file="${1:?commit-msg hook requires the message file as $1}"
+msg="$(cat "$msg_file")"
+first_line="$(printf '%s' "$msg" | head -n1)"
+
+# 1. Manual bypass tag
+case "$msg" in
+    *"[skip-changelog]"*|*"[no-changelog]"*) exit 0 ;;
+esac
+
+# 2. Auto-skip merge / revert / fixup / squash commits
+case "$first_line" in
+    "Merge "*|"Revert "*|"fixup!"*|"squash!"*|"amend!"*) exit 0 ;;
+esac
+
+# 3. Auto-skip if there are no staged changes outside docs/CI/meta files.
+#    Patterns considered "no vale la pena" — pure non-code changes.
+SKIP_PATTERNS='^(CHANGELOG\.md$|.*\.md$|docs/|\.github/|\.gitignore$|\.gitattributes$|LICENSE$|\.githooks/|\.editorconfig$)'
+
+staged="$(git diff --cached --name-only --diff-filter=ACDMRTUX || true)"
+if [ -z "$staged" ]; then
+    exit 0
+fi
+
+substantive=0
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if ! printf '%s\n' "$f" | grep -Eq "$SKIP_PATTERNS"; then
+        substantive=1
+        break
+    fi
+done < <(printf '%s\n' "$staged")
+
+if [ "$substantive" -eq 0 ]; then
+    exit 0
+fi
+
+# 4. Substantive change — CHANGELOG.md must be in the staged set.
+if ! printf '%s\n' "$staged" | grep -Fxq "CHANGELOG.md"; then
+    cat >&2 <<'ERR'
+[commit-msg] CHANGELOG.md no fue actualizado.
+
+Este commit modifica codigo o configuracion no trivial. Politica del repo:
+toda contribucion sustantiva debe registrar una linea en CHANGELOG.md
+(seccion [Unreleased]).
+
+Opciones:
+  1) Agregar la entrada al CHANGELOG y re-stagear:
+       git add CHANGELOG.md && git commit
+  2) Saltearlo explicitamente cuando realmente no aplica anhadiendo
+     el tag al mensaje del commit:
+       [skip-changelog]
+     Ejemplo:
+       fix(core): renombrar variable interna [skip-changelog]
+
+ERR
+    exit 1
+fi
+
+exit 0
