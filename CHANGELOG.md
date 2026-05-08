@@ -33,6 +33,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Build: enforcer `requireJavaVersion` aligned with `<release>21</release>` (raised from `[17,)` to `[21,)`). Java 21 is now the explicit, enforced baseline at build time.
 - Build: `maven-failsafe-plugin` now declares its `integration-test` and `verify` execution in the root `pluginManagement`. Modules that activate failsafe (currently `openflags-provider-file`) run their `*IT.java` tests during `mvn verify`, while `mvn test` keeps running only surefire unit tests.
+- `RemoteProviderConfig` validation message for `cacheTtl < pollInterval` now names both values, matching the format used for the `requestTimeout > pollInterval` case.
 - Docs: `docs/getting-started.md` prerequisites updated to Java 21+ / Maven 3.9+ to match the rest of the documentation.
 - `HybridFlagProvider.init()` now creates the snapshot parent directory automatically via `Files.createDirectories` if it does not exist, instead of requiring the directory to pre-exist at config-construction time. If the parent path exists but is not a directory, `init()` throws `ProviderException`.
 - `RemoteFlagProviderBuilder.bearerToken(token)` and `apiKey(headerName, value)` now validate their arguments eagerly: `null` throws `NullPointerException`, blank throws `IllegalArgumentException`.
@@ -41,6 +42,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `package-info.java` for every public package in `openflags-core`, `openflags-provider-file`, `openflags-spring-boot-starter` and `openflags-testing` that did not already have one (closes the remaining A2-1 gap from F19).
+- Starter wiring guard test: `RemotePropertiesWiringTest` asserts that non-default values configured via `openflags.remote.*` properties propagate to the `RemoteProviderConfig` held by the `RemoteFlagProvider` bean (closes G1 from the post-review cross-cutting tests).
 - `EvaluationResult.variant` — label derived from the selected variant value when a `MultiVariantRule` matched; `null` otherwise. String flags return the raw value; boolean/number flags return the stringified primitive (whole numbers without decimal, e.g. `"50"` not `"50.0"`); object flags return `null`.
 - `EvaluationResult.matchedRuleId` — `Rule.name()` of the rule that produced the result for reasons `TARGETING_MATCH`, `SPLIT`, and `VARIANT`; `null` for all other reasons.
 - `EvaluationResult.of(value, reason, flagKey)` — convenience factory for results without variant or rule information (error and short-circuit paths).
