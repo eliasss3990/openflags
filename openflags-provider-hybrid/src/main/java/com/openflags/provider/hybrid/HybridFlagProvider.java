@@ -298,6 +298,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             return;
 
         ensureSnapshotParentExists(config.snapshotPath());
+        snapshotWriter.cleanupOrphanTmpFiles(config.snapshotPath());
 
         boolean remoteOk = false;
         boolean fileOk = false;

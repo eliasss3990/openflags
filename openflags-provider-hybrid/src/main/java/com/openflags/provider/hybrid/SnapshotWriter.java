@@ -18,13 +18,20 @@ import com.openflags.core.model.Flag;
 import com.openflags.core.model.FlagType;
 import com.openflags.core.model.FlagValue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,12 +50,67 @@ import java.util.regex.Pattern;
  */
 final class SnapshotWriter {
 
+    private static final Logger log = LoggerFactory.getLogger(SnapshotWriter.class);
+
+    // Prefix and suffix of the per-write temp file name (see write()).
+    // Kept package-visible so tests can assert against the same constants.
+    static final String TMP_PREFIX = ".openflags-snapshot-";
+    static final String TMP_SUFFIX = ".tmp";
+    static final String TMP_GLOB = TMP_PREFIX + "*" + TMP_SUFFIX;
+
+    // Age threshold under which a temp file is considered potentially in-flight
+    // (a peer process may be mid-write). Only files older than this are eligible
+    // for orphan cleanup. 5 minutes is far longer than any realistic write but
+    // short enough that genuine orphans get reaped at the next provider start.
+    static final Duration ORPHAN_MIN_AGE = Duration.ofMinutes(5);
+
     // ObjectMapper is thread-safe after configuration and reused across writes;
     // built once per SnapshotWriter (one per HybridFlagProvider).
     private final ObjectMapper mapper;
 
     SnapshotWriter(SnapshotFormat format) {
         this.mapper = buildMapper(Objects.requireNonNull(format, "format must not be null"));
+    }
+
+    /**
+     * Removes orphan temp files left behind by previous JVM crashes during a write.
+     * Matches the same naming pattern produced by {@link #write}: hidden files in the
+     * snapshot's parent directory whose name starts with {@code .openflags-snapshot-}
+     * and ends with {@code .tmp}.
+     * <p>Only files older than {@link #ORPHAN_MIN_AGE} are deleted, leaving
+     * potentially in-flight writes from a concurrent peer JVM untouched.</p>
+     * <p>Best-effort: any I/O error is logged and swallowed so that a transient
+     * cleanup failure does not block provider initialization.</p>
+     *
+     * @param target the snapshot path; only its parent directory is scanned
+     */
+    void cleanupOrphanTmpFiles(Path target) {
+        Objects.requireNonNull(target, "target must not be null");
+        Path parent = target.toAbsolutePath().getParent();
+        if (parent == null || !Files.isDirectory(parent)) {
+            return;
+        }
+        Instant cutoff = Instant.now().minus(ORPHAN_MIN_AGE);
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(parent, TMP_GLOB)) {
+            for (Path orphan : stream) {
+                try {
+                    FileTime mtime = Files.getLastModifiedTime(orphan);
+                    if (mtime.toInstant().isAfter(cutoff)) {
+                        log.debug("Skipping potentially in-flight snapshot temp file: {}",
+                                orphan.getFileName());
+                        continue;
+                    }
+                    Files.deleteIfExists(orphan);
+                    log.info("Removed orphan snapshot temp file: {}", orphan.getFileName());
+                } catch (IOException e) {
+                    log.warn("Failed to delete orphan snapshot temp file '{}': {}",
+                            orphan.getFileName(), e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Could not scan for orphan snapshot temp files in '{}': {}",
+                    parent, e.getMessage());
+        }
     }
 
     /**
@@ -64,7 +126,7 @@ final class SnapshotWriter {
         Objects.requireNonNull(target, "target must not be null");
 
         Path parent = target.toAbsolutePath().getParent();
-        String tmpName = ".openflags-snapshot-" + UUID.randomUUID() + ".tmp";
+        String tmpName = TMP_PREFIX + UUID.randomUUID() + TMP_SUFFIX;
         Path tmp = parent.resolve(tmpName);
 
         byte[] bytes = serialize(flags);
