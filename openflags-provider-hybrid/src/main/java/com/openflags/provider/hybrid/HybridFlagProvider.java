@@ -728,7 +728,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         // internal listener; otherwise install() during init() will pick up the
         // recorder via the metricsRecorder field (ADR-2: no listener registration
         // before init()).
-        if (initialized) {
+        if (initialized && !shutdown) {
             installPollListener();
         }
 

@@ -122,7 +122,8 @@ final class RemoteHttpClient {
     private static String readCapped(InputStream in, long limit) throws IOException {
         byte[] buffer = new byte[8192];
         long totalRead = 0;
-        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        int initialCapacity = (int) Math.min(limit, 64 * 1024L);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(initialCapacity);
 
         int n;
         while ((n = in.read(buffer)) != -1) {
