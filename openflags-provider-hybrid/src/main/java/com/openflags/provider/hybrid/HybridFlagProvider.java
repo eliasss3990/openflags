@@ -3,6 +3,7 @@ package com.openflags.provider.hybrid;
 import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
+import com.openflags.core.internal.ThreadNames;
 import com.openflags.core.metrics.MetricsRecorder;
 import com.openflags.core.metrics.OpenFlagsMetrics;
 import com.openflags.core.model.Flag;
@@ -175,7 +176,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
 
     /**
      * Last observed combined {@link ProviderState}; used to detect transitions and
-     * emit {@link com.openflags.core.metrics.OpenFlagsMetrics.Names#HYBRID_STATE_TRANSITIONS}.
+     * emit
+     * {@link com.openflags.core.metrics.OpenFlagsMetrics.Names#HYBRID_STATE_TRANSITIONS}.
      */
     private final AtomicReference<ProviderState> lastObservedState = new AtomicReference<>(ProviderState.NOT_READY);
 
@@ -270,7 +272,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
 
     private static ExecutorService defaultSnapshotExecutor() {
         return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "openflags-snapshot-writer");
+            Thread t = new Thread(r, ThreadNames.SNAPSHOT_WRITER);
             t.setDaemon(true);
             return t;
         });
@@ -389,7 +391,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * Returns the combined state. See {@code 02-modelo-hybrid.md §4} for the
      * table.
      *
-     * <p><b>Best-effort under shutdown concurrence.</b> The {@code shutdown} and
+     * <p>
+     * <b>Best-effort under shutdown concurrence.</b> The {@code shutdown} and
      * {@code initialized} flags are {@code volatile} but the sub-provider
      * snapshots ({@code remote.getState()}, {@code file.getState()}) are read
      * without holding the synchronization monitor. A caller racing with
@@ -499,7 +502,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * snapshot — older intermediate values are intentionally dropped because
      * cold-start consumers only need the latest state.
      *
-     * <p>Runs on the poller thread; never blocks on disk I/O.
+     * <p>
+     * Runs on the poller thread; never blocks on disk I/O.
      */
     private void enqueueSnapshotWrite(Map<String, Flag> freshSnapshot) {
         if (freshSnapshot == null) {
@@ -694,7 +698,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * routing transition, poll cycle, and state change.
      * Defaults to {@link MetricsRecorder#NOOP}.
      *
-     * <p>Composing a {@link MetricsRecordingPollListener} on top of the existing
+     * <p>
+     * Composing a {@link MetricsRecordingPollListener} on top of the existing
      * internal poll listener ensures that {@code openflags.poll.success} /
      * {@code openflags.poll.failure} counters and {@code openflags.poll.latency}
      * timers are emitted for hybrid providers in the same way they are for
@@ -863,7 +868,8 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * @return numeric code, or {@code -1} for unknown values
      */
     static int providerStateCode(ProviderState state) {
-        if (state == null) return -1;
+        if (state == null)
+            return -1;
         return switch (state) {
             case NOT_READY -> 0;
             case READY -> 1;

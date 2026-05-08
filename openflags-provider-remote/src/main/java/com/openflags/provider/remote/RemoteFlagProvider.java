@@ -7,6 +7,7 @@ import com.openflags.core.event.ChangeType;
 import com.openflags.core.event.FlagChangeEvent;
 import com.openflags.core.event.FlagChangeListener;
 import com.openflags.core.exception.ProviderException;
+import com.openflags.core.internal.ThreadNames;
 import com.openflags.core.model.Flag;
 import com.openflags.core.provider.FlagProvider;
 import com.openflags.core.provider.ProviderDiagnostics;
@@ -241,7 +242,7 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
 
     private void startScheduler() {
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "openflags-remote-poller");
+            Thread t = new Thread(r, ThreadNames.REMOTE_POLLER);
             t.setDaemon(true);
             return t;
         });
@@ -355,7 +356,8 @@ public final class RemoteFlagProvider implements FlagProvider, ProviderDiagnosti
             return;
         }
         // Skip if no successful fetch has happened yet (fetchedAt is EPOCH sentinel).
-        // Age would be ~55 years, always exceeding cacheTtl and producing a spurious ERROR.
+        // Age would be ~55 years, always exceeding cacheTtl and producing a spurious
+        // ERROR.
         if (current.fetchedAt().equals(Instant.EPOCH)) {
             return;
         }

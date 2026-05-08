@@ -74,7 +74,7 @@ jobs:
           cache: maven
 
       - name: Generate Javadoc
-        run: mvn -B javadoc:aggregate -Dquiet=true
+        run: mvn -B javadoc:aggregate
 
   all-checks:
     name: All checks passed
