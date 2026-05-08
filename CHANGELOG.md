@@ -49,6 +49,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `openflags-benchmarks` — standalone JMH module for the evaluation hot path.
 - README badge for Maven Central and a Documentation index.
 - `.githooks/commit-msg` — opt-in git hook that requires updating `CHANGELOG.md` for substantive commits, with auto-skip for docs/CI-only changes and a manual `[skip-changelog]` bypass tag. Activated per-clone via `./.githooks/install.sh`.
+- `.github/workflows/quality-checks.yml` — reusable workflow centralizing the `build-and-test`, `no-micrometer-smoke` and `verify-javadoc` jobs. `ci.yml` and `pr.yml` now invoke it via `workflow_call` (with a `coverage-artifact-name` input to differentiate artifacts), removing ~90 lines of duplicated YAML between both pipelines.
 
 ## [1.0.0] - 2026-05-02
 
