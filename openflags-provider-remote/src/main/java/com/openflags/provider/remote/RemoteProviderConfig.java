@@ -1,5 +1,6 @@
 package com.openflags.provider.remote;
 
+import com.openflags.core.provider.RemoteDefaults;
 import com.openflags.core.util.Urls;
 
 import java.net.URI;
@@ -10,44 +11,44 @@ import java.util.Set;
 /**
  * Immutable configuration for a {@link RemoteFlagProvider}.
  *
- * @param baseUrl           the base URL of the backend (e.g.
- *                          {@code https://flags.example.com}); non-null,
- *                          scheme must be {@code http} or {@code https}
- * @param flagsPath         the path appended to {@code baseUrl} for fetching
- *                          flags; default {@code "/flags"}
- * @param authHeaderName    the HTTP header used for authentication (e.g.
- *                          {@code "Authorization"} or
- *                          {@code "X-API-Key"}); may be null to disable auth
- * @param authHeaderValue   the literal header value (e.g.
- *                          {@code "Bearer eyJ..."}); may be null
- *                          if {@code authHeaderName} is null. Never logged.
- * @param connectTimeout    HTTP connect timeout; must be positive
- * @param requestTimeout    HTTP request timeout (per request); must be positive
- * @param pollInterval      interval between polls; must be {@code >= 5s}
- * @param cacheTtl          cache TTL after which the provider transitions to
- *                          {@code ERROR} state
- *                          if no successful fetch happens; must be
- *                          {@code >= pollInterval}
- * @param userAgent         value of the {@code User-Agent} header; non-blank,
- *                          default
- *                          {@code "openflags-java"}
- * @param failureThreshold  consecutive poll failures required before the circuit
- *                          breaker opens;
- *                          must be in {@code [1, 100]}; default {@code 5}
- * @param maxBackoff        maximum delay applied between polls when the circuit
- *                          breaker is open;
- *                          must be {@code >= pollInterval}; default {@code 5min}
- * @param maxResponseBytes  maximum number of bytes accepted in a single HTTP
- *                          response body; responses larger than this cap are
- *                          rejected with {@link ResponseTooLargeException};
- *                          default {@link #DEFAULT_MAX_RESPONSE_BYTES}
- *                          (10&nbsp;MiB)
- * @param shutdownTimeout   maximum time to wait for in-flight requests to
- *                          complete when {@link RemoteFlagProvider#shutdown()}
- *                          is called; default
- *                          {@link #DEFAULT_SHUTDOWN_TIMEOUT} (5&nbsp;s)
- * @param httpVersion       desired HTTP protocol version; default
- *                          {@link HttpVersion#AUTO}
+ * @param baseUrl          the base URL of the backend (e.g.
+ *                         {@code https://flags.example.com}); non-null,
+ *                         scheme must be {@code http} or {@code https}
+ * @param flagsPath        the path appended to {@code baseUrl} for fetching
+ *                         flags; default {@code "/flags"}
+ * @param authHeaderName   the HTTP header used for authentication (e.g.
+ *                         {@code "Authorization"} or
+ *                         {@code "X-API-Key"}); may be null to disable auth
+ * @param authHeaderValue  the literal header value (e.g.
+ *                         {@code "Bearer eyJ..."}); may be null
+ *                         if {@code authHeaderName} is null. Never logged.
+ * @param connectTimeout   HTTP connect timeout; must be positive
+ * @param requestTimeout   HTTP request timeout (per request); must be positive
+ * @param pollInterval     interval between polls; must be {@code >= 5s}
+ * @param cacheTtl         cache TTL after which the provider transitions to
+ *                         {@code ERROR} state
+ *                         if no successful fetch happens; must be
+ *                         {@code >= pollInterval}
+ * @param userAgent        value of the {@code User-Agent} header; non-blank,
+ *                         default
+ *                         {@code "openflags-java"}
+ * @param failureThreshold consecutive poll failures required before the circuit
+ *                         breaker opens;
+ *                         must be in {@code [1, 100]}; default {@code 5}
+ * @param maxBackoff       maximum delay applied between polls when the circuit
+ *                         breaker is open;
+ *                         must be {@code >= pollInterval}; default {@code 5min}
+ * @param maxResponseBytes maximum number of bytes accepted in a single HTTP
+ *                         response body; responses larger than this cap are
+ *                         rejected with {@link ResponseTooLargeException};
+ *                         default {@link #DEFAULT_MAX_RESPONSE_BYTES}
+ *                         (10&nbsp;MiB)
+ * @param shutdownTimeout  maximum time to wait for in-flight requests to
+ *                         complete when {@link RemoteFlagProvider#shutdown()}
+ *                         is called; default
+ *                         {@link #DEFAULT_SHUTDOWN_TIMEOUT} (5&nbsp;s)
+ * @param httpVersion      desired HTTP protocol version; default
+ *                         {@link HttpVersion#AUTO}
  */
 public record RemoteProviderConfig(
         URI baseUrl,
@@ -65,40 +66,45 @@ public record RemoteProviderConfig(
         Duration shutdownTimeout,
         HttpVersion httpVersion) {
 
+    // Defaults below delegate to com.openflags.core.provider.RemoteDefaults so
+    // that the Spring Boot starter (which keeps openflags-provider-remote optional)
+    // can reference them without dragging the remote module onto every consumer's
+    // classpath. See ADR-9. Public API of this record is preserved.
+
     /** Sanity ceiling for {@code failureThreshold}. */
-    public static final int MAX_FAILURE_THRESHOLD = 100;
+    public static final int MAX_FAILURE_THRESHOLD = RemoteDefaults.MAX_FAILURE_THRESHOLD;
 
     /**
      * Default consecutive-failures threshold before opening the circuit breaker.
      */
-    public static final int DEFAULT_FAILURE_THRESHOLD = 5;
+    public static final int DEFAULT_FAILURE_THRESHOLD = RemoteDefaults.DEFAULT_FAILURE_THRESHOLD;
 
     /** Default maximum backoff applied while the circuit breaker is open. */
-    public static final Duration DEFAULT_MAX_BACKOFF = Duration.ofMinutes(5);
+    public static final Duration DEFAULT_MAX_BACKOFF = RemoteDefaults.DEFAULT_MAX_BACKOFF;
 
     /** Default HTTP connect timeout. */
-    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = RemoteDefaults.DEFAULT_CONNECT_TIMEOUT;
 
     /** Default HTTP request timeout. */
-    public static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(10);
+    public static final Duration DEFAULT_REQUEST_TIMEOUT = RemoteDefaults.DEFAULT_REQUEST_TIMEOUT;
 
     /** Default polling interval. */
-    public static final Duration DEFAULT_POLL_INTERVAL = Duration.ofSeconds(30);
+    public static final Duration DEFAULT_POLL_INTERVAL = RemoteDefaults.DEFAULT_POLL_INTERVAL;
 
     /** Default cache TTL. */
-    public static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(5);
+    public static final Duration DEFAULT_CACHE_TTL = RemoteDefaults.DEFAULT_CACHE_TTL;
 
     /** Default {@code User-Agent} header value used when none is provided. */
-    public static final String DEFAULT_USER_AGENT = "openflags-java";
+    public static final String DEFAULT_USER_AGENT = RemoteDefaults.DEFAULT_USER_AGENT;
 
     /** Default flags path appended to the base URL. */
-    public static final String DEFAULT_FLAGS_PATH = "/flags";
+    public static final String DEFAULT_FLAGS_PATH = RemoteDefaults.DEFAULT_FLAGS_PATH;
 
     /** Default maximum response body size: 10 MiB. */
-    public static final long DEFAULT_MAX_RESPONSE_BYTES = 10L * 1024 * 1024;
+    public static final long DEFAULT_MAX_RESPONSE_BYTES = RemoteDefaults.DEFAULT_MAX_RESPONSE_BYTES;
 
     /** Default shutdown timeout when waiting for in-flight requests to finish. */
-    public static final Duration DEFAULT_SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
+    public static final Duration DEFAULT_SHUTDOWN_TIMEOUT = RemoteDefaults.DEFAULT_SHUTDOWN_TIMEOUT;
 
     /** Default HTTP version negotiation strategy. */
     public static final HttpVersion DEFAULT_HTTP_VERSION = HttpVersion.AUTO;
@@ -136,7 +142,8 @@ public record RemoteProviderConfig(
      * {@link #DEFAULT_SHUTDOWN_TIMEOUT} and {@link #DEFAULT_HTTP_VERSION} for
      * the three new fields introduced in this version.
      *
-     * <p>Prefer {@link RemoteFlagProviderBuilder} for new code so that future
+     * <p>
+     * Prefer {@link RemoteFlagProviderBuilder} for new code so that future
      * fields can be added without requiring call-site changes.
      */
     public RemoteProviderConfig(

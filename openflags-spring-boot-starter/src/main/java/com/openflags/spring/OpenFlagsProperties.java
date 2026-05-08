@@ -1,5 +1,6 @@
 package com.openflags.spring;
 
+import com.openflags.core.provider.RemoteDefaults;
 import com.openflags.provider.hybrid.SnapshotFormat;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -245,15 +246,12 @@ public class OpenFlagsProperties {
         /**
          * Path appended to the base URL for fetching flags. Default: {@code "/flags"}.
          * <p>
-         * <strong>Note on literals:</strong> every default in this class mirrors
-         * a {@code DEFAULT_*} constant in {@code RemoteProviderConfig} but is
-         * kept as a literal because {@code openflags-provider-remote} is an
-         * <em>optional</em> dependency of the starter — referencing the
-         * constants from this always-loaded class would break file-only
-         * deployments with {@code NoClassDefFoundError}. Equivalence between
-         * literals and constants is enforced by {@code RemoteDefaultsAlignmentTest}.
+         * Defaults below reference {@link RemoteDefaults} (in {@code openflags-core},
+         * a hard dependency of the starter) so the source of truth lives in one
+         * place — see ADR-9. Equivalence is still asserted by
+         * {@code RemoteDefaultsAlignmentTest} as a regression guard.
          */
-        private String flagsPath = "/flags";
+        private String flagsPath = RemoteDefaults.DEFAULT_FLAGS_PATH;
 
         /**
          * HTTP header name for authentication, e.g. {@code "X-API-Key"}. May be null.
@@ -268,16 +266,16 @@ public class OpenFlagsProperties {
         private String authHeaderSecret;
 
         /** HTTP connect timeout. Default: 5 seconds. */
-        private Duration connectTimeout = Duration.ofSeconds(5);
+        private Duration connectTimeout = RemoteDefaults.DEFAULT_CONNECT_TIMEOUT;
 
         /** HTTP request timeout. Default: 10 seconds. */
-        private Duration requestTimeout = Duration.ofSeconds(10);
+        private Duration requestTimeout = RemoteDefaults.DEFAULT_REQUEST_TIMEOUT;
 
         /** Polling interval. Default: 30 seconds. Minimum: 5 seconds. */
-        private Duration pollInterval = Duration.ofSeconds(30);
+        private Duration pollInterval = RemoteDefaults.DEFAULT_POLL_INTERVAL;
 
         /** Cache TTL. Default: 5 minutes. Must be {@code >= pollInterval}. */
-        private Duration cacheTtl = Duration.ofMinutes(5);
+        private Duration cacheTtl = RemoteDefaults.DEFAULT_CACHE_TTL;
 
         /**
          * User-Agent header value. If null or blank, {@code RemoteProviderConfig}
@@ -289,13 +287,13 @@ public class OpenFlagsProperties {
          * Consecutive remote poll failures before exponential backoff kicks in.
          * Default: 5. Must be {@code >= 1} and {@code <= 100}.
          */
-        private int failureThreshold = 5;
+        private int failureThreshold = RemoteDefaults.DEFAULT_FAILURE_THRESHOLD;
 
         /**
          * Upper bound for the backoff delay applied when the circuit is open.
          * Default: 5 minutes. Must be {@code >= pollInterval}.
          */
-        private Duration maxBackoff = Duration.ofMinutes(5);
+        private Duration maxBackoff = RemoteDefaults.DEFAULT_MAX_BACKOFF;
 
         /**
          * Returns the base URL.
