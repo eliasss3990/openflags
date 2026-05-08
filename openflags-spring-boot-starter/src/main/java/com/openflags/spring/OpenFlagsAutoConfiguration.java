@@ -268,6 +268,21 @@ public class OpenFlagsAutoConfiguration {
      * absent — the dependency is declared {@code <optional>true</optional>} in the starter POM.
      * </p>
      */
+    private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {
+        return new RemoteProviderConfig(
+                r.getBaseUrl(),
+                r.getFlagsPath(),
+                r.getAuthHeaderName(),
+                r.getAuthHeaderSecret(),
+                r.getConnectTimeout(),
+                r.getRequestTimeout(),
+                r.getPollInterval(),
+                r.getCacheTtl(),
+                r.getUserAgent(),
+                r.getFailureThreshold(),
+                r.getMaxBackoff());
+    }
+
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(HybridFlagProvider.class)
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
@@ -289,18 +304,7 @@ public class OpenFlagsAutoConfiguration {
                         "openflags.hybrid.snapshot-path must be set when openflags.provider=hybrid");
             }
 
-            RemoteProviderConfig rc = new RemoteProviderConfig(
-                    r.getBaseUrl(),
-                    r.getFlagsPath(),
-                    r.getAuthHeaderName(),
-                    r.getAuthHeaderSecret(),
-                    r.getConnectTimeout(),
-                    r.getRequestTimeout(),
-                    r.getPollInterval(),
-                    r.getCacheTtl(),
-                    r.getUserAgent(),
-                    r.getFailureThreshold(),
-                    r.getMaxBackoff());
+            RemoteProviderConfig rc = remoteProviderConfigFromProperties(r);
 
             HybridFlagProvider provider = HybridFlagProvider.builder()
                     .remoteConfig(rc)

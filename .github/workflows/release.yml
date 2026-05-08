@@ -42,7 +42,11 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-        run: mvn -B -P release clean deploy
+        # `deploy` already implies `verify` per the Maven default lifecycle
+        # (validate -> compile -> test -> package -> verify -> install -> deploy);
+        # Maven also executes each phase at most once per invocation. `verify` is
+        # listed explicitly for traceability in CI logs, not because it adds work.
+        run: mvn -B -P release clean verify deploy
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

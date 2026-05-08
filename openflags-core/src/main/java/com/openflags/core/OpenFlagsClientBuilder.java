@@ -130,7 +130,7 @@ public final class OpenFlagsClientBuilder {
      *         .build();
      *             }</pre>
      */
-    @Deprecated(forRemoval = true, since = "1.1.0-SNAPSHOT")
+    @Deprecated(forRemoval = true, since = "1.1.0")
     public OpenFlagsClientBuilder metricsRegistry(Object registry) {
         Objects.requireNonNull(registry, "registry must not be null");
         // Eagerly validate the type so callers get the same fast-fail

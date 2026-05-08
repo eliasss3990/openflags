@@ -385,7 +385,18 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
     }
 
     /**
-     * Returns the combined state. See {@code 02-modelo-hybrid.md §4} for the table.
+     * Returns the combined state. See {@code 02-modelo-hybrid.md §4} for the
+     * table.
+     *
+     * <p><b>Best-effort under shutdown concurrence.</b> The {@code shutdown} and
+     * {@code initialized} flags are {@code volatile} but the sub-provider
+     * snapshots ({@code remote.getState()}, {@code file.getState()}) are read
+     * without holding the synchronization monitor. A caller racing with
+     * {@link #shutdown()} may observe a transient state that mixes a fresh
+     * sub-provider value with an older composite — for example {@code DEGRADED}
+     * for one tick before the {@code SHUTDOWN} flag flips. The returned value
+     * is therefore informational; routing decisions in {@link #getFlag(String)}
+     * use the same flags under the same memory model and are safe.
      */
     @Override
     public ProviderState getState() {
