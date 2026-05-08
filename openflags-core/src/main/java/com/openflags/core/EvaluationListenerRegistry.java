@@ -31,6 +31,22 @@ final class EvaluationListenerRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(EvaluationListenerRegistry.class);
 
+    /**
+     * Hard cap on the number of distinct listener instances tracked in
+     * {@link #failureCounters}. The map is normally bounded by the number of
+     * registered listeners (entries are removed on {@link #remove}); the cap
+     * is a defensive guard against pathological scenarios where a faulty
+     * caller creates a fresh listener instance per dispatch and never removes
+     * it. When reached, additional faulty listeners are still invoked and
+     * their errors recorded via {@link MetricsRecorder}, but the per-instance
+     * counter is dropped (no rate-limited WARN log) to prevent unbounded
+     * memory growth.
+     */
+    static final int MAX_TRACKED_FAILING_LISTENERS = 256;
+
+    /** Whether the cap-reached warning has been emitted (one-shot). */
+    private final java.util.concurrent.atomic.AtomicBoolean capWarned = new java.util.concurrent.atomic.AtomicBoolean();
+
     private final List<EvaluationListener> listeners = new CopyOnWriteArrayList<>();
     /**
      * Per-listener-instance failure counters. Keyed by the listener reference
@@ -94,9 +110,19 @@ final class EvaluationListenerRegistry {
         } catch (RuntimeException metricsFailure) {
             log.debug("openflags: metrics.recordListenerError threw", metricsFailure);
         }
-        long count = failureCounters
-                .computeIfAbsent(listener, k -> new AtomicLong())
-                .incrementAndGet();
+        AtomicLong counter = failureCounters.get(listener);
+        if (counter == null) {
+            if (failureCounters.size() >= MAX_TRACKED_FAILING_LISTENERS) {
+                if (capWarned.compareAndSet(false, true)) {
+                    log.warn("openflags: failureCounters cap reached ({}); further "
+                            + "faulty-listener errors will not be rate-limited per instance",
+                            MAX_TRACKED_FAILING_LISTENERS);
+                }
+                return;
+            }
+            counter = failureCounters.computeIfAbsent(listener, k -> new AtomicLong());
+        }
+        long count = counter.incrementAndGet();
         if (Long.bitCount(count) == 1) {
             log.warn("openflags: EvaluationListener {} threw {} times (rate-limited)",
                     name, count, ex);

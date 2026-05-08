@@ -47,7 +47,13 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
     private static final Logger log = LoggerFactory.getLogger(MicrometerMetricsRecorder.class);
 
     private static final int MAX_VARIANT_LEN = 64;
-    private static final int VARIANT_PREFIX_LEN = 56;
+    /**
+     * Length of the prefix kept when truncating an over-long variant tag.
+     * Derived as {@link #MAX_VARIANT_LEN} minus 8 chars reserved for the
+     * {@code "~"} separator and the 7-char hex hash suffix appended by
+     * {@link #normalizeVariant(String)}.
+     */
+    private static final int VARIANT_PREFIX_LEN = MAX_VARIANT_LEN - 8;
     private static final int NORMALIZED_VARIANT_CACHE_CAP = 1_000;
 
     private final MeterRegistry registry;
@@ -71,7 +77,8 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
      * Micrometer dependency optional from the rest of {@code openflags-core}
      * (ADR-501): only loading this class triggers Micrometer linkage.
      *
-     * @throws IllegalArgumentException if {@code registry} is not a {@link MeterRegistry}
+     * @throws IllegalArgumentException if {@code registry} is not a
+     *                                  {@link MeterRegistry}
      */
     public static MicrometerMetricsRecorder fromRegistryObject(Object registry, boolean tagFlagKey) {
         Objects.requireNonNull(registry, "registry must not be null");
@@ -92,8 +99,9 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
      * while deferring recorder construction until later configuration (e.g.
      * {@code metricsTagFlagKey(...)}) is final.
      *
-     * @throws NullPointerException if {@code registry} is null
-     * @throws IllegalArgumentException if {@code registry} is not a {@link MeterRegistry}
+     * @throws NullPointerException     if {@code registry} is null
+     * @throws IllegalArgumentException if {@code registry} is not a
+     *                                  {@link MeterRegistry}
      */
     public static void validateRegistryObject(Object registry) {
         Objects.requireNonNull(registry, "registry must not be null");

@@ -107,6 +107,24 @@ class EvaluationListenerRegistryTest {
     }
 
     @Test
+    void failureCounters_capPreventsUnboundedGrowth() {
+        CountingRecorder recorder = new CountingRecorder();
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
+
+        // Register many distinct failing listeners; once the cap is hit, additional
+        // instances must still be invoked (errors recorded) but failureCounters
+        // must not grow beyond the cap.
+        int total = EvaluationListenerRegistry.MAX_TRACKED_FAILING_LISTENERS + 50;
+        for (int i = 0; i < total; i++) {
+            registry.add(e -> {
+                throw new RuntimeException("boom");
+            });
+        }
+        registry.dispatch(sampleEvent());
+        assertThat(recorder.listenerErrors).hasSize(total);
+    }
+
+    @Test
     void remove_nullTolerated() {
         EvaluationListenerRegistry registry = new EvaluationListenerRegistry(MetricsRecorder.NOOP);
         assertThat(registry.remove(null)).isFalse();

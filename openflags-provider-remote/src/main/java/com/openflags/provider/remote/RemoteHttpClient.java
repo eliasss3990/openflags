@@ -12,22 +12,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Thin wrapper around {@link java.net.http.HttpClient} that owns the client instance,
- * builds requests with the configured auth header and user agent, and exposes a single
+ * Thin wrapper around {@link java.net.http.HttpClient} that owns the client
+ * instance,
+ * builds requests with the configured auth header and user agent, and exposes a
+ * single
  * {@code fetch()} entry point used by both {@code init()} and the polling task.
  * <p>
  * The response body is read through a capped {@link InputStream}: if the server
- * returns more than {@link RemoteProviderConfig#maxResponseBytes()} bytes the read is
- * aborted and a {@link ResponseTooLargeException} is thrown before the excess data
+ * returns more than {@link RemoteProviderConfig#maxResponseBytes()} bytes the
+ * read is
+ * aborted and a {@link ResponseTooLargeException} is thrown before the excess
+ * data
  * reaches application memory.
  * </p>
  * <p>
- * Package-private: this is an implementation detail of {@link RemoteFlagProvider}.
+ * Package-private: this is an implementation detail of
+ * {@link RemoteFlagProvider}.
  * </p>
  */
 final class RemoteHttpClient {
 
     private static final Logger log = LoggerFactory.getLogger(RemoteHttpClient.class);
+
+    private static final String JSON_MEDIA_TYPE = "application/json";
 
     private final HttpClient httpClient;
     private final RemoteProviderConfig config;
@@ -48,8 +55,8 @@ final class RemoteHttpClient {
 
         switch (config.httpVersion()) {
             case HTTP_1_1 -> builder.version(HttpClient.Version.HTTP_1_1);
-            case HTTP_2   -> builder.version(HttpClient.Version.HTTP_2);
-            case AUTO     -> {
+            case HTTP_2 -> builder.version(HttpClient.Version.HTTP_2);
+            case AUTO -> {
                 // Heuristic: https → allow H2 negotiation (JDK default);
                 // http → force HTTP/1.1 to avoid h2c upgrade surprises.
                 if ("http".equalsIgnoreCase(config.baseUrl().getScheme())) {
@@ -66,16 +73,16 @@ final class RemoteHttpClient {
      * Performs a synchronous GET against the configured URL.
      *
      * @return the HTTP response with body as String (UTF-8)
-     * @throws IOException              on I/O failure or if the body exceeds
-     *                                  {@link RemoteProviderConfig#maxResponseBytes()}
-     * @throws InterruptedException     if interrupted while waiting
+     * @throws IOException               on I/O failure or if the body exceeds
+     *                                   {@link RemoteProviderConfig#maxResponseBytes()}
+     * @throws InterruptedException      if interrupted while waiting
      * @throws ResponseTooLargeException if the response body exceeds the limit
      */
     HttpResponse<String> fetch() throws IOException, InterruptedException {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(targetUri)
                 .timeout(config.requestTimeout())
-                .header("Accept", "application/json")
+                .header("Accept", JSON_MEDIA_TYPE)
                 .header("User-Agent", config.userAgent())
                 .GET();
 
@@ -86,8 +93,7 @@ final class RemoteHttpClient {
         HttpRequest request = builder.build();
         long limit = config.maxResponseBytes();
 
-        HttpResponse<InputStream> rawResponse =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        HttpResponse<InputStream> rawResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
         String body;
         try (InputStream in = rawResponse.body()) {
@@ -105,6 +111,13 @@ final class RemoteHttpClient {
      * closing {@code in} (via try-with-resources) to release the underlying
      * connection back to the pool, regardless of whether this method returns
      * normally or throws.
+     * <p>
+     * <strong>Charset note:</strong> the body is decoded as UTF-8 unconditionally;
+     * the response's {@code Content-Type} charset parameter is not honoured.
+     * openflags expects flag servers to emit UTF-8 JSON; servers that emit a
+     * different charset are not supported. See issue tracker for opt-in charset
+     * negotiation.
+     * </p>
      */
     private static String readCapped(InputStream in, long limit) throws IOException {
         byte[] buffer = new byte[8192];
@@ -129,7 +142,8 @@ final class RemoteHttpClient {
     }
 
     void close() {
-        // HttpClient in JDK 21 implements AutoCloseable; shut down underlying executor if applicable
+        // HttpClient in JDK 21 implements AutoCloseable; shut down underlying executor
+        // if applicable
         if (httpClient instanceof AutoCloseable ac) {
             try {
                 ac.close();
@@ -155,16 +169,45 @@ final class RemoteHttpClient {
             this.body = body;
         }
 
-        @Override public int statusCode()                                          { return delegate.statusCode(); }
-        @Override public HttpRequest request()                                     { return delegate.request(); }
-        @Override public java.util.Optional<HttpResponse<String>> previousResponse() {
+        @Override
+        public int statusCode() {
+            return delegate.statusCode();
+        }
+
+        @Override
+        public HttpRequest request() {
+            return delegate.request();
+        }
+
+        @Override
+        public java.util.Optional<HttpResponse<String>> previousResponse() {
             // Previous responses are not needed for the remote provider use-case.
             return java.util.Optional.empty();
         }
-        @Override public java.net.http.HttpHeaders headers()                      { return delegate.headers(); }
-        @Override public String body()                                             { return body; }
-        @Override public java.util.Optional<javax.net.ssl.SSLSession> sslSession() { return delegate.sslSession(); }
-        @Override public URI uri()                                                 { return delegate.uri(); }
-        @Override public HttpClient.Version version()                             { return delegate.version(); }
+
+        @Override
+        public java.net.http.HttpHeaders headers() {
+            return delegate.headers();
+        }
+
+        @Override
+        public String body() {
+            return body;
+        }
+
+        @Override
+        public java.util.Optional<javax.net.ssl.SSLSession> sslSession() {
+            return delegate.sslSession();
+        }
+
+        @Override
+        public URI uri() {
+            return delegate.uri();
+        }
+
+        @Override
+        public HttpClient.Version version() {
+            return delegate.version();
+        }
     }
 }

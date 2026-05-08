@@ -76,7 +76,7 @@ jobs:
           cache: maven
 
       - name: Generate Javadoc
-        run: mvn -B javadoc:aggregate -Dquiet=true
+        run: mvn -B javadoc:aggregate
 
   release-dry-run:
     name: Release dry-run (sign without publishing)

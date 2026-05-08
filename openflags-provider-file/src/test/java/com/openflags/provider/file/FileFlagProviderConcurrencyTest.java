@@ -64,8 +64,10 @@ class FileFlagProviderConcurrencyTest {
 
         reloadThread.start();
         shutdownThread.start();
-        reloadThread.join(5000);
-        shutdownThread.join(5000);
+        boolean reloadDone = reloadThread.join(java.time.Duration.ofSeconds(5));
+        boolean shutdownDone = shutdownThread.join(java.time.Duration.ofSeconds(5));
+        assertThat(reloadDone).as("reload thread completed within 5s").isTrue();
+        assertThat(shutdownDone).as("shutdown thread completed within 5s").isTrue();
 
         // After shutdown the state must be SHUTDOWN; no events emitted by a
         // shutdown provider should cause listener exceptions.

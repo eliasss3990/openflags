@@ -34,10 +34,12 @@ import java.util.regex.PatternSyntaxException;
  * <p>
  * The file format is detected strictly by extension:
  * {@code .yml} and {@code .yaml} are parsed as YAML; {@code .json} as JSON.
- * Any other extension causes a {@link ProviderException} with a descriptive message.
+ * Any other extension causes a {@link ProviderException} with a descriptive
+ * message.
  * </p>
  *
  * <h2>Expected file structure (YAML example)</h2>
+ * 
  * <pre>
  * flags:
  *   dark-mode:
@@ -59,11 +61,18 @@ public final class FlagFileParser {
 
     private static final Logger log = LoggerFactory.getLogger(FlagFileParser.class);
 
-    // immutable after static initialization — do not expose references
+    // Immutable after static initialization — do not expose references.
+    // YAML/JSON only differ at the parser front-end; once we have a JsonNode tree
+    // both produce equivalent output. TREE_MAPPER is used for JsonNode→Map
+    // conversion in OBJECT-typed flag values and is intentionally format-agnostic.
     private static final ObjectMapper YAML_MAPPER = JsonMapper.builder(new YAMLFactory()).build();
     private static final ObjectMapper JSON_MAPPER = JsonMapper.builder().build();
+    private static final ObjectMapper TREE_MAPPER = JSON_MAPPER;
 
-    /** Maximum regex pattern length accepted at parse time (security: limits ReDoS surface). */
+    /**
+     * Maximum regex pattern length accepted at parse time (security: limits ReDoS
+     * surface).
+     */
     public static final int MAX_REGEX_LENGTH = 1024;
     /** Warn if a flag has more than this many rules (soft limit). */
     public static final int WARN_RULES_PER_FLAG = 50;
@@ -75,7 +84,8 @@ public final class FlagFileParser {
      *
      * @param path the path to the flag definition file
      * @return an unmodifiable map of flag key to {@link Flag}
-     * @throws ProviderException if the file cannot be read, has an unrecognized extension,
+     * @throws ProviderException if the file cannot be read, has an unrecognized
+     *                           extension,
      *                           or does not conform to the expected structure
      */
     public Map<String, Flag> parse(Path path) {
@@ -92,10 +102,13 @@ public final class FlagFileParser {
     /**
      * Parses an already-deserialized JSON tree representing the openflags document
      * into a map of flags. Used by both {@code FileFlagProvider} (after reading
-     * a file) and {@code RemoteFlagProvider} (after deserializing an HTTP response).
+     * a file) and {@code RemoteFlagProvider} (after deserializing an HTTP
+     * response).
      *
-     * @param root        the root JsonNode; expected shape: {@code { "flags": { ... } }}
-     * @param sourceLabel a label used in error messages (e.g. {@code "remote:https://..."} or
+     * @param root        the root JsonNode; expected shape:
+     *                    {@code { "flags": { ... } }}
+     * @param sourceLabel a label used in error messages (e.g.
+     *                    {@code "remote:https://..."} or
      *                    {@code "file:/etc/flags.yml"}); non-null
      * @return an immutable map from flag key to {@link Flag}
      * @throws ProviderException if the document is malformed
@@ -118,7 +131,7 @@ public final class FlagFileParser {
             return Collections.emptyMap();
         }
 
-        Map<String, Flag> flags = new HashMap<>();
+        Map<String, Flag> flags = new HashMap<>(Math.max(16, flagsNode.size() * 4 / 3 + 1));
         Iterator<Map.Entry<String, JsonNode>> fields = flagsNode.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> entry = fields.next();
@@ -202,8 +215,8 @@ public final class FlagFileParser {
         String kind = ruleNode.get("kind").asText().toLowerCase();
 
         return switch (kind) {
-            case "targeting"    -> parseTargetingRule(name, ruleNode, flagType, flagKey, sourceLabel);
-            case "split"        -> parseSplitRule(name, ruleNode, flagType, flagKey, sourceLabel);
+            case "targeting" -> parseTargetingRule(name, ruleNode, flagType, flagKey, sourceLabel);
+            case "split" -> parseSplitRule(name, ruleNode, flagType, flagKey, sourceLabel);
             case "multivariant" -> parseMultiVariantRule(name, ruleNode, flagType, flagKey, sourceLabel);
             default -> throw new ProviderException("Rule '" + name + "' in flag '" + flagKey + "' in '"
                     + sourceLabel + "' has unknown kind '" + kind
@@ -351,7 +364,8 @@ public final class FlagFileParser {
 
         String attribute = condNode.get("attribute").asText();
         Operator operator = parseOperator(condNode.get("operator").asText(), index, ruleName, flagKey, sourceLabel);
-        Object expectedValue = parseExpectedValue(condNode.get("value"), operator, index, ruleName, flagKey, sourceLabel);
+        Object expectedValue = parseExpectedValue(condNode.get("value"), operator, index, ruleName, flagKey,
+                sourceLabel);
 
         return new Condition(attribute, operator, expectedValue);
     }
@@ -452,7 +466,7 @@ public final class FlagFileParser {
                         throw new ProviderException("Flag '" + key + "' in '"
                                 + sourceLabel + "' has type 'object' but value is not an object");
                     }
-                    Map<String, Object> map = JSON_MAPPER.convertValue(valueNode, Map.class);
+                    Map<String, Object> map = TREE_MAPPER.convertValue(valueNode, Map.class);
                     yield FlagValue.of(map, FlagType.OBJECT);
                 }
             };
