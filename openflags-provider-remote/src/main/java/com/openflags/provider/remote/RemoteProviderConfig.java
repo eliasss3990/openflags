@@ -24,7 +24,9 @@ import java.util.Set;
  *                         if {@code authHeaderName} is null. Never logged.
  * @param connectTimeout   HTTP connect timeout; must be positive
  * @param requestTimeout   HTTP request timeout (per request); must be positive
- * @param pollInterval     interval between polls; must be {@code >= 5s}
+ *                         and {@code <= pollInterval} so polls cannot overlap
+ * @param pollInterval     interval between polls; must be {@code >= 5s} and
+ *                         {@code >= requestTimeout}
  * @param cacheTtl         cache TTL after which the provider transitions to
  *                         {@code ERROR} state
  *                         if no successful fetch happens; must be
@@ -283,6 +285,13 @@ public record RemoteProviderConfig(
         if (cacheTtl.compareTo(pollInterval) < 0) {
             throw new IllegalArgumentException(
                     "cacheTtl must be >= pollInterval");
+        }
+        if (requestTimeout.compareTo(pollInterval) > 0) {
+            throw new IllegalArgumentException(
+                    "requestTimeout must be <= pollInterval (otherwise the HTTP response"
+                            + " may arrive after the next poll is already due);"
+                            + " got requestTimeout=" + requestTimeout
+                            + ", pollInterval=" + pollInterval);
         }
         if (userAgent == null || userAgent.isBlank()) {
             userAgent = DEFAULT_USER_AGENT;

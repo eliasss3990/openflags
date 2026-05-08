@@ -45,6 +45,7 @@ class RemoteFlagProviderCircuitBreakerTest {
         RemoteFlagProvider p = RemoteFlagProviderBuilder
                 .forUrl(URI.create("http://localhost:" + wireMock.port()))
                 .pollInterval(Duration.ofSeconds(5))
+                .requestTimeout(Duration.ofSeconds(2))
                 .cacheTtl(Duration.ofMinutes(1))
                 .failureThreshold(3)
                 .maxBackoff(Duration.ofMinutes(2))
@@ -76,6 +77,7 @@ class RemoteFlagProviderCircuitBreakerTest {
         RemoteFlagProvider p = RemoteFlagProviderBuilder
                 .forUrl(URI.create("http://localhost:" + wireMock.port()))
                 .pollInterval(Duration.ofSeconds(5))
+                .requestTimeout(Duration.ofSeconds(2))
                 .cacheTtl(Duration.ofMinutes(1))
                 .failureThreshold(2)
                 .maxBackoff(Duration.ofSeconds(10))
@@ -123,6 +125,7 @@ class RemoteFlagProviderCircuitBreakerTest {
         RemoteFlagProvider p = RemoteFlagProviderBuilder
                 .forUrl(URI.create("http://localhost:" + wireMock.port()))
                 .pollInterval(Duration.ofSeconds(5))
+                .requestTimeout(Duration.ofSeconds(2))
                 .cacheTtl(Duration.ofMinutes(1))
                 .build();
         p.setPollListener(new MetricsRecordingPollListener(metrics));
