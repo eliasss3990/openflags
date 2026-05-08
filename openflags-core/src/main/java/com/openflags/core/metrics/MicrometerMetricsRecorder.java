@@ -330,6 +330,9 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
                 }
                 return normalized;
             }
+            // CAS lost the race: yield to reduce theoretical busy-spin under
+            // pathological contention before re-reading the size.
+            Thread.yield();
             reserved = normalizedVariantsLoggedSize.get();
         }
         long dropped = droppedNormalizedVariants.incrementAndGet();

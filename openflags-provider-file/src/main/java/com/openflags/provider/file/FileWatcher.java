@@ -167,7 +167,11 @@ public final class FileWatcher {
             log.debug("Callback failed on first attempt (possibly mid-write), retrying in {}ms: {}",
                     DEBOUNCE_MS, firstAttemptEx.getMessage());
             synchronized (this) {
-                pendingCallback = debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+                try {
+                    pendingCallback = debounceScheduler.schedule(this::invokeRetryAttempt, DEBOUNCE_MS, TimeUnit.MILLISECONDS);
+                } catch (java.util.concurrent.RejectedExecutionException e) {
+                    log.debug("Retry not scheduled: scheduler shut down ({})", e.getMessage());
+                }
             }
         }
     }

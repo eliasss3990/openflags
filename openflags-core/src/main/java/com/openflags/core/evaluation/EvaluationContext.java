@@ -9,8 +9,8 @@ import java.util.Optional;
 /**
  * Contextual information provided to the SDK when evaluating a feature flag.
  * <p>
- * In Fase 1 this holds only an optional targeting key (typically a user or session ID).
- * Fase 2 will extend it with user attributes for segmentation rules.
+ * In Phase 1 this holds only an optional targeting key (typically a user or session ID).
+ * Phase 2 will extend it with user attributes for segmentation rules.
  * </p>
  * <p>
  * This is a final immutable class with a builder (not a record) because the builder

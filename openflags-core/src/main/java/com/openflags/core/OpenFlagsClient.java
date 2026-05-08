@@ -40,10 +40,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * client.shutdown(); // release resources when done
  * </pre>
  *
+ * <h2>Post-shutdown behavior</h2>
  * <p>
- * Calling any evaluation method after {@link #shutdown()} throws
- * {@link IllegalStateException}.
+ * After {@link #shutdown()} returns, the client enforces the following
+ * contract:
  * </p>
+ * <ul>
+ * <li>All evaluation methods ({@code getBooleanValue}, {@code getStringValue},
+ * {@code getNumberValue}, {@code getObjectValue} and their {@code *Result}
+ * variants) throw {@link IllegalStateException}.</li>
+ * <li>{@link #addEvaluationListener(EvaluationListener)} throws
+ * {@link IllegalStateException}.</li>
+ * <li>{@link #removeEvaluationListener(EvaluationListener)} returns
+ * {@code false} (no-op) so cleanup paths can run unconditionally.</li>
+ * <li>{@link #addChangeListener(FlagChangeListener)} and
+ * {@link #removeChangeListener(FlagChangeListener)} are no-ops, mirroring
+ * the lifecycle contract of {@link FlagProvider} (ADR-2).</li>
+ * <li>{@link #getProviderState()} reflects the underlying provider, which
+ * transitions to {@link ProviderState#SHUTDOWN}.</li>
+ * <li>{@link #shutdown()} itself is idempotent.</li>
+ * </ul>
  */
 public final class OpenFlagsClient {
 
@@ -133,7 +149,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Convenience overload for {@link #getBooleanResult(String, boolean, EvaluationContext)}
+     * Convenience overload for
+     * {@link #getBooleanResult(String, boolean, EvaluationContext)}
      * with an empty evaluation context.
      *
      * @param key          the flag key
@@ -189,7 +206,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Convenience overload for {@link #getStringResult(String, String, EvaluationContext)}
+     * Convenience overload for
+     * {@link #getStringResult(String, String, EvaluationContext)}
      * with an empty evaluation context.
      *
      * @param key          the flag key
@@ -245,7 +263,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Convenience overload for {@link #getNumberResult(String, double, EvaluationContext)}
+     * Convenience overload for
+     * {@link #getNumberResult(String, double, EvaluationContext)}
      * with an empty evaluation context.
      *
      * @param key          the flag key
@@ -304,7 +323,8 @@ public final class OpenFlagsClient {
     }
 
     /**
-     * Convenience overload for {@link #getObjectResult(String, Map, EvaluationContext)}
+     * Convenience overload for
+     * {@link #getObjectResult(String, Map, EvaluationContext)}
      * with an empty evaluation context.
      *
      * @param key          the flag key
@@ -421,10 +441,14 @@ public final class OpenFlagsClient {
         try {
             EvaluationResult<T> result = step.evaluate();
             long duration = System.nanoTime() - start;
+            // Defensive copy for Map defaults: the event is dispatched to listeners
+            // and may be retained; preventing later mutation by the caller keeps the
+            // event snapshot stable.
+            Object safeDefault = (defaultValue instanceof Map<?, ?> m) ? Map.copyOf(m) : defaultValue;
             EvaluationEvent event = new EvaluationEvent(
                     key,
                     type,
-                    defaultValue,
+                    safeDefault,
                     result.value(),
                     result.reason(),
                     result.variant(),
