@@ -42,4 +42,16 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Activate failsafe in this module so *IT.java integration tests
+                 run during the integration-test phase (e.g. mvn verify), while
+                 surefire continues to run unit tests during mvn test. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
