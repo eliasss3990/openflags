@@ -48,6 +48,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `examples/spring-boot-quickstart` — runnable Spring Boot 3 example with file provider, targeting rule, MDC, and Prometheus.
 - `openflags-benchmarks` — standalone JMH module for the evaluation hot path.
 - README badge for Maven Central and a Documentation index.
+- `.githooks/commit-msg` — opt-in git hook that requires updating `CHANGELOG.md` for substantive commits, with auto-skip for docs/CI-only changes and a manual `[skip-changelog]` bypass tag. Activated per-clone via `./.githooks/install.sh`.
 
 ## [1.0.0] - 2026-05-02
 
