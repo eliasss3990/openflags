@@ -162,6 +162,33 @@ class SnapshotWriterTest {
         assertThat(parseErrors.get()).isZero();
     }
 
+    @Test
+    void cleanupOrphanTmpFiles_removesOldFiles_keepsRecentAndUnrelated(@TempDir Path dir) throws IOException {
+        Path target = dir.resolve("snap.yaml");
+        Path stale = dir.resolve(SnapshotWriter.TMP_PREFIX + "11111111-1111-1111-1111-111111111111" + SnapshotWriter.TMP_SUFFIX);
+        Path inFlight = dir.resolve(SnapshotWriter.TMP_PREFIX + "22222222-2222-2222-2222-222222222222" + SnapshotWriter.TMP_SUFFIX);
+        Path unrelated = dir.resolve("user-data.tmp");
+        java.nio.file.Files.writeString(stale, "stale");
+        java.nio.file.Files.writeString(inFlight, "fresh");
+        java.nio.file.Files.writeString(unrelated, "keep");
+        // Backdate `stale` to comfortably exceed ORPHAN_MIN_AGE; leave `inFlight` at "now".
+        java.nio.file.Files.setLastModifiedTime(stale,
+                java.nio.file.attribute.FileTime.from(java.time.Instant.now().minus(java.time.Duration.ofHours(1))));
+
+        new SnapshotWriter(SnapshotFormat.YAML).cleanupOrphanTmpFiles(target);
+
+        assertThat(java.nio.file.Files.exists(stale)).isFalse();
+        assertThat(java.nio.file.Files.exists(inFlight)).isTrue();
+        assertThat(java.nio.file.Files.exists(unrelated)).isTrue();
+    }
+
+    @Test
+    void cleanupOrphanTmpFiles_missingParent_isNoOp(@TempDir Path dir) {
+        Path target = dir.resolve("nonexistent-dir").resolve("snap.yaml");
+        // Must not throw even though parent does not exist.
+        new SnapshotWriter(SnapshotFormat.YAML).cleanupOrphanTmpFiles(target);
+    }
+
     // ---- helpers ----
 
     private Map<String, Flag> sampleFlags() {
