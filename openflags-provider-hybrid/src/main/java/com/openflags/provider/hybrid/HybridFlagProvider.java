@@ -352,16 +352,17 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         file.addChangeListener(this::onFileChange);
         installPollListener();
 
-        // Write a baseline snapshot now that the file watcher is up and the
-        // poll listener is registered. ADR-2 forbids listener-driven writes
-        // during sub-provider init() (race with FileWatcher), but at this
-        // point both providers have completed init() and any self-event will
-        // be consumed by the registered file listener via expectingSelfWrite.
+        // Mark the provider as initialized BEFORE issuing the baseline write.
+        // writeSafe sets expectingSelfWrite, but if the OS delivers more than
+        // one watch event for the rename the second one bypasses that filter
+        // and reaches onFileChange. Flipping initialized first ensures any
+        // such event observes a fully-constructed provider — listeners
+        // registered via addChangeListener pre-init now run against a
+        // consistent state, satisfying ADR-2.
+        initialized = true;
         if (remoteOk && remote.getState() == ProviderState.READY) {
             writeSafe(remote.getAllFlags());
         }
-
-        initialized = true;
         log.info("HybridFlagProvider initialized (remote={}, file={})", remoteOk, fileOk);
     }
 
@@ -527,9 +528,11 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             snapshotExecutor.execute(this::drainAndWriteSafe);
         } catch (RejectedExecutionException e) {
             // Executor was shut down between getAndSet and execute (e.g. user
-            // closing the provider). Drop the pending snapshot so the next
-            // re-arm is consistent.
-            pendingSnapshot.set(null);
+            // closing the provider). Use compareAndSet so we only clear the
+            // value we just deposited — a concurrent poller may have already
+            // raced in with a fresher snapshot via getAndSet, and that value
+            // belongs to whatever final-drain path picks it up.
+            pendingSnapshot.compareAndSet(freshSnapshot, null);
             log.debug("HybridFlagProvider: snapshot executor rejected task (shutdown in progress)");
         }
     }
@@ -546,11 +549,15 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             return;
         }
         writeSafe(snapshot);
-        if (pendingSnapshot.get() != null) {
+        Map<String, Flag> latest = pendingSnapshot.get();
+        if (latest != null) {
             try {
                 snapshotExecutor.execute(this::drainAndWriteSafe);
             } catch (RejectedExecutionException e) {
-                pendingSnapshot.set(null);
+                // Same rationale as enqueueSnapshotWrite: only clear the
+                // exact reference we observed, never trample a fresher value
+                // that arrived between our get() and the failed execute().
+                pendingSnapshot.compareAndSet(latest, null);
                 log.debug("HybridFlagProvider: snapshot executor rejected re-arm (shutdown in progress)");
             }
         }
@@ -696,7 +703,6 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
         return switch (remoteState) {
             case ERROR -> "primary_error";
             case NOT_READY -> "primary_not_ready";
-            case STALE -> "primary_state_error";
             default -> "primary_state_error";
         };
     }
@@ -769,14 +775,26 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
 
         @Override
         public void onPollComplete(Map<String, Flag> snapshot) {
-            primary.onPollComplete(snapshot);
-            secondary.onPollComplete(snapshot);
+            invokeSafely("onPollComplete", () -> primary.onPollComplete(snapshot));
+            invokeSafely("onPollComplete", () -> secondary.onPollComplete(snapshot));
         }
 
         @Override
         public void onPollOutcome(String outcome, long durationNanos) {
-            primary.onPollOutcome(outcome, durationNanos);
-            secondary.onPollOutcome(outcome, durationNanos);
+            invokeSafely("onPollOutcome", () -> primary.onPollOutcome(outcome, durationNanos));
+            invokeSafely("onPollOutcome", () -> secondary.onPollOutcome(outcome, durationNanos));
+        }
+
+        // Isolate each delegate so that a throw in primary never silences
+        // secondary (and vice-versa). Critical because the secondary listener
+        // is typically the metrics recorder — losing its samples on every
+        // primary failure would distort poll-latency dashboards.
+        private static void invokeSafely(String op, Runnable r) {
+            try {
+                r.run();
+            } catch (Exception e) {
+                log.warn("ComposedPollListener: delegate threw during {}", op, e);
+            }
         }
     }
 

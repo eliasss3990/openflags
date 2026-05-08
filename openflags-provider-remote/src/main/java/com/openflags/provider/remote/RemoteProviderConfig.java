@@ -218,7 +218,7 @@ public record RemoteProviderConfig(
      * @param cacheTtl        cache TTL for fetched flags
      * @param userAgent       HTTP User-Agent header value
      */
-    @Deprecated
+    @Deprecated(since = "1.1.0", forRemoval = true)
     public RemoteProviderConfig(
             URI baseUrl,
             String flagsPath,

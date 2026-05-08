@@ -20,6 +20,9 @@ jobs:
   release-dry-run:
     name: Release dry-run (sign without publishing)
     runs-on: ubuntu-latest
+    # Don't burn a GPG-enabled job (and CI minutes) when the regular checks
+    # have already failed: the dry-run only adds value once tests pass.
+    needs: quality
 
     steps:
       - name: Checkout
