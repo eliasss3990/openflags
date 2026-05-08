@@ -16,6 +16,8 @@ jobs:
 
     strategy:
       matrix:
+        # Single-version matrix is intentional: Java 21 is the project baseline
+        # (ADR-008). Enforced at build time via maven-enforcer requireJavaVersion[21,).
         java: [21]
       fail-fast: false
 

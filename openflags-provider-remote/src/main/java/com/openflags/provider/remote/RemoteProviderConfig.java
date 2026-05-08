@@ -284,7 +284,9 @@ public record RemoteProviderConfig(
         }
         if (cacheTtl.compareTo(pollInterval) < 0) {
             throw new IllegalArgumentException(
-                    "cacheTtl must be >= pollInterval");
+                    "cacheTtl must be >= pollInterval;"
+                            + " got cacheTtl=" + cacheTtl
+                            + ", pollInterval=" + pollInterval);
         }
         if (requestTimeout.compareTo(pollInterval) > 0) {
             throw new IllegalArgumentException(

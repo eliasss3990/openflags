@@ -101,6 +101,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
+                        <!-- Same rationale as surefire: modules are unnamed, module path
+                             causes classpath issues with Spring Boot test infra. Keep
+                             both plugins symmetric to avoid surefire/failsafe drift. -->
                         <useModulePath>false</useModulePath>
                     </configuration>
                     <executions>
