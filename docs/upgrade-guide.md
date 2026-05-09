@@ -19,12 +19,12 @@ this contract.
 ## Public surface covered by SemVer
 
 - Types in the documented public packages of:
-  - `com.openflags.core` (excluding `*.internal`)
-  - `com.openflags.provider.file`
-  - `com.openflags.provider.remote`
-  - `com.openflags.provider.hybrid`
-  - `com.openflags.spring`
-  - `com.openflags.testing`
+  - `io.github.eliasss3990.openflags.core` (excluding `*.internal`)
+  - `io.github.eliasss3990.openflags.provider.file`
+  - `io.github.eliasss3990.openflags.provider.remote`
+  - `io.github.eliasss3990.openflags.provider.hybrid`
+  - `io.github.eliasss3990.openflags.spring`
+  - `io.github.eliasss3990.openflags.testing`
 - Names and tag keys in `OpenFlagsMetrics`
 - MDC keys in `OpenFlagsMdc`
 - Spring Boot configuration properties under `openflags.*`
@@ -35,13 +35,13 @@ this contract.
 `0.x` releases were unstable previews and are no longer supported. Direct
 upgrades are not supported; treat 1.0.0 as a fresh adoption.
 
-The Maven coordinates changed from `com.openflags` to
+The Maven coordinates changed from `io.github.eliasss3990.openflags` to
 `io.github.eliasss3990` at 1.0.0:
 
 ```xml
 <!-- before, 0.x -->
 <dependency>
-  <groupId>com.openflags</groupId>
+  <groupId>io.github.eliasss3990.openflags</groupId>
   <artifactId>openflags-core</artifactId>
   <version>0.5.0</version>
 </dependency>
@@ -54,7 +54,7 @@ The Maven coordinates changed from `com.openflags` to
 </dependency>
 ```
 
-Java package names (`com.openflags.*`) did **not** change — your imports stay
+Java package names (`io.github.eliasss3990.openflags.*`) did **not** change — your imports stay
 the same.
 
 ## From `1.0.0` to `1.1.0`

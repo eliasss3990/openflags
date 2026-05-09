@@ -70,7 +70,7 @@ acceptable for the value it unlocks.
 
 ## Decision
 
-We add two new values to `com.openflags.core.event.ChangeType`:
+We add two new values to `io.github.eliasss3990.openflags.core.event.ChangeType`:
 
 ```java
 public enum ChangeType {
@@ -278,5 +278,5 @@ common case.
 - `/data/proyectos/openflags/main/plan/code-review-arquitectura/05-plan-ejecucion.md` — PR 11 ("Parche `ChangeType` para `enabled` y oldValue correcto")
 - Findings T-02 (silent enable/disable transitions) and N-02 (UPDATED overloaded) in the same architecture review
 - ADR-7 (planned, 2.0) — `FlagChangeEventV2` with full `Flag` payload, structural fix
-- `com.openflags.core.event.ChangeType` — enum widened by this ADR
-- `com.openflags.core.event.FlagChangeEvent` — record whose semantics this ADR refines
+- `io.github.eliasss3990.openflags.core.event.ChangeType` — enum widened by this ADR
+- `io.github.eliasss3990.openflags.core.event.FlagChangeEvent` — record whose semantics this ADR refines

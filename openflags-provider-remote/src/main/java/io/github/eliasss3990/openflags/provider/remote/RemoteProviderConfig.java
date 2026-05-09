@@ -1,0 +1,358 @@
+package io.github.eliasss3990.openflags.provider.remote;
+
+import io.github.eliasss3990.openflags.core.provider.RemoteDefaults;
+import io.github.eliasss3990.openflags.core.util.Urls;
+
+import java.net.URI;
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Immutable configuration for a {@link RemoteFlagProvider}.
+ *
+ * @param baseUrl          the base URL of the backend (e.g.
+ *                         {@code https://flags.example.com}); non-null,
+ *                         scheme must be {@code http} or {@code https}
+ * @param flagsPath        the path appended to {@code baseUrl} for fetching
+ *                         flags; default {@code "/flags"}
+ * @param authHeaderName   the HTTP header used for authentication (e.g.
+ *                         {@code "Authorization"} or
+ *                         {@code "X-API-Key"}); may be null to disable auth
+ * @param authHeaderValue  the literal header value (e.g.
+ *                         {@code "Bearer eyJ..."}); may be null
+ *                         if {@code authHeaderName} is null. Never logged.
+ * @param connectTimeout   HTTP connect timeout; must be positive
+ * @param requestTimeout   HTTP request timeout (per request); must be positive
+ *                         and {@code <= pollInterval} so polls cannot overlap
+ * @param pollInterval     interval between polls; must be {@code >= 5s} and
+ *                         {@code >= requestTimeout}
+ * @param cacheTtl         cache TTL after which the provider transitions to
+ *                         {@code ERROR} state
+ *                         if no successful fetch happens; must be
+ *                         {@code >= pollInterval}
+ * @param userAgent        value of the {@code User-Agent} header; non-blank,
+ *                         default
+ *                         {@code "openflags-java"}
+ * @param failureThreshold consecutive poll failures required before the circuit
+ *                         breaker opens;
+ *                         must be in {@code [1, 100]}; default {@code 5}
+ * @param maxBackoff       maximum delay applied between polls when the circuit
+ *                         breaker is open;
+ *                         must be {@code >= pollInterval}; default {@code 5min}
+ * @param maxResponseBytes maximum number of bytes accepted in a single HTTP
+ *                         response body; responses larger than this cap are
+ *                         rejected with {@link ResponseTooLargeException};
+ *                         default {@link #DEFAULT_MAX_RESPONSE_BYTES}
+ *                         (10&nbsp;MiB)
+ * @param shutdownTimeout  maximum time to wait for in-flight requests to
+ *                         complete when {@link RemoteFlagProvider#shutdown()}
+ *                         is called; default
+ *                         {@link #DEFAULT_SHUTDOWN_TIMEOUT} (5&nbsp;s)
+ * @param httpVersion      desired HTTP protocol version; default
+ *                         {@link HttpVersion#AUTO}
+ */
+public record RemoteProviderConfig(
+        URI baseUrl,
+        String flagsPath,
+        String authHeaderName,
+        String authHeaderValue,
+        Duration connectTimeout,
+        Duration requestTimeout,
+        Duration pollInterval,
+        Duration cacheTtl,
+        String userAgent,
+        int failureThreshold,
+        Duration maxBackoff,
+        long maxResponseBytes,
+        Duration shutdownTimeout,
+        HttpVersion httpVersion) {
+
+    // Defaults below delegate to io.github.eliasss3990.openflags.core.provider.RemoteDefaults so
+    // that the Spring Boot starter (which keeps openflags-provider-remote optional)
+    // can reference them without dragging the remote module onto every consumer's
+    // classpath. See ADR-9. Public API of this record is preserved.
+
+    /** Sanity ceiling for {@code failureThreshold}. */
+    public static final int MAX_FAILURE_THRESHOLD = RemoteDefaults.MAX_FAILURE_THRESHOLD;
+
+    /**
+     * Default consecutive-failures threshold before opening the circuit breaker.
+     */
+    public static final int DEFAULT_FAILURE_THRESHOLD = RemoteDefaults.DEFAULT_FAILURE_THRESHOLD;
+
+    /** Default maximum backoff applied while the circuit breaker is open. */
+    public static final Duration DEFAULT_MAX_BACKOFF = RemoteDefaults.DEFAULT_MAX_BACKOFF;
+
+    /** Default HTTP connect timeout. */
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = RemoteDefaults.DEFAULT_CONNECT_TIMEOUT;
+
+    /** Default HTTP request timeout. */
+    public static final Duration DEFAULT_REQUEST_TIMEOUT = RemoteDefaults.DEFAULT_REQUEST_TIMEOUT;
+
+    /** Default polling interval. */
+    public static final Duration DEFAULT_POLL_INTERVAL = RemoteDefaults.DEFAULT_POLL_INTERVAL;
+
+    /** Default cache TTL. */
+    public static final Duration DEFAULT_CACHE_TTL = RemoteDefaults.DEFAULT_CACHE_TTL;
+
+    /** Default {@code User-Agent} header value used when none is provided. */
+    public static final String DEFAULT_USER_AGENT = RemoteDefaults.DEFAULT_USER_AGENT;
+
+    /** Default flags path appended to the base URL. */
+    public static final String DEFAULT_FLAGS_PATH = RemoteDefaults.DEFAULT_FLAGS_PATH;
+
+    /** Default maximum response body size: 10 MiB. */
+    public static final long DEFAULT_MAX_RESPONSE_BYTES = RemoteDefaults.DEFAULT_MAX_RESPONSE_BYTES;
+
+    /** Default shutdown timeout when waiting for in-flight requests to finish. */
+    public static final Duration DEFAULT_SHUTDOWN_TIMEOUT = RemoteDefaults.DEFAULT_SHUTDOWN_TIMEOUT;
+
+    /** Default HTTP version negotiation strategy. */
+    public static final HttpVersion DEFAULT_HTTP_VERSION = HttpVersion.AUTO;
+
+    /**
+     * Returns a config with all defaults except the base URL. Useful for callers
+     * that want a working remote setup with one line and to override specific
+     * fields later via record copy semantics or
+     * {@link RemoteFlagProviderBuilder}.
+     *
+     * @param baseUrl the remote base URL; must use http or https; non-null
+     * @return a config populated with defaults
+     * @since 1.1.0
+     */
+    public static RemoteProviderConfig defaults(URI baseUrl) {
+        return new RemoteProviderConfig(
+                baseUrl,
+                DEFAULT_FLAGS_PATH,
+                null, null,
+                DEFAULT_CONNECT_TIMEOUT,
+                DEFAULT_REQUEST_TIMEOUT,
+                DEFAULT_POLL_INTERVAL,
+                DEFAULT_CACHE_TTL,
+                DEFAULT_USER_AGENT,
+                DEFAULT_FAILURE_THRESHOLD,
+                DEFAULT_MAX_BACKOFF,
+                DEFAULT_MAX_RESPONSE_BYTES,
+                DEFAULT_SHUTDOWN_TIMEOUT,
+                DEFAULT_HTTP_VERSION);
+    }
+
+    /**
+     * Convenience constructor that preserves source compatibility with existing
+     * 11-arg call sites. Applies {@link #DEFAULT_MAX_RESPONSE_BYTES},
+     * {@link #DEFAULT_SHUTDOWN_TIMEOUT} and {@link #DEFAULT_HTTP_VERSION} for
+     * the three new fields introduced in this version.
+     *
+     * <p>
+     * Prefer {@link RemoteFlagProviderBuilder} for new code so that future
+     * fields can be added without requiring call-site changes.
+     *
+     * @param baseUrl          base URL of the remote backend
+     * @param flagsPath        path appended to {@code baseUrl} for fetching flags
+     * @param authHeaderName   optional auth header name
+     * @param authHeaderValue  optional auth header value
+     * @param connectTimeout   HTTP connect timeout
+     * @param requestTimeout   HTTP request timeout
+     * @param pollInterval     polling interval between fetches
+     * @param cacheTtl         cache TTL for fetched flags
+     * @param userAgent        HTTP User-Agent header value
+     * @param failureThreshold consecutive failures before opening the circuit
+     *                         breaker
+     * @param maxBackoff       upper bound on the exponential backoff delay
+     */
+    public RemoteProviderConfig(
+            URI baseUrl,
+            String flagsPath,
+            String authHeaderName,
+            String authHeaderValue,
+            Duration connectTimeout,
+            Duration requestTimeout,
+            Duration pollInterval,
+            Duration cacheTtl,
+            String userAgent,
+            int failureThreshold,
+            Duration maxBackoff) {
+        this(baseUrl, flagsPath, authHeaderName, authHeaderValue,
+                connectTimeout, requestTimeout, pollInterval, cacheTtl, userAgent,
+                failureThreshold, maxBackoff,
+                DEFAULT_MAX_RESPONSE_BYTES,
+                DEFAULT_SHUTDOWN_TIMEOUT,
+                DEFAULT_HTTP_VERSION);
+    }
+
+    /**
+     * Convenience constructor preserving the pre-circuit-breaker signature.
+     * Applies {@link #DEFAULT_FAILURE_THRESHOLD} and the larger of
+     * {@link #DEFAULT_MAX_BACKOFF} or {@code pollInterval} as defaults.
+     *
+     * @deprecated Prefer {@link RemoteFlagProviderBuilder} (obtained via
+     *             {@link RemoteFlagProviderBuilder#forUrl(URI)}), which
+     *             evolves gracefully when new optional fields are added to
+     *             the record. Migration example:
+     *
+     *             <pre>{@code
+     * // Before
+     * RemoteProviderConfig cfg = new RemoteProviderConfig(
+     *         URI.create("https://flags.example.com"), "/flags",
+     *         null, null,
+     *         Duration.ofSeconds(5), Duration.ofSeconds(10),
+     *         Duration.ofSeconds(30), Duration.ofMinutes(5),
+     *         "my-app");
+     * RemoteFlagProvider provider = new RemoteFlagProvider(cfg);
+     *
+     * // After
+     * RemoteFlagProvider provider = RemoteFlagProviderBuilder
+     *         .forUrl("https://flags.example.com")
+     *         .userAgent("my-app")
+     *         .build();
+     * }</pre>
+     *
+     * @param baseUrl         base URL of the remote backend
+     * @param flagsPath       path appended to {@code baseUrl} for fetching flags
+     * @param authHeaderName  optional auth header name
+     * @param authHeaderValue optional auth header value
+     * @param connectTimeout  HTTP connect timeout
+     * @param requestTimeout  HTTP request timeout
+     * @param pollInterval    polling interval between fetches
+     * @param cacheTtl        cache TTL for fetched flags
+     * @param userAgent       HTTP User-Agent header value
+     */
+    @Deprecated(since = "1.1.0", forRemoval = true)
+    public RemoteProviderConfig(
+            URI baseUrl,
+            String flagsPath,
+            String authHeaderName,
+            String authHeaderValue,
+            Duration connectTimeout,
+            Duration requestTimeout,
+            Duration pollInterval,
+            Duration cacheTtl,
+            String userAgent) {
+        this(baseUrl, flagsPath, authHeaderName, authHeaderValue,
+                connectTimeout, requestTimeout, pollInterval, cacheTtl, userAgent,
+                DEFAULT_FAILURE_THRESHOLD,
+                pollInterval != null && pollInterval.compareTo(DEFAULT_MAX_BACKOFF) > 0
+                        ? pollInterval
+                        : DEFAULT_MAX_BACKOFF);
+    }
+
+    /** Minimum allowed poll interval to prevent accidental backend overload. */
+    public static final Duration MIN_POLL_INTERVAL = Duration.ofSeconds(5);
+
+    /**
+     * Compact constructor that validates fields and applies defaults to optional
+     * ones.
+     *
+     * @throws NullPointerException     if any required field is null
+     * @throws IllegalArgumentException if any range/scheme constraint is violated
+     */
+    public RemoteProviderConfig {
+        Objects.requireNonNull(baseUrl, "baseUrl must not be null");
+        String scheme = baseUrl.getScheme();
+        if (scheme == null || !Set.of("http", "https").contains(scheme)) {
+            throw new IllegalArgumentException(
+                    "baseUrl must use http or https, got " + scheme);
+        }
+        if (flagsPath == null || flagsPath.isBlank()) {
+            flagsPath = DEFAULT_FLAGS_PATH;
+        }
+        boolean nameMissing = authHeaderName == null || authHeaderName.isBlank();
+        boolean valueMissing = authHeaderValue == null || authHeaderValue.isBlank();
+        if (nameMissing != valueMissing) {
+            throw new IllegalArgumentException(
+                    "authHeaderName and authHeaderValue must both be set (non-blank) or both be null/blank");
+        }
+        if (nameMissing) {
+            // normalize blank → null so downstream code only needs a null check
+            authHeaderName = null;
+            authHeaderValue = null;
+        }
+        Objects.requireNonNull(connectTimeout, "connectTimeout must not be null");
+        Objects.requireNonNull(requestTimeout, "requestTimeout must not be null");
+        Objects.requireNonNull(pollInterval, "pollInterval must not be null");
+        Objects.requireNonNull(cacheTtl, "cacheTtl must not be null");
+        if (connectTimeout.isNegative() || connectTimeout.isZero()) {
+            throw new IllegalArgumentException("connectTimeout must be positive");
+        }
+        if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+            throw new IllegalArgumentException("requestTimeout must be positive");
+        }
+        if (pollInterval.compareTo(MIN_POLL_INTERVAL) < 0) {
+            throw new IllegalArgumentException(
+                    "pollInterval must be >= " + MIN_POLL_INTERVAL + ", got " + pollInterval);
+        }
+        if (cacheTtl.compareTo(pollInterval) < 0) {
+            throw new IllegalArgumentException(
+                    "cacheTtl must be >= pollInterval;"
+                            + " got cacheTtl=" + cacheTtl
+                            + ", pollInterval=" + pollInterval);
+        }
+        if (requestTimeout.compareTo(pollInterval) > 0) {
+            throw new IllegalArgumentException(
+                    "requestTimeout must be <= pollInterval (otherwise the HTTP response"
+                            + " may arrive after the next poll is already due);"
+                            + " got requestTimeout=" + requestTimeout
+                            + ", pollInterval=" + pollInterval);
+        }
+        if (userAgent == null || userAgent.isBlank()) {
+            userAgent = DEFAULT_USER_AGENT;
+        }
+        if (failureThreshold <= 0) {
+            throw new IllegalArgumentException(
+                    "failureThreshold must be > 0, got " + failureThreshold);
+        }
+        if (failureThreshold > MAX_FAILURE_THRESHOLD) {
+            throw new IllegalArgumentException(
+                    "failureThreshold must be <= " + MAX_FAILURE_THRESHOLD + ", got " + failureThreshold);
+        }
+        Objects.requireNonNull(maxBackoff, "maxBackoff must not be null");
+        if (maxBackoff.isNegative() || maxBackoff.isZero()) {
+            throw new IllegalArgumentException("maxBackoff must be positive");
+        }
+        if (maxBackoff.compareTo(pollInterval) < 0) {
+            throw new IllegalArgumentException(
+                    "maxBackoff must be greater than or equal to pollInterval");
+        }
+        if (maxResponseBytes <= 0) {
+            throw new IllegalArgumentException(
+                    "maxResponseBytes must be positive, got " + maxResponseBytes);
+        }
+        Objects.requireNonNull(shutdownTimeout, "shutdownTimeout must not be null");
+        if (shutdownTimeout.isNegative() || shutdownTimeout.isZero()) {
+            throw new IllegalArgumentException("shutdownTimeout must be positive");
+        }
+        if (httpVersion == null) {
+            httpVersion = DEFAULT_HTTP_VERSION;
+        }
+    }
+
+    /**
+     * Returns a string representation that masks {@code authHeaderValue} so
+     * secrets never leak through logs, exception messages or diagnostics.
+     * The masked value is {@code null} when the field is null, {@code <blank>}
+     * when it is non-null but blank, and {@code ***} otherwise.
+     */
+    @Override
+    public String toString() {
+        String maskedValue = authHeaderValue == null ? "null"
+                : authHeaderValue.isBlank() ? "<blank>"
+                        : "***";
+        return "RemoteProviderConfig["
+                + "baseUrl=" + Urls.redact(baseUrl)
+                + ", flagsPath=" + flagsPath
+                + ", authHeaderName=" + authHeaderName
+                + ", authHeaderValue=" + maskedValue
+                + ", connectTimeout=" + connectTimeout
+                + ", requestTimeout=" + requestTimeout
+                + ", pollInterval=" + pollInterval
+                + ", cacheTtl=" + cacheTtl
+                + ", userAgent=" + userAgent
+                + ", failureThreshold=" + failureThreshold
+                + ", maxBackoff=" + maxBackoff
+                + ", maxResponseBytes=" + maxResponseBytes
+                + ", shutdownTimeout=" + shutdownTimeout
+                + ", httpVersion=" + httpVersion
+                + "]";
+    }
+}

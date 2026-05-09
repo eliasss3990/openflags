@@ -16,7 +16,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jmh.version>1.37</jmh.version>
-        <openflags.version>1.0.0</openflags.version>
+        <openflags.version>2.0.0-SNAPSHOT</openflags.version>
     </properties>
 
     <dependencies>
