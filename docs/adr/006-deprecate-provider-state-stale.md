@@ -6,7 +6,7 @@
 
 ## Context
 
-`com.openflags.core.provider.ProviderState` is the public enum that every
+`io.github.eliasss3990.openflags.core.provider.ProviderState` is the public enum that every
 `FlagProvider` exposes through `getState()`. Today it declares five values:
 `NOT_READY`, `READY`, `DEGRADED`, `STALE`, and `ERROR`. Of those, `STALE` is
 the only one that no provider actively transitions into in the current

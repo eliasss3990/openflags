@@ -70,7 +70,7 @@ treat oversized responses as a poll failure.
 
 ### 2. Configurable HTTP version with `AUTO` heuristic
 
-Introduce a public enum `com.openflags.remote.HttpVersion` with three values:
+Introduce a public enum `io.github.eliasss3990.openflags.remote.HttpVersion` with three values:
 
 - `AUTO` — derive the version from the request scheme: `https://` → HTTP/2,
   `http://` → HTTP/1.1.

@@ -1,0 +1,132 @@
+package io.github.eliasss3990.openflags.core;
+
+import io.github.eliasss3990.openflags.core.evaluation.EvaluationContext;
+import io.github.eliasss3990.openflags.core.evaluation.EvaluationEvent;
+import io.github.eliasss3990.openflags.core.evaluation.EvaluationListener;
+import io.github.eliasss3990.openflags.core.evaluation.EvaluationReason;
+import io.github.eliasss3990.openflags.core.metrics.MetricsRecorder;
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class EvaluationListenerRegistryTest {
+
+    private static EvaluationEvent sampleEvent() {
+        return new EvaluationEvent(
+                "flag-x", Boolean.class, false, true,
+                EvaluationReason.RESOLVED, null, null,
+                EvaluationContext.empty(), Instant.now(), 100L, "test");
+    }
+
+    private static final class CountingRecorder implements MetricsRecorder {
+        final List<String> listenerErrors = new ArrayList<>();
+
+        @Override
+        public void recordEvaluation(EvaluationEvent event) {
+        }
+
+        @Override
+        public void recordPoll(String outcome, long durationNanos) {
+        }
+
+        @Override
+        public void recordSnapshotWrite(String outcome, long durationNanos) {
+        }
+
+        @Override
+        public void recordFlagChange(io.github.eliasss3990.openflags.core.event.ChangeType type) {
+        }
+
+        @Override
+        public void recordHybridFallback(String from, String to) {
+        }
+
+        @Override
+        public void recordListenerError(String listenerSimpleName) {
+            listenerErrors.add(listenerSimpleName);
+        }
+
+        @Override
+        public void registerGauge(String name, Iterable<io.github.eliasss3990.openflags.core.metrics.Tag> tags,
+                java.util.function.Supplier<Number> supplier) {
+        }
+    }
+
+    @Test
+    void distinctInstancesOfSameClass_haveIndependentCounters() {
+        CountingRecorder recorder = new CountingRecorder();
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
+
+        EvaluationListener l1 = e -> {
+            throw new RuntimeException("boom");
+        };
+        EvaluationListener l2 = e -> {
+            throw new RuntimeException("boom");
+        };
+        registry.add(l1);
+        registry.add(l2);
+
+        // Each listener fails once; registry must dispatch to both regardless of
+        // the other's failure, and per-instance counters must increment independently.
+        registry.dispatch(sampleEvent());
+
+        assertThat(recorder.listenerErrors).hasSize(2);
+        assertThat(registry.size()).isEqualTo(2);
+    }
+
+    @Test
+    void remove_clearsFailureCounter_preventingLeak() {
+        CountingRecorder recorder = new CountingRecorder();
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
+
+        EvaluationListener failing = e -> {
+            throw new RuntimeException("boom");
+        };
+        registry.add(failing);
+        registry.dispatch(sampleEvent());
+
+        assertThat(registry.remove(failing)).isTrue();
+        assertThat(registry.size()).isZero();
+        // Re-adding triggers a fresh counter; we verify behavioral cleanliness via
+        // dispatching again — the WARN rate-limit (powers of two) hits "1" again.
+        registry.add(failing);
+        registry.dispatch(sampleEvent());
+        assertThat(recorder.listenerErrors).hasSize(2);
+    }
+
+    @Test
+    void remove_returnsFalseForUnknownListener() {
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(MetricsRecorder.NOOP);
+        EvaluationListener listener = e -> {
+        };
+        assertThat(registry.remove(listener)).isFalse();
+    }
+
+    @Test
+    void failureCounters_capPreventsUnboundedGrowth() {
+        CountingRecorder recorder = new CountingRecorder();
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
+
+        // Register many distinct failing listeners; once the cap is hit, additional
+        // instances must still be invoked (errors recorded) but failureCounters
+        // must not grow beyond the cap.
+        int total = EvaluationListenerRegistry.MAX_TRACKED_FAILING_LISTENERS + 50;
+        for (int i = 0; i < total; i++) {
+            registry.add(e -> {
+                throw new RuntimeException("boom");
+            });
+        }
+        registry.dispatch(sampleEvent());
+        assertThat(recorder.listenerErrors).hasSize(total);
+    }
+
+    @Test
+    void remove_nullTolerated() {
+        EvaluationListenerRegistry registry = new EvaluationListenerRegistry(MetricsRecorder.NOOP);
+        assertThat(registry.remove(null)).isFalse();
+    }
+}

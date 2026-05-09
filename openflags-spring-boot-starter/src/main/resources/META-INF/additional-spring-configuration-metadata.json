@@ -116,7 +116,7 @@
     },
     {
       "name": "openflags.hybrid.snapshot-format",
-      "type": "com.openflags.provider.hybrid.SnapshotFormat",
+      "type": "io.github.eliasss3990.openflags.provider.hybrid.SnapshotFormat",
       "description": "Snapshot format: JSON (default) or YAML.",
       "defaultValue": "JSON"
     },

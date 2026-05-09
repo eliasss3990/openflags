@@ -34,7 +34,7 @@ is picked up without a restart.
 
 ## What to look at
 
-- [`QuickstartApplication.java`](src/main/java/com/openflags/example/quickstart/QuickstartApplication.java)
+- [`QuickstartApplication.java`](src/main/java/io/github/eliasss3990/openflags/example/quickstart/QuickstartApplication.java)
   — single `OpenFlagsClient` is autowired by the starter; pass an
   `EvaluationContext` per request.
 - [`application.yml`](src/main/resources/application.yml) — only the

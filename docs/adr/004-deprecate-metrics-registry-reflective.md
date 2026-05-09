@@ -14,7 +14,7 @@ client through reflection:
 public OpenFlagsClientBuilder metricsRegistry(Object meterRegistry) { ... }
 ```
 
-Internally the builder loads `com.openflags.metrics.micrometer.MicrometerMetricsRecorder`
+Internally the builder loads `io.github.eliasss3990.openflags.metrics.micrometer.MicrometerMetricsRecorder`
 reflectively, walks two different classloaders (the caller's and the library's),
 invokes `setAccessible(true)` on the constructor, and instantiates the recorder
 via `Constructor.newInstance(...)`. The result is then assigned to the regular
@@ -74,7 +74,7 @@ reflective classloader walk is removed.
 ```java
 /**
  * @deprecated Use {@link #metricsRecorder(MetricsRecorder)} with a
- *             {@link com.openflags.metrics.micrometer.MicrometerMetricsRecorder}
+ *             {@link io.github.eliasss3990.openflags.metrics.micrometer.MicrometerMetricsRecorder}
  *             instance. The reflective bridge will be removed in 2.0.
  *             <p>Migration example:
  *             <pre>{@code
