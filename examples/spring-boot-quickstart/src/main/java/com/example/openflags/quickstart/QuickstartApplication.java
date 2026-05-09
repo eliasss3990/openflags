@@ -1,4 +1,4 @@
-package io.github.eliasss3990.openflags.example.quickstart;
+package com.example.openflags.quickstart;
 
 import io.github.eliasss3990.openflags.core.OpenFlagsClient;
 import io.github.eliasss3990.openflags.core.evaluation.EvaluationContext;
