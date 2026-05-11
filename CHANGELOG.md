@@ -9,6 +9,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [2.0.0-rc1] - 2026-05-11
+
 ### Breaking Changes
 
 - **Root package renamed** from `com.openflags.*` to `io.github.eliasss3990.openflags.*` to align with the published Maven Central groupId (`io.github.eliasss3990`). Every public type now lives under the new namespace; artifactIds, configuration property prefixes (`openflags.*`), metric names, and the project branding remain unchanged. **Migration**: search-and-replace `com.openflags` with `io.github.eliasss3990.openflags` across imports. Detailed rationale and step-by-step upgrade instructions in ADR-509 and `docs/upgrade-guide.md`.
@@ -326,5 +328,7 @@ shipped as part of `0.5.0`. They are kept here for traceability.
 
 ---
 
-[Unreleased]: https://github.com/eliasss3990/openflags/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/eliasss3990/openflags/compare/v2.0.0-rc1...HEAD
+[2.0.0-rc1]: https://github.com/eliasss3990/openflags/compare/v1.1.0...v2.0.0-rc1
+[1.1.0]: https://github.com/eliasss3990/openflags/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eliasss3990/openflags/releases/tag/v1.0.0
