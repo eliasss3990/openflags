@@ -77,53 +77,6 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
         this.tagFlagKey = tagFlagKey;
     }
 
-    /**
-     * Type-checking factory used by the deprecated reflective entry point on
-     * {@code OpenFlagsClientBuilder#metricsRegistry(Object)}. Confining the
-     * {@code Object}-to-{@link MeterRegistry} cast to this class keeps the
-     * Micrometer dependency optional from the rest of {@code openflags-core}
-     * (ADR-501): only loading this class triggers Micrometer linkage.
-     *
-     * @param registry   a {@link MeterRegistry} passed as {@code Object} to
-     *                   keep the Micrometer dependency soft at the call site
-     * @param tagFlagKey whether to attach a {@code flag} tag to per-flag meters
-     * @return a recorder bound to {@code registry}
-     * @throws IllegalArgumentException if {@code registry} is not a
-     *                                  {@link MeterRegistry}
-     */
-    public static MicrometerMetricsRecorder fromRegistryObject(Object registry, boolean tagFlagKey) {
-        Objects.requireNonNull(registry, "registry must not be null");
-        if (!(registry instanceof MeterRegistry mr)) {
-            throw new IllegalArgumentException(
-                    "registry must implement io.micrometer.core.instrument.MeterRegistry "
-                            + "(got " + registry.getClass().getName() + ")");
-        }
-        return new MicrometerMetricsRecorder(mr, tagFlagKey);
-    }
-
-    /**
-     * Type-checks {@code registry} without exposing the {@link MeterRegistry}
-     * type in this method's signature, so callers in {@code openflags-core}
-     * (notably {@code OpenFlagsClientBuilder}) keep their constant pool free
-     * of {@code io.micrometer.*} references (ADR-501 hard-class-ref guard).
-     * Used by the deprecated reflective entry point to fail fast at call time
-     * while deferring recorder construction until later configuration (e.g.
-     * {@code metricsTagFlagKey(...)}) is final.
-     *
-     * @param registry a {@link MeterRegistry} passed as {@code Object}
-     * @throws NullPointerException     if {@code registry} is null
-     * @throws IllegalArgumentException if {@code registry} is not a
-     *                                  {@link MeterRegistry}
-     */
-    public static void validateRegistryObject(Object registry) {
-        Objects.requireNonNull(registry, "registry must not be null");
-        if (!(registry instanceof MeterRegistry)) {
-            throw new IllegalArgumentException(
-                    "registry must implement io.micrometer.core.instrument.MeterRegistry "
-                            + "(got " + registry.getClass().getName() + ")");
-        }
-    }
-
     @Override
     public void recordEvaluation(EvaluationEvent event) {
         Objects.requireNonNull(event, "event must not be null");
@@ -260,12 +213,12 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
     /**
      * Stable, non-ordinal mapping of {@link ProviderState} to a numeric
      * code suitable for a gauge. Future enum additions MUST be assigned
-     * codes >= 6 without reordering existing entries (ADR-501).
+     * codes >= 6 without reordering existing entries (ADR-501). Code {@code 4}
+     * is reserved (was {@code STALE}, removed in 2.0 via ADR-6).
      *
      * @param state state to map; {@code null} maps to {@code -1}
      * @return numeric code, or {@code -1} for unknown values
      */
-    @SuppressWarnings("deprecation") // STALE branch retained until 2.0 removal (ADR-6 / PR-12b)
     static int providerStateCode(ProviderState state) {
         if (state == null)
             return -1;
@@ -274,7 +227,7 @@ public final class MicrometerMetricsRecorder implements MetricsRecorder {
             case READY -> 1;
             case DEGRADED -> 2;
             case ERROR -> 3;
-            case STALE -> 4;
+            // code 4 reserved (STALE, removed in 2.0)
             case SHUTDOWN -> 5;
         };
     }

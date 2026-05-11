@@ -28,7 +28,6 @@ public final class OpenFlagsClientBuilder {
 
     private FlagProvider provider;
     private MetricsRecorder metricsRecorder;
-    private Object pendingMicrometerRegistry;
     private boolean metricsTagFlagKey = true;
     private boolean auditMdcEnabled = false;
     private String providerType = "unknown";
@@ -39,9 +38,7 @@ public final class OpenFlagsClientBuilder {
 
     /**
      * Sets the {@link MetricsRecorder} directly. This is the canonical typed
-     * entry point for metrics integration; prefer it over the deprecated
-     * reflective {@link #metricsRegistry(Object)}. When both are set, the
-     * recorder set most recently wins.
+     * entry point for metrics integration.
      *
      * <p>For Micrometer users on a manual builder path:
      * <pre>{@code
@@ -104,52 +101,6 @@ public final class OpenFlagsClientBuilder {
     }
 
     /**
-     * Provides a Micrometer {@code MeterRegistry}. The argument must implement
-     * {@code io.micrometer.core.instrument.MeterRegistry}.
-     *
-     * @param registry a {@code MeterRegistry} instance; must not be null
-     * @return this builder
-     * @throws NullPointerException     if registry is null
-     * @throws IllegalStateException    if Micrometer is not on the classpath
-     * @throws IllegalArgumentException if registry is not a {@code MeterRegistry}
-     * @deprecated Use {@link #metricsRecorder(MetricsRecorder)} with a
-     *             {@code io.github.eliasss3990.openflags.core.metrics.MicrometerMetricsRecorder}
-     *             instance. The reflective bridge will be removed in 2.0 (ADR-4).
-     *             <p>Migration:
-     *             <pre>{@code
-     * // Before
-     * OpenFlagsClient client = OpenFlagsClient.builder()
-     *         .provider(provider)
-     *         .metricsRegistry(meterRegistry)
-     *         .build();
-     *
-     * // After
-     * OpenFlagsClient client = OpenFlagsClient.builder()
-     *         .provider(provider)
-     *         .metricsRecorder(new MicrometerMetricsRecorder(meterRegistry, true))
-     *         .build();
-     *             }</pre>
-     */
-    @Deprecated(forRemoval = true, since = "1.1.0")
-    public OpenFlagsClientBuilder metricsRegistry(Object registry) {
-        Objects.requireNonNull(registry, "registry must not be null");
-        // Eagerly validate the type so callers get the same fast-fail
-        // semantics as before: Micrometer-missing surfaces here, not at
-        // build(). Resolution to a recorder is still deferred so that a
-        // later metricsTagFlagKey(...) call is honored.
-        try {
-            MicrometerMetricsRecorder.validateRegistryObject(registry);
-        } catch (LinkageError e) {
-            throw new IllegalStateException(
-                    "Micrometer is not on the classpath; add io.micrometer:micrometer-core "
-                            + "or use metricsRecorder(MetricsRecorder) directly",
-                    e);
-        }
-        this.pendingMicrometerRegistry = registry;
-        return this;
-    }
-
-    /**
      * Controls whether the {@code flag} and {@code variant} tags are
      * attached to evaluation metrics. Disable for high-cardinality
      * deployments. Default {@code true}.
@@ -206,15 +157,9 @@ public final class OpenFlagsClientBuilder {
             throw new IllegalStateException("A FlagProvider must be set before building the client");
         }
         provider.init();
-        MetricsRecorder recorder;
-        if (metricsRecorder != null) {
-            recorder = metricsRecorder;
-        } else if (pendingMicrometerRegistry != null) {
-            recorder = MicrometerMetricsRecorder.fromRegistryObject(
-                    pendingMicrometerRegistry, metricsTagFlagKey);
-        } else {
-            recorder = MetricsRecorder.NOOP;
-        }
+        MetricsRecorder recorder = metricsRecorder != null
+                ? metricsRecorder
+                : MetricsRecorder.NOOP;
         EvaluationListenerRegistry registry = new EvaluationListenerRegistry(recorder);
         for (EvaluationListener listener : evaluationListeners) {
             registry.add(listener);

@@ -890,6 +890,12 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
      * {@code MicrometerMetricsRecorder#providerStateCode} without creating a
      * compile-time dependency on Micrometer.
      *
+     * <p><b>Source of truth</b>: the mapping in
+     * {@code MicrometerMetricsRecorder} is authoritative — keep these two
+     * methods in sync when adding new {@link ProviderState} values. Code 4 is
+     * permanently reserved (was {@code STALE}, removed in 2.0). New codes
+     * MUST be {@code >= 6}.
+     *
      * @param state state to map; {@code null} maps to {@code -1}
      * @return numeric code, or {@code -1} for unknown values
      */
@@ -901,7 +907,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             case READY -> 1;
             case DEGRADED -> 2;
             case ERROR -> 3;
-            case STALE -> 4;
+            // code 4 reserved (STALE, removed in 2.0)
             case SHUTDOWN -> 5;
         };
     }

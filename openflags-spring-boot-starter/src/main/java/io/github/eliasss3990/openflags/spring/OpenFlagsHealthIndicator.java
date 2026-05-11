@@ -12,7 +12,7 @@ import org.springframework.boot.actuate.health.HealthIndicator;
  * <p>
  * Reports {@link Health#up()} when the provider is in
  * {@link ProviderState#READY},
- * {@link Health#outOfService()} when {@code DEGRADED} or {@code STALE} and
+ * {@link Health#outOfService()} when {@code DEGRADED} and
  * {@link Health#down()} otherwise. Only active when
  * {@code spring-boot-starter-actuator} is on the classpath.
  * </p>
@@ -52,12 +52,11 @@ public class OpenFlagsHealthIndicator implements HealthIndicator {
     }
 
     @Override
-    @SuppressWarnings("deprecation") // STALE branch retained until 2.0 removal (ADR-6 / PR-12b)
     public Health health() {
         ProviderState state = client.getProviderState();
         Health.Builder builder = switch (state) {
             case READY -> Health.up();
-            case DEGRADED, STALE -> Health.outOfService();
+            case DEGRADED -> Health.outOfService();
             default -> Health.down();
         };
         builder.withDetail("provider.state", state);

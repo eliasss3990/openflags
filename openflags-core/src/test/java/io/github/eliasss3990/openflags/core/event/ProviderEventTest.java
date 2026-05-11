@@ -7,7 +7,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 
-@SuppressWarnings("deprecation") // ProviderState.STALE referenced in toString test (ADR-6)
 class ProviderEventTest {
 
     @Test
@@ -35,7 +34,7 @@ class ProviderEventTest {
 
     @Test
     void toString_containsStateAndMessage() {
-        ProviderEvent event = new ProviderEvent(ProviderState.STALE, Optional.of("stale data"));
-        assertThat(event.toString()).contains("STALE").contains("stale data");
+        ProviderEvent event = new ProviderEvent(ProviderState.DEGRADED, Optional.of("transient failure"));
+        assertThat(event.toString()).contains("DEGRADED").contains("transient failure");
     }
 }

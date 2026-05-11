@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SuppressWarnings("deprecation") // ProviderState.STALE referenced in providerStateCode test (ADR-6)
 class MicrometerMetricsRecorderTest {
 
         private SimpleMeterRegistry registry;
@@ -130,12 +129,12 @@ class MicrometerMetricsRecorderTest {
 
         @Test
         void providerStateCode_isStableNonOrdinalMapping() {
+                // Code 4 is reserved (was STALE, removed in 2.0 via ADR-6).
                 Map<ProviderState, Integer> expected = Map.of(
                                 ProviderState.NOT_READY, 0,
                                 ProviderState.READY, 1,
                                 ProviderState.DEGRADED, 2,
                                 ProviderState.ERROR, 3,
-                                ProviderState.STALE, 4,
                                 ProviderState.SHUTDOWN, 5);
                 for (Map.Entry<ProviderState, Integer> e : expected.entrySet()) {
                         assertThat(MicrometerMetricsRecorder.providerStateCode(e.getKey()))

@@ -1,5 +1,6 @@
 package io.github.eliasss3990.openflags.core;
 
+import io.github.eliasss3990.openflags.core.metrics.MicrometerMetricsRecorder;
 import io.github.eliasss3990.openflags.core.provider.FlagProvider;
 import io.github.eliasss3990.openflags.core.provider.ProviderState;
 import io.micrometer.core.instrument.Counter;
@@ -49,11 +50,11 @@ class OpenFlagsClientBuilderTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation") // exercising the deprecated reflective entry point on purpose (ADR-4)
-    void metricsRegistry_thenMetricsTagFlagKeyFalse_isHonored() {
-        // Regression: previously the recorder was built eagerly inside
-        // metricsRegistry(...), so a later metricsTagFlagKey(false) was
-        // silently ignored. Resolution must defer to build().
+    void metricsRecorder_micrometer_recordsIntoInjectedRegistry() {
+        // End-to-end: el recorder pasado por .metricsRecorder() debe ser el que
+        // efectivamente usa el cliente; el counter debe materializarse en el
+        // mismo registry inyectado (no en uno paralelo). Además metricsTagFlagKey
+        // (=false en este caso) tiene que respetarse.
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         doNothing().when(provider).init();
         when(provider.getFlag("k")).thenReturn(java.util.Optional.empty());
@@ -61,15 +62,25 @@ class OpenFlagsClientBuilderTest {
         OpenFlagsClient client = OpenFlagsClient.builder()
                 .provider(provider)
                 .providerType("file")
-                .metricsRegistry(registry)
-                .metricsTagFlagKey(false)
+                .metricsRecorder(new MicrometerMetricsRecorder(registry, false))
                 .build();
         try {
+            // Pre: el contador todavía no existe en el registry inyectado.
+            assertThat(registry.find("openflags.evaluations.total").counter())
+                    .as("registry empty before any evaluation")
+                    .isNull();
+
             client.getBooleanValue("k", true);
+
             Counter c = registry.find("openflags.evaluations.total").counter();
-            assertThat(c).isNotNull();
+            assertThat(c)
+                    .as("counter must be registered in the injected registry")
+                    .isNotNull();
+            assertThat(c.count())
+                    .as("a single evaluation must increment the counter once")
+                    .isEqualTo(1.0);
             assertThat(c.getId().getTag("flag"))
-                    .as("metricsTagFlagKey(false) called after metricsRegistry must be honored")
+                    .as("MicrometerMetricsRecorder built with tagFlagKey=false must not attach the flag tag")
                     .isNull();
         } finally {
             client.shutdown();
