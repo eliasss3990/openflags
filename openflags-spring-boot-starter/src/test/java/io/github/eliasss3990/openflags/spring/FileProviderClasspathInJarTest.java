@@ -22,18 +22,20 @@ import java.util.zip.ZipEntry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Regresión: cuando {@code openflags.file.path=classpath:flags.yml} y el
- * recurso vive <b>dentro de un JAR</b>:
+ * Regression test: when {@code openflags.file.path=classpath:flags.yml} and
+ * the resource lives <b>inside a JAR</b>:
  *
  * <ul>
- *   <li>con {@code watch=false} → el starter extrae el archivo a un temp file
- *       y arranca normal. Caso common de Spring Boot launcher JAR.</li>
- *   <li>con {@code watch=true} → fail-fast con mensaje accionable —
- *       WatchService no soporta entries dentro de un archivo.</li>
+ *   <li>with {@code watch=false} → the starter extracts the file to a temp
+ *       location and starts normally. The common Spring Boot launcher JAR
+ *       case.</li>
+ *   <li>with {@code watch=true} → fail-fast with an actionable error —
+ *       WatchService cannot watch entries inside an archive.</li>
  * </ul>
  *
- * <p>Reproducimos el escenario "recurso dentro de JAR" creando un JAR temporal
- * con {@code flags.yml} adentro y agregándolo al classpath del context runner.
+ * <p>The "resource inside JAR" scenario is reproduced by building a temp
+ * JAR containing {@code flags.yml} and adding it to the context runner's
+ * classloader.
  */
 class FileProviderClasspathInJarTest {
 
@@ -91,8 +93,8 @@ class FileProviderClasspathInJarTest {
 
     @Test
     void classpathExtractionHelper_preservesYamlExtension(@TempDir Path tmp) throws Exception {
-        // El temp file extraído debe terminar en .yml para que el parser
-        // YAML del FileFlagProvider lo trate como YAML y no como JSON.
+        // The extracted temp file must keep the .yml extension so that the
+        // FileFlagProvider parser treats it as YAML and not as JSON.
         URLClassLoader cl = classLoaderWithJarContaining("custom-flags.yml", FLAGS_YAML, tmp);
 
         new ApplicationContextRunner()
@@ -106,11 +108,11 @@ class FileProviderClasspathInJarTest {
     }
 
     /**
-     * Construye un classloader hijo cuyo único recurso adicional es un JAR
-     * temporal que contiene {@code resourceName} con el contenido dado. La
-     * lookup vía {@code classpath:resourceName} a ese classloader devuelve
-     * un {@code Resource} cuya URI tiene scheme {@code jar:} — exactamente
-     * el escenario que rompe en producción con el launcher JAR de Spring Boot.
+     * Builds a child classloader whose only additional resource is a temp JAR
+     * containing {@code resourceName} with the given content. A lookup of
+     * {@code classpath:resourceName} against that classloader returns a
+     * {@code Resource} whose URI has scheme {@code jar:} — exactly the
+     * scenario that fails in production with the Spring Boot launcher JAR.
      */
     private static URLClassLoader classLoaderWithJarContaining(String resourceName, String content, Path tmp)
             throws Exception {

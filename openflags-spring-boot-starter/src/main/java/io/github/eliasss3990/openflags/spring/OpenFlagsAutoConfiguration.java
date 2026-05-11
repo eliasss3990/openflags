@@ -206,35 +206,35 @@ public class OpenFlagsAutoConfiguration {
             }
             // Read-only mode: extract the resource to a temp file so FileFlagProvider
             // gets a real filesystem Path. The temp file uses a deterministic name
-            // (hash of originalPath) so restarts reuse the same path — sin acumular
-            // copias en /tmp. Permisos 0600 cuando el FS lo soporta. Cleanup queda
-            // delegado al OS (tmpwatch / tmpfs reboot).
+            // (hash of originalPath) so restarts reuse the same path without
+            // accumulating copies in /tmp. Permissions are 0600 when the filesystem
+            // supports it. Cleanup is delegated to the OS (tmpwatch / tmpfs reboot).
             return new ResolvedFile(extractToTempFile(resource, pathStr), false);
         }
         return new ResolvedFile(Path.of(uri), watchRequested);
     }
 
     /**
-     * Extrae el recurso a un temp file con nombre <b>determinístico</b>
-     * (hash del path original). Mismo recurso → mismo path entre restarts:
-     * el contenido se reemplaza vía {@code REPLACE_EXISTING} y {@code /tmp}
-     * no acumula copias en crash-loops o deploys frecuentes, incluso si la
-     * JVM termina sin shutdown hook (SIGKILL).
+     * Extracts the resource into a temp file with a <b>deterministic</b> name
+     * (hash of the original path). Same resource → same path across restarts:
+     * the content is replaced via {@code REPLACE_EXISTING} and {@code /tmp}
+     * does not accumulate copies in crash-loops or frequent deploys, even if
+     * the JVM exits without running shutdown hooks (SIGKILL).
      *
-     * <p>Lifecycle: el archivo persiste hasta que el OS lo limpie
-     * (tmpfs reboot, {@code tmpwatch}, etc.). Si el path original cambia
-     * (ej. rename de {@code flags.yml} → {@code feature-flags.yml}), el
-     * archivo viejo queda huérfano hasta que el OS lo recoja.
+     * <p>Lifecycle: the file persists until the OS reclaims it (tmpfs reboot,
+     * {@code tmpwatch}, etc.). If the original path changes (e.g. rename of
+     * {@code flags.yml} → {@code feature-flags.yml}), the old file is left
+     * orphaned until the OS picks it up.
      *
-     * <p>Permisos: en filesystems POSIX se crea con {@code 0600}
-     * (owner-only). El {@code java.io.tmpdir} default ({@code /tmp}) suele
-     * ser world-readable; limitar permisos a nivel de archivo evita que
-     * otros procesos locales lean flags sensibles. En filesystems no-POSIX
-     * (Windows con NTFS, contenedores con overlay sin POSIX) cae al default
-     * del OS.
+     * <p>Permissions: on POSIX filesystems the file is created with
+     * {@code 0600} (owner-only). The default {@code java.io.tmpdir}
+     * ({@code /tmp}) is typically world-readable; restricting file-level
+     * permissions prevents other local processes from reading potentially
+     * sensitive flags. On non-POSIX filesystems (Windows NTFS, container
+     * overlays without POSIX) the OS default is used.
      *
-     * <p>Pre: {@code watchRequested=false}. Si en algún momento se cambia el
-     * contrato, ajustar el caller.
+     * <p>Precondition: {@code watchRequested=false}. Update the caller if the
+     * contract ever changes.
      */
     private static Path extractToTempFile(Resource resource, String originalPath) throws IOException {
         String suffix = suffixForPath(originalPath);
@@ -249,19 +249,20 @@ public class OpenFlagsAutoConfiguration {
     }
 
     /**
-     * Asegura que el temp file tenga permisos 0600 (owner-only) en filesystems
-     * POSIX. Cubre dos escenarios:
+     * Ensures the temp file has 0600 permissions (owner-only) on POSIX
+     * filesystems. Two scenarios are covered:
      * <ul>
-     * <li>File no existe: lo creamos con permisos 0600 atómicamente.</li>
-     * <li>File preexistente (restart con mismo nombre determinístico, u otro
-     * proceso con umask laxa, o precondición adversarial): forzamos los
-     * permisos a 0600. Confiar en los permisos heredados es inseguro —
-     * si un proceso anterior tenía umask {@code 0022} el file quedó como
-     * 0644 (world-readable) y los flags potencialmente sensibles serían
-     * visibles al resto de procesos locales.</li>
+     * <li>File does not exist: create it atomically with 0600.</li>
+     * <li>File already exists (restart with the same deterministic name,
+     * another process with a lax umask, or an adversarial precondition):
+     * force the permissions to 0600. Trusting inherited permissions is
+     * unsafe — if a previous process ran with umask {@code 0022} the file
+     * would be 0644 (world-readable) and potentially sensitive flags would
+     * leak to other local processes.</li>
      * </ul>
-     * En filesystems no-POSIX (Windows, overlay sin POSIX) cae al default
-     * del OS — la garantía 0600 solo aplica donde el FS lo soporta.
+     * On non-POSIX filesystems (Windows, container overlays without POSIX)
+     * the OS default is used — the 0600 guarantee only applies where the
+     * filesystem supports it.
      */
     private static void ensureOwnerOnlyFile(Path temp) throws IOException {
         if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
@@ -271,9 +272,9 @@ public class OpenFlagsAutoConfiguration {
         try {
             Files.createFile(temp, PosixFilePermissions.asFileAttribute(ownerOnly));
         } catch (FileAlreadyExistsException ignored) {
-            // Forzar 0600 sobre el file preexistente — no confiamos en los
-            // permisos heredados (podrían venir de un proceso anterior con
-            // umask laxa o un atacante con anticipación).
+            // Force 0600 on the preexisting file — inherited permissions are
+            // not trusted (they may come from a previous process with a lax
+            // umask or from an adversary that staged the file ahead of time).
             Files.setPosixFilePermissions(temp, ownerOnly);
         }
     }
