@@ -31,8 +31,8 @@ import java.util.Map;
  * whether the {@code flag} and {@code variant} tags are attached.</li>
  * <li>An {@link OpenFlagsClientCustomizer} that injects the same
  * {@link MetricsRecorder} bean into the {@code OpenFlagsClient} builder via
- * {@code metricsRecorder(...)}, avoiding the reflective
- * {@code metricsRegistry(...)} path and a duplicate recorder instance.</li>
+ * {@code metricsRecorder(...)}, ensuring a single shared recorder
+ * instance.</li>
  * <li>An optional {@link MeterFilter} bean exposing the static tags configured
  * under {@code openflags.metrics.tags.*} as common tags on the registry.</li>
  * </ul>
@@ -48,9 +48,8 @@ class MicrometerBindings {
 
     /**
      * Customizer that wires the shared {@link MetricsRecorder} bean into the
-     * openflags client builder. Reusing the same recorder avoids creating a
-     * second {@code MicrometerMetricsRecorder} via the reflective
-     * {@code metricsRegistry(...)} path and keeps a single counter cache.
+     * openflags client builder. Reusing the same recorder keeps a single
+     * counter cache across all auto-configured clients.
      *
      * @param recorder the metrics recorder bean
      * @return a customizer that binds the recorder into the client builder

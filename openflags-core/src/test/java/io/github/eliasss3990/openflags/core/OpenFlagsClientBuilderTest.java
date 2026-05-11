@@ -50,9 +50,11 @@ class OpenFlagsClientBuilderTest {
     }
 
     @Test
-    void metricsRecorder_micrometer_respectsTagFlagKeyFalse() {
-        // metricsTagFlagKey(false) at the recorder level should suppress the
-        // `flag` tag on per-evaluation meters.
+    void metricsRecorder_micrometer_recordsIntoInjectedRegistry() {
+        // End-to-end: el recorder pasado por .metricsRecorder() debe ser el que
+        // efectivamente usa el cliente; el counter debe materializarse en el
+        // mismo registry inyectado (no en uno paralelo). Además metricsTagFlagKey
+        // (=false en este caso) tiene que respetarse.
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         doNothing().when(provider).init();
         when(provider.getFlag("k")).thenReturn(java.util.Optional.empty());
@@ -63,9 +65,20 @@ class OpenFlagsClientBuilderTest {
                 .metricsRecorder(new MicrometerMetricsRecorder(registry, false))
                 .build();
         try {
+            // Pre: el contador todavía no existe en el registry inyectado.
+            assertThat(registry.find("openflags.evaluations.total").counter())
+                    .as("registry empty before any evaluation")
+                    .isNull();
+
             client.getBooleanValue("k", true);
+
             Counter c = registry.find("openflags.evaluations.total").counter();
-            assertThat(c).isNotNull();
+            assertThat(c)
+                    .as("counter must be registered in the injected registry")
+                    .isNotNull();
+            assertThat(c.count())
+                    .as("a single evaluation must increment the counter once")
+                    .isEqualTo(1.0);
             assertThat(c.getId().getTag("flag"))
                     .as("MicrometerMetricsRecorder built with tagFlagKey=false must not attach the flag tag")
                     .isNull();
