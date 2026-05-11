@@ -9,6 +9,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [2.0.0-rc2] - 2026-05-11
+
+### Fixed
+
+- **`OpenFlagsAutoConfiguration` no longer triggers a `NoClassDefFoundError` when the optional `openflags-provider-remote` (or `openflags-provider-hybrid`) module is absent from the consumer classpath.** The private helper `remoteProviderConfigFromProperties` was moved into the inner `HybridProviderConfiguration` class so Spring's `getDeclaredMethods()` introspection of the outer class never resolves the optional `RemoteProviderConfig` return type. Consumers can now depend on `openflags-spring-boot-starter` without dragging in providers they do not use. Regression covered by `AutoConfigurationIntrospectionTest`.
+- **`classpath:flags.yml` now works when the resource lives inside a Spring Boot launcher JAR**, the typical layout for deployed apps. With `openflags.file.watch-enabled=false` the resource is extracted to a deterministic temp file (`${java.io.tmpdir}/openflags-flags-<hash>.<ext>`, permissions 0600 on POSIX filesystems) and used as the provider path. Same resource → same temp path across restarts: `/tmp` does not accumulate copies in crash-loops or frequent deploys. With `openflags.file.watch-enabled=true` startup still fails fast — `WatchService` cannot watch entries inside an archive — but the error message now points the operator at the exact properties to change. Regression covered by `FileProviderClasspathInJarTest`.
+
+### Docs
+
+- `OpenFlagsAutoConfiguration` Javadoc rewritten to cover the three classpath scenarios (filesystem, JAR without watch, JAR with watch) instead of the old "always fail" wording.
+
 ## [2.0.0-rc1] - 2026-05-11
 
 ### Breaking Changes
@@ -328,7 +339,8 @@ shipped as part of `0.5.0`. They are kept here for traceability.
 
 ---
 
-[Unreleased]: https://github.com/eliasss3990/openflags/compare/v2.0.0-rc1...HEAD
+[Unreleased]: https://github.com/eliasss3990/openflags/compare/v2.0.0-rc2...HEAD
+[2.0.0-rc2]: https://github.com/eliasss3990/openflags/compare/v2.0.0-rc1...v2.0.0-rc2
 [2.0.0-rc1]: https://github.com/eliasss3990/openflags/compare/v1.1.0...v2.0.0-rc1
 [1.1.0]: https://github.com/eliasss3990/openflags/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/eliasss3990/openflags/releases/tag/v1.0.0
