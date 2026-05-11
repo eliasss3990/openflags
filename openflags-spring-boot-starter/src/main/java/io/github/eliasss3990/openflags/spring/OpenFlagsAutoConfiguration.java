@@ -249,24 +249,32 @@ public class OpenFlagsAutoConfiguration {
     }
 
     /**
-     * Crea el file con permisos 0600 si el filesystem soporta POSIX y el
-     * file todavía no existe. Si ya existe (caso típico en restart con
-     * mismo path determinístico) los permisos del file anterior persisten,
-     * lo que es deseado — el copy con {@code REPLACE_EXISTING} sobreescribe
-     * el contenido sin tocar los permisos. En filesystems no-POSIX no hace
-     * nada y deja al OS aplicar su default.
+     * Asegura que el temp file tenga permisos 0600 (owner-only) en filesystems
+     * POSIX. Cubre dos escenarios:
+     * <ul>
+     * <li>File no existe: lo creamos con permisos 0600 atómicamente.</li>
+     * <li>File preexistente (restart con mismo nombre determinístico, u otro
+     * proceso con umask laxa, o precondición adversarial): forzamos los
+     * permisos a 0600. Confiar en los permisos heredados es inseguro —
+     * si un proceso anterior tenía umask {@code 0022} el file quedó como
+     * 0644 (world-readable) y los flags potencialmente sensibles serían
+     * visibles al resto de procesos locales.</li>
+     * </ul>
+     * En filesystems no-POSIX (Windows, overlay sin POSIX) cae al default
+     * del OS — la garantía 0600 solo aplica donde el FS lo soporta.
      */
     private static void ensureOwnerOnlyFile(Path temp) throws IOException {
         if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
             return;
         }
+        var ownerOnly = PosixFilePermissions.fromString("rw-------");
         try {
-            Files.createFile(temp,
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            Files.createFile(temp, PosixFilePermissions.asFileAttribute(ownerOnly));
         } catch (FileAlreadyExistsException ignored) {
-            // Permisos del file existente se preservan; REPLACE_EXISTING del copy
-            // sobreescribe solo el contenido, lo cual es el comportamiento deseado
-            // entre restarts (mismo file, mismo dueño, contenido refrescado).
+            // Forzar 0600 sobre el file preexistente — no confiamos en los
+            // permisos heredados (podrían venir de un proceso anterior con
+            // umask laxa o un atacante con anticipación).
+            Files.setPosixFilePermissions(temp, ownerOnly);
         }
     }
 
