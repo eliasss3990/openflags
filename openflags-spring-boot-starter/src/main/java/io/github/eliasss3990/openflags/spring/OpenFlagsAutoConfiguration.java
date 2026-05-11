@@ -28,7 +28,9 @@ import org.springframework.core.io.ResourceLoader;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 
 /**
@@ -61,15 +63,20 @@ import java.util.Locale;
  * <h2>Classpath resources and file watching</h2>
  * <p>
  * When the configured path uses the {@code classpath:} prefix the
- * auto-configuration resolves it to a filesystem {@link Path}. If the resource
- * lives inside a JAR (i.e., cannot be resolved to a real filesystem path) the
- * provider bean fails to initialize with a descriptive error (Spring wraps it
- * in a {@code BeanCreationException} at startup) so that the deployment is not
- * silently degraded. Use a {@code file:} path or extract the flag file to a
- * configurable filesystem location for production deployments. This restriction
- * stems from {@link java.nio.file.WatchService} not supporting paths inside
- * JARs.
+ * auto-configuration resolves it to a filesystem {@link Path}:
  * </p>
+ * <ul>
+ * <li>If the resource is on the filesystem (typical {@code mvn spring-boot:run},
+ * {@code target/classes/...}) it is used directly. Watching is honored.</li>
+ * <li>If the resource lives inside a JAR (typical Spring Boot launcher JAR in
+ * production) and {@code openflags.file.watch=false}, the resource is
+ * extracted once to a temp file (deleted on JVM exit) and used as the
+ * provider's path. The bundled flags become a read-only baseline.</li>
+ * <li>If the resource lives inside a JAR and {@code openflags.file.watch=true},
+ * startup fails fast with a descriptive error — {@link java.nio.file.WatchService}
+ * cannot watch entries inside an archive. Either disable {@code watch} or
+ * point to a {@code file:} path that supports it.</li>
+ * </ul>
  *
  * <h2>Observability</h2>
  * <p>
@@ -184,12 +191,40 @@ public class OpenFlagsAutoConfiguration {
             throw new IOException("Cannot resolve flag file path: " + pathStr, e);
         }
         String scheme = uri.getScheme();
-        if ("jar".equals(scheme) || "zip".equals(scheme)) {
-            throw new IOException(
-                    "Flag file '" + pathStr + "' is inside a JAR and cannot be resolved to a filesystem path. "
-                            + "Use a file: path or extract the resource to a configurable location.");
+        boolean insideArchive = "jar".equals(scheme) || "zip".equals(scheme);
+        if (insideArchive) {
+            if (watchRequested) {
+                throw new IOException(
+                        "Flag file '" + pathStr + "' is inside a JAR and cannot be watched via WatchService. "
+                                + "Either disable openflags.file.watch or extract the resource to a "
+                                + "filesystem path (file:/path/to/flags.yml).");
+            }
+            // Read-only mode: extract the resource to a temp file so FileFlagProvider
+            // gets a real filesystem Path. The temp file is deleted on JVM exit.
+            // This keeps `classpath:flags.yml` working transparently for the common
+            // case of bundling default flags inside the deploy JAR.
+            return new ResolvedFile(extractToTempFile(resource, pathStr), false);
         }
         return new ResolvedFile(Path.of(uri), watchRequested);
+    }
+
+    private static Path extractToTempFile(Resource resource, String originalPath) throws IOException {
+        String suffix = suffixForPath(originalPath);
+        Path temp = Files.createTempFile("openflags-flags-", suffix);
+        temp.toFile().deleteOnExit();
+        try (var in = resource.getInputStream()) {
+            Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return temp;
+    }
+
+    private static String suffixForPath(String pathStr) {
+        int dot = pathStr.lastIndexOf('.');
+        if (dot < 0 || dot == pathStr.length() - 1) {
+            return ".yml";
+        }
+        String ext = pathStr.substring(dot).toLowerCase(Locale.ROOT);
+        return ".yml".equals(ext) || ".yaml".equals(ext) || ".json".equals(ext) ? ext : ".yml";
     }
 
     private record ResolvedFile(Path path, boolean watchEnabled) {
@@ -275,28 +310,20 @@ public class OpenFlagsAutoConfiguration {
      * Auto-configuration for the {@link HybridFlagProvider}.
      * <p>
      * Class-level {@link ConditionalOnClass} on {@link HybridFlagProvider} keeps
-     * the entire
-     * configuration off the context when the {@code openflags-provider-hybrid}
-     * module is
-     * absent — the dependency is declared {@code <optional>true</optional>} in the
-     * starter POM.
+     * the entire configuration off the context when the
+     * {@code openflags-provider-hybrid} module is absent — the dependency is
+     * declared {@code <optional>true</optional>} in the starter POM.
+     * </p>
+     * <p>
+     * The helper {@code remoteProviderConfigFromProperties} lives inside this
+     * inner class on purpose: keeping any reference to {@code RemoteProviderConfig}
+     * out of the outer class signatures prevents Spring's {@code getDeclaredMethods()}
+     * introspection of {@link OpenFlagsAutoConfiguration} from triggering a class
+     * load of {@code RemoteProviderConfig} when {@code openflags-provider-remote}
+     * is not on the classpath. The same applies to any future helper that needs
+     * Remote/Hybrid types.
      * </p>
      */
-    private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {
-        return new RemoteProviderConfig(
-                r.getBaseUrl(),
-                r.getFlagsPath(),
-                r.getAuthHeaderName(),
-                r.getAuthHeaderSecret(),
-                r.getConnectTimeout(),
-                r.getRequestTimeout(),
-                r.getPollInterval(),
-                r.getCacheTtl(),
-                r.getUserAgent(),
-                r.getFailureThreshold(),
-                r.getMaxBackoff());
-    }
-
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(HybridFlagProvider.class)
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
@@ -333,6 +360,21 @@ public class OpenFlagsAutoConfiguration {
                 provider.setMetricsRecorder(recorder);
             }
             return provider;
+        }
+
+        private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {
+            return new RemoteProviderConfig(
+                    r.getBaseUrl(),
+                    r.getFlagsPath(),
+                    r.getAuthHeaderName(),
+                    r.getAuthHeaderSecret(),
+                    r.getConnectTimeout(),
+                    r.getRequestTimeout(),
+                    r.getPollInterval(),
+                    r.getCacheTtl(),
+                    r.getUserAgent(),
+                    r.getFailureThreshold(),
+                    r.getMaxBackoff());
         }
     }
 
