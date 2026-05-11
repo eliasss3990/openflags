@@ -28,7 +28,12 @@ import org.springframework.core.io.ResourceLoader;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 
 /**
@@ -61,15 +66,22 @@ import java.util.Locale;
  * <h2>Classpath resources and file watching</h2>
  * <p>
  * When the configured path uses the {@code classpath:} prefix the
- * auto-configuration resolves it to a filesystem {@link Path}. If the resource
- * lives inside a JAR (i.e., cannot be resolved to a real filesystem path) the
- * provider bean fails to initialize with a descriptive error (Spring wraps it
- * in a {@code BeanCreationException} at startup) so that the deployment is not
- * silently degraded. Use a {@code file:} path or extract the flag file to a
- * configurable filesystem location for production deployments. This restriction
- * stems from {@link java.nio.file.WatchService} not supporting paths inside
- * JARs.
+ * auto-configuration resolves it to a filesystem {@link Path}:
  * </p>
+ * <ul>
+ * <li>If the resource is on the filesystem (typical {@code mvn spring-boot:run},
+ * {@code target/classes/...}) it is used directly. Watching is honored.</li>
+ * <li>If the resource lives inside a JAR (typical Spring Boot launcher JAR in
+ * production) and {@code openflags.file.watch=false}, the resource is
+ * extracted to a temp file with a deterministic name (hash of the original
+ * path) and used as the provider's path. The same resource always maps to
+ * the same temp file across restarts; the content is refreshed on each
+ * startup. The bundled flags become a read-only baseline.</li>
+ * <li>If the resource lives inside a JAR and {@code openflags.file.watch=true},
+ * startup fails fast with a descriptive error — {@link java.nio.file.WatchService}
+ * cannot watch entries inside an archive. Either disable {@code watch} or
+ * point to a {@code file:} path that supports it.</li>
+ * </ul>
  *
  * <h2>Observability</h2>
  * <p>
@@ -184,12 +196,96 @@ public class OpenFlagsAutoConfiguration {
             throw new IOException("Cannot resolve flag file path: " + pathStr, e);
         }
         String scheme = uri.getScheme();
-        if ("jar".equals(scheme) || "zip".equals(scheme)) {
-            throw new IOException(
-                    "Flag file '" + pathStr + "' is inside a JAR and cannot be resolved to a filesystem path. "
-                            + "Use a file: path or extract the resource to a configurable location.");
+        boolean insideArchive = "jar".equals(scheme) || "zip".equals(scheme);
+        if (insideArchive) {
+            if (watchRequested) {
+                throw new IOException(
+                        "Flag file '" + pathStr + "' is inside a JAR and cannot be watched via WatchService. "
+                                + "Either disable openflags.file.watch or extract the resource to a "
+                                + "filesystem path (file:/path/to/flags.yml).");
+            }
+            // Read-only mode: extract the resource to a temp file so FileFlagProvider
+            // gets a real filesystem Path. The temp file uses a deterministic name
+            // (hash of originalPath) so restarts reuse the same path without
+            // accumulating copies in /tmp. Permissions are 0600 when the filesystem
+            // supports it. Cleanup is delegated to the OS (tmpwatch / tmpfs reboot).
+            return new ResolvedFile(extractToTempFile(resource, pathStr), false);
         }
         return new ResolvedFile(Path.of(uri), watchRequested);
+    }
+
+    /**
+     * Extracts the resource into a temp file with a <b>deterministic</b> name
+     * (hash of the original path). Same resource → same path across restarts:
+     * the content is replaced via {@code REPLACE_EXISTING} and {@code /tmp}
+     * does not accumulate copies in crash-loops or frequent deploys, even if
+     * the JVM exits without running shutdown hooks (SIGKILL).
+     *
+     * <p>Lifecycle: the file persists until the OS reclaims it (tmpfs reboot,
+     * {@code tmpwatch}, etc.). If the original path changes (e.g. rename of
+     * {@code flags.yml} → {@code feature-flags.yml}), the old file is left
+     * orphaned until the OS picks it up.
+     *
+     * <p>Permissions: on POSIX filesystems the file is created with
+     * {@code 0600} (owner-only). The default {@code java.io.tmpdir}
+     * ({@code /tmp}) is typically world-readable; restricting file-level
+     * permissions prevents other local processes from reading potentially
+     * sensitive flags. On non-POSIX filesystems (Windows NTFS, container
+     * overlays without POSIX) the OS default is used.
+     *
+     * <p>Precondition: {@code watchRequested=false}. Update the caller if the
+     * contract ever changes.
+     */
+    private static Path extractToTempFile(Resource resource, String originalPath) throws IOException {
+        String suffix = suffixForPath(originalPath);
+        String hash = Integer.toHexString(originalPath.hashCode() & 0x7fffffff);
+        Path temp = Path.of(System.getProperty("java.io.tmpdir"),
+                "openflags-flags-" + hash + suffix);
+        ensureOwnerOnlyFile(temp);
+        try (var in = resource.getInputStream()) {
+            Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return temp;
+    }
+
+    /**
+     * Ensures the temp file has 0600 permissions (owner-only) on POSIX
+     * filesystems. Two scenarios are covered:
+     * <ul>
+     * <li>File does not exist: create it atomically with 0600.</li>
+     * <li>File already exists (restart with the same deterministic name,
+     * another process with a lax umask, or an adversarial precondition):
+     * force the permissions to 0600. Trusting inherited permissions is
+     * unsafe — if a previous process ran with umask {@code 0022} the file
+     * would be 0644 (world-readable) and potentially sensitive flags would
+     * leak to other local processes.</li>
+     * </ul>
+     * On non-POSIX filesystems (Windows, container overlays without POSIX)
+     * the OS default is used — the 0600 guarantee only applies where the
+     * filesystem supports it.
+     */
+    private static void ensureOwnerOnlyFile(Path temp) throws IOException {
+        if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            return;
+        }
+        var ownerOnly = PosixFilePermissions.fromString("rw-------");
+        try {
+            Files.createFile(temp, PosixFilePermissions.asFileAttribute(ownerOnly));
+        } catch (FileAlreadyExistsException ignored) {
+            // Force 0600 on the preexisting file — inherited permissions are
+            // not trusted (they may come from a previous process with a lax
+            // umask or from an adversary that staged the file ahead of time).
+            Files.setPosixFilePermissions(temp, ownerOnly);
+        }
+    }
+
+    private static String suffixForPath(String pathStr) {
+        int dot = pathStr.lastIndexOf('.');
+        if (dot < 0 || dot == pathStr.length() - 1) {
+            return ".yml";
+        }
+        String ext = pathStr.substring(dot).toLowerCase(Locale.ROOT);
+        return ".yml".equals(ext) || ".yaml".equals(ext) || ".json".equals(ext) ? ext : ".yml";
     }
 
     private record ResolvedFile(Path path, boolean watchEnabled) {
@@ -275,28 +371,20 @@ public class OpenFlagsAutoConfiguration {
      * Auto-configuration for the {@link HybridFlagProvider}.
      * <p>
      * Class-level {@link ConditionalOnClass} on {@link HybridFlagProvider} keeps
-     * the entire
-     * configuration off the context when the {@code openflags-provider-hybrid}
-     * module is
-     * absent — the dependency is declared {@code <optional>true</optional>} in the
-     * starter POM.
+     * the entire configuration off the context when the
+     * {@code openflags-provider-hybrid} module is absent — the dependency is
+     * declared {@code <optional>true</optional>} in the starter POM.
+     * </p>
+     * <p>
+     * The helper {@code remoteProviderConfigFromProperties} lives inside this
+     * inner class on purpose: keeping any reference to {@code RemoteProviderConfig}
+     * out of the outer class signatures prevents Spring's {@code getDeclaredMethods()}
+     * introspection of {@link OpenFlagsAutoConfiguration} from triggering a class
+     * load of {@code RemoteProviderConfig} when {@code openflags-provider-remote}
+     * is not on the classpath. The same applies to any future helper that needs
+     * Remote/Hybrid types.
      * </p>
      */
-    private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {
-        return new RemoteProviderConfig(
-                r.getBaseUrl(),
-                r.getFlagsPath(),
-                r.getAuthHeaderName(),
-                r.getAuthHeaderSecret(),
-                r.getConnectTimeout(),
-                r.getRequestTimeout(),
-                r.getPollInterval(),
-                r.getCacheTtl(),
-                r.getUserAgent(),
-                r.getFailureThreshold(),
-                r.getMaxBackoff());
-    }
-
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(HybridFlagProvider.class)
     @ConditionalOnProperty(prefix = "openflags", name = "provider", havingValue = "hybrid")
@@ -333,6 +421,21 @@ public class OpenFlagsAutoConfiguration {
                 provider.setMetricsRecorder(recorder);
             }
             return provider;
+        }
+
+        private static RemoteProviderConfig remoteProviderConfigFromProperties(OpenFlagsProperties.RemoteProperties r) {
+            return new RemoteProviderConfig(
+                    r.getBaseUrl(),
+                    r.getFlagsPath(),
+                    r.getAuthHeaderName(),
+                    r.getAuthHeaderSecret(),
+                    r.getConnectTimeout(),
+                    r.getRequestTimeout(),
+                    r.getPollInterval(),
+                    r.getCacheTtl(),
+                    r.getUserAgent(),
+                    r.getFailureThreshold(),
+                    r.getMaxBackoff());
         }
     }
 
