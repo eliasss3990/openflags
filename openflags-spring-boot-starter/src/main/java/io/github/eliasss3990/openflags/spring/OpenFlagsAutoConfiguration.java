@@ -28,9 +28,12 @@ import org.springframework.core.io.ResourceLoader;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 
 /**
@@ -70,8 +73,10 @@ import java.util.Locale;
  * {@code target/classes/...}) it is used directly. Watching is honored.</li>
  * <li>If the resource lives inside a JAR (typical Spring Boot launcher JAR in
  * production) and {@code openflags.file.watch=false}, the resource is
- * extracted once to a temp file (deleted on JVM exit) and used as the
- * provider's path. The bundled flags become a read-only baseline.</li>
+ * extracted to a temp file with a deterministic name (hash of the original
+ * path) and used as the provider's path. The same resource always maps to
+ * the same temp file across restarts; the content is refreshed on each
+ * startup. The bundled flags become a read-only baseline.</li>
  * <li>If the resource lives inside a JAR and {@code openflags.file.watch=true},
  * startup fails fast with a descriptive error — {@link java.nio.file.WatchService}
  * cannot watch entries inside an archive. Either disable {@code watch} or
@@ -200,9 +205,10 @@ public class OpenFlagsAutoConfiguration {
                                 + "filesystem path (file:/path/to/flags.yml).");
             }
             // Read-only mode: extract the resource to a temp file so FileFlagProvider
-            // gets a real filesystem Path. The temp file is deleted on JVM exit.
-            // This keeps `classpath:flags.yml` working transparently for the common
-            // case of bundling default flags inside the deploy JAR.
+            // gets a real filesystem Path. The temp file uses a deterministic name
+            // (hash of originalPath) so restarts reuse the same path — sin acumular
+            // copias en /tmp. Permisos 0600 cuando el FS lo soporta. Cleanup queda
+            // delegado al OS (tmpwatch / tmpfs reboot).
             return new ResolvedFile(extractToTempFile(resource, pathStr), false);
         }
         return new ResolvedFile(Path.of(uri), watchRequested);
@@ -211,9 +217,21 @@ public class OpenFlagsAutoConfiguration {
     /**
      * Extrae el recurso a un temp file con nombre <b>determinístico</b>
      * (hash del path original). Mismo recurso → mismo path entre restarts:
-     * el contenido se sobreescribe atómicamente vía {@code REPLACE_EXISTING}
-     * y {@code /tmp} no acumula copias en crash-loops o deploys frecuentes,
-     * incluso si la JVM termina sin shutdown hook (SIGKILL).
+     * el contenido se reemplaza vía {@code REPLACE_EXISTING} y {@code /tmp}
+     * no acumula copias en crash-loops o deploys frecuentes, incluso si la
+     * JVM termina sin shutdown hook (SIGKILL).
+     *
+     * <p>Lifecycle: el archivo persiste hasta que el OS lo limpie
+     * (tmpfs reboot, {@code tmpwatch}, etc.). Si el path original cambia
+     * (ej. rename de {@code flags.yml} → {@code feature-flags.yml}), el
+     * archivo viejo queda huérfano hasta que el OS lo recoja.
+     *
+     * <p>Permisos: en filesystems POSIX se crea con {@code 0600}
+     * (owner-only). El {@code java.io.tmpdir} default ({@code /tmp}) suele
+     * ser world-readable; limitar permisos a nivel de archivo evita que
+     * otros procesos locales lean flags sensibles. En filesystems no-POSIX
+     * (Windows con NTFS, contenedores con overlay sin POSIX) cae al default
+     * del OS.
      *
      * <p>Pre: {@code watchRequested=false}. Si en algún momento se cambia el
      * contrato, ajustar el caller.
@@ -223,10 +241,33 @@ public class OpenFlagsAutoConfiguration {
         String hash = Integer.toHexString(originalPath.hashCode() & 0x7fffffff);
         Path temp = Path.of(System.getProperty("java.io.tmpdir"),
                 "openflags-flags-" + hash + suffix);
+        ensureOwnerOnlyFile(temp);
         try (var in = resource.getInputStream()) {
             Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
         }
         return temp;
+    }
+
+    /**
+     * Crea el file con permisos 0600 si el filesystem soporta POSIX y el
+     * file todavía no existe. Si ya existe (caso típico en restart con
+     * mismo path determinístico) los permisos del file anterior persisten,
+     * lo que es deseado — el copy con {@code REPLACE_EXISTING} sobreescribe
+     * el contenido sin tocar los permisos. En filesystems no-POSIX no hace
+     * nada y deja al OS aplicar su default.
+     */
+    private static void ensureOwnerOnlyFile(Path temp) throws IOException {
+        if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
+            return;
+        }
+        try {
+            Files.createFile(temp,
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+        } catch (FileAlreadyExistsException ignored) {
+            // Permisos del file existente se preservan; REPLACE_EXISTING del copy
+            // sobreescribe solo el contenido, lo cual es el comportamiento deseado
+            // entre restarts (mismo file, mismo dueño, contenido refrescado).
+        }
     }
 
     private static String suffixForPath(String pathStr) {
