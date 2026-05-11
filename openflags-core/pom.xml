@@ -96,15 +96,15 @@
                             <excludes>
                                 <exclude>**/metrics/MicrometerMetricsRecorderTest.java</exclude>
                                 <!--
-                                    OpenFlagsClientBuilderTest instancia
-                                    MicrometerMetricsRecorder directamente: la
-                                    discovery de JUnit dispara la resolución
-                                    del bytecode (la signature del constructor
-                                    incluye io.micrometer.core.instrument.MeterRegistry)
-                                    y falla con NoClassDefFoundError cuando
-                                    Micrometer está fuera del classpath. El test
-                                    valida la integración Micrometer; corre en
-                                    el profile default.
+                                    OpenFlagsClientBuilderTest instantiates
+                                    MicrometerMetricsRecorder directly: JUnit
+                                    discovery triggers bytecode verification
+                                    (the constructor signature references
+                                    io.micrometer.core.instrument.MeterRegistry)
+                                    and fails with NoClassDefFoundError when
+                                    Micrometer is absent from the classpath.
+                                    The test exercises Micrometer integration;
+                                    it runs under the default profile.
                                 -->
                                 <exclude>**/OpenFlagsClientBuilderTest.java</exclude>
                             </excludes>
