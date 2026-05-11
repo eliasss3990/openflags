@@ -95,6 +95,18 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/metrics/MicrometerMetricsRecorderTest.java</exclude>
+                                <!--
+                                    OpenFlagsClientBuilderTest instancia
+                                    MicrometerMetricsRecorder directamente: la
+                                    discovery de JUnit dispara la resolución
+                                    del bytecode (la signature del constructor
+                                    incluye io.micrometer.core.instrument.MeterRegistry)
+                                    y falla con NoClassDefFoundError cuando
+                                    Micrometer está fuera del classpath. El test
+                                    valida la integración Micrometer; corre en
+                                    el profile default.
+                                -->
+                                <exclude>**/OpenFlagsClientBuilderTest.java</exclude>
                             </excludes>
                             <classpathDependencyExcludes>
                                 <classpathDependencyExclude>io.micrometer:micrometer-core</classpathDependencyExclude>
