@@ -15,6 +15,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+
 /**
  * Smoke test that exercises {@link OpenFlagsClient} on a classpath that
  * has Micrometer excluded. Validates ADR-501: the SDK must work fully
@@ -53,20 +54,6 @@ class NoMicrometerSmokeTest {
             client.shutdown();
         }
     }
-
-    @Test
-    void metricsRegistryRejectsWhenMicrometerMissing() {
-        OpenFlagsClientBuilder b = OpenFlagsClient.builder()
-                .provider(new StubProvider());
-        // Use a stub whose classloader is the same loader running this test:
-        // Micrometer is excluded from this classpath, so the builder's
-        // reflective lookup must fail and surface IllegalStateException.
-        Object fakeRegistry = new FakeRegistry();
-        assertThatThrownBy(() -> b.metricsRegistry(fakeRegistry))
-                .isInstanceOf(IllegalStateException.class);
-    }
-
-    private static final class FakeRegistry { }
 
     private static final class StubProvider implements FlagProvider {
         private final Flag flag = new Flag(

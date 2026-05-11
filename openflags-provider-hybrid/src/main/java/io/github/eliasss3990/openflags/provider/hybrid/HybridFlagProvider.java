@@ -901,7 +901,7 @@ public final class HybridFlagProvider implements FlagProvider, ProviderDiagnosti
             case READY -> 1;
             case DEGRADED -> 2;
             case ERROR -> 3;
-            case STALE -> 4;
+            // code 4 reserved (STALE, removed in 2.0)
             case SHUTDOWN -> 5;
         };
     }

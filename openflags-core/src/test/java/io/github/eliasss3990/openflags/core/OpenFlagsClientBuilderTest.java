@@ -1,5 +1,6 @@
 package io.github.eliasss3990.openflags.core;
 
+import io.github.eliasss3990.openflags.core.metrics.MicrometerMetricsRecorder;
 import io.github.eliasss3990.openflags.core.provider.FlagProvider;
 import io.github.eliasss3990.openflags.core.provider.ProviderState;
 import io.micrometer.core.instrument.Counter;
@@ -49,11 +50,9 @@ class OpenFlagsClientBuilderTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation") // exercising the deprecated reflective entry point on purpose (ADR-4)
-    void metricsRegistry_thenMetricsTagFlagKeyFalse_isHonored() {
-        // Regression: previously the recorder was built eagerly inside
-        // metricsRegistry(...), so a later metricsTagFlagKey(false) was
-        // silently ignored. Resolution must defer to build().
+    void metricsRecorder_micrometer_respectsTagFlagKeyFalse() {
+        // metricsTagFlagKey(false) at the recorder level should suppress the
+        // `flag` tag on per-evaluation meters.
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         doNothing().when(provider).init();
         when(provider.getFlag("k")).thenReturn(java.util.Optional.empty());
@@ -61,15 +60,14 @@ class OpenFlagsClientBuilderTest {
         OpenFlagsClient client = OpenFlagsClient.builder()
                 .provider(provider)
                 .providerType("file")
-                .metricsRegistry(registry)
-                .metricsTagFlagKey(false)
+                .metricsRecorder(new MicrometerMetricsRecorder(registry, false))
                 .build();
         try {
             client.getBooleanValue("k", true);
             Counter c = registry.find("openflags.evaluations.total").counter();
             assertThat(c).isNotNull();
             assertThat(c.getId().getTag("flag"))
-                    .as("metricsTagFlagKey(false) called after metricsRegistry must be honored")
+                    .as("MicrometerMetricsRecorder built with tagFlagKey=false must not attach the flag tag")
                     .isNull();
         } finally {
             client.shutdown();
