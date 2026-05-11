@@ -8,13 +8,13 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Contract test: la mapping de {@link HybridFlagProvider#providerStateCode}
- * debe coincidir con la authoritative en
+ * Contract test: the {@link HybridFlagProvider#providerStateCode} mapping must
+ * match the authoritative one in
  * {@code io.github.eliasss3990.openflags.core.metrics.MicrometerMetricsRecorder#providerStateCode}.
  *
- * <p>Si se agrega un nuevo {@link ProviderState}, este test falla salvo que
- * se actualicen ambas copias. El código 4 está permanentemente reservado
- * (era STALE, removido en 2.0 via ADR-6).
+ * <p>If a new {@link ProviderState} value is added, this test fails unless
+ * both copies are updated. Code 4 is permanently reserved (was STALE,
+ * removed in 2.0 via ADR-6).
  */
 class HybridProviderStateCodeTest {
 
@@ -25,7 +25,7 @@ class HybridProviderStateCodeTest {
                 ProviderState.READY, 1,
                 ProviderState.DEGRADED, 2,
                 ProviderState.ERROR, 3,
-                // code 4 reservado (STALE removido en 2.0)
+                // code 4 reserved (STALE, removed in 2.0)
                 ProviderState.SHUTDOWN, 5);
         for (Map.Entry<ProviderState, Integer> e : expected.entrySet()) {
             assertThat(HybridFlagProvider.providerStateCode(e.getKey()))
@@ -37,9 +37,9 @@ class HybridProviderStateCodeTest {
 
     @Test
     void providerStateCode_coversAllEnumValues() {
-        // Defensa: garantiza que todos los estados existentes están mapeados
-        // (si se agrega uno nuevo sin actualizar el switch, el compilador grita;
-        // este test detecta el caso opuesto: estado existente sin tests).
+        // Defensive: every existing state must be mapped. If a new state is
+        // added without updating the switch the compiler catches it; this test
+        // catches the opposite case (existing state without test coverage).
         for (ProviderState state : ProviderState.values()) {
             int code = HybridFlagProvider.providerStateCode(state);
             assertThat(code)

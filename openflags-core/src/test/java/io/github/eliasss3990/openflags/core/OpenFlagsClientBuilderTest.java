@@ -51,10 +51,10 @@ class OpenFlagsClientBuilderTest {
 
     @Test
     void metricsRecorder_micrometer_recordsIntoInjectedRegistry() {
-        // End-to-end: el recorder pasado por .metricsRecorder() debe ser el que
-        // efectivamente usa el cliente; el counter debe materializarse en el
-        // mismo registry inyectado (no en uno paralelo). Además metricsTagFlagKey
-        // (=false en este caso) tiene que respetarse.
+        // End-to-end: the recorder passed via .metricsRecorder() must be the one
+        // the client actually uses; the counter must materialize in the same
+        // injected registry (not a parallel one). metricsTagFlagKey=false here
+        // must also be honored.
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         doNothing().when(provider).init();
         when(provider.getFlag("k")).thenReturn(java.util.Optional.empty());
@@ -65,7 +65,7 @@ class OpenFlagsClientBuilderTest {
                 .metricsRecorder(new MicrometerMetricsRecorder(registry, false))
                 .build();
         try {
-            // Pre: el contador todavía no existe en el registry inyectado.
+            // Precondition: the counter does not yet exist in the injected registry.
             assertThat(registry.find("openflags.evaluations.total").counter())
                     .as("registry empty before any evaluation")
                     .isNull();
