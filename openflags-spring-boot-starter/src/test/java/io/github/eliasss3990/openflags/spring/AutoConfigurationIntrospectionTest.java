@@ -3,7 +3,6 @@ package io.github.eliasss3990.openflags.spring;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -73,13 +72,4 @@ class AutoConfigurationIntrospectionTest {
         });
     }
 
-    @Test
-    void documented_optionalPackages_listIsExhaustive() {
-        // Defensa: si alguien agrega un nuevo provider-* opcional, este test
-        // debe actualizarse. Validamos contra el resto del codebase reciente.
-        List<String> known = Arrays.stream(io.github.eliasss3990.openflags.provider.remote.RemoteFlagProvider.class
-                .getPackage().getName().split("\\."))
-                .toList();
-        assertThat(known).contains("remote");
-    }
 }

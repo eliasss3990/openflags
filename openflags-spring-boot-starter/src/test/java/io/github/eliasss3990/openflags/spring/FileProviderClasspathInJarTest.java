@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.Attributes;
@@ -119,7 +120,7 @@ class FileProviderClasspathInJarTest {
         try (var fos = Files.newOutputStream(jarPath);
                 JarOutputStream jos = new JarOutputStream(fos, manifest)) {
             jos.putNextEntry(new ZipEntry(resourceName));
-            jos.write(content.getBytes());
+            jos.write(content.getBytes(StandardCharsets.UTF_8));
             jos.closeEntry();
         }
         return new URLClassLoader(

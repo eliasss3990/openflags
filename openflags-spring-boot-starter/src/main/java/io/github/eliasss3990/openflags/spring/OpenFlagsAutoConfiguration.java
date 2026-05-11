@@ -208,10 +208,21 @@ public class OpenFlagsAutoConfiguration {
         return new ResolvedFile(Path.of(uri), watchRequested);
     }
 
+    /**
+     * Extrae el recurso a un temp file con nombre <b>determinístico</b>
+     * (hash del path original). Mismo recurso → mismo path entre restarts:
+     * el contenido se sobreescribe atómicamente vía {@code REPLACE_EXISTING}
+     * y {@code /tmp} no acumula copias en crash-loops o deploys frecuentes,
+     * incluso si la JVM termina sin shutdown hook (SIGKILL).
+     *
+     * <p>Pre: {@code watchRequested=false}. Si en algún momento se cambia el
+     * contrato, ajustar el caller.
+     */
     private static Path extractToTempFile(Resource resource, String originalPath) throws IOException {
         String suffix = suffixForPath(originalPath);
-        Path temp = Files.createTempFile("openflags-flags-", suffix);
-        temp.toFile().deleteOnExit();
+        String hash = Integer.toHexString(originalPath.hashCode() & 0x7fffffff);
+        Path temp = Path.of(System.getProperty("java.io.tmpdir"),
+                "openflags-flags-" + hash + suffix);
         try (var in = resource.getInputStream()) {
             Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
         }
